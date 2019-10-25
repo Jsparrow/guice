@@ -113,9 +113,7 @@ public class ScopeRequestIntegrationTest extends TestCase {
       fail();
     } catch (IllegalArgumentException iae) {
       assertEquals(
-          "Value[Boo!] of type[java.lang.String] is not compatible with key["
-              + Key.get(SomeObject.class)
-              + "]",
+          new StringBuilder().append("Value[Boo!] of type[java.lang.String] is not compatible with key[").append(Key.get(SomeObject.class)).append("]").toString(),
           iae.getMessage());
     }
   }
@@ -149,13 +147,12 @@ public class ScopeRequestIntegrationTest extends TestCase {
   @RequestScoped
   public static class SomeObject {
     private static final String INVALID = "invalid";
+	private final String value;
 
-    @Inject
+	@Inject
     public SomeObject(@Named(INVALID) String value) {
       this.value = value;
     }
-
-    private final String value;
   }
 
   @Singleton

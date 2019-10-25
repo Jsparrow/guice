@@ -37,7 +37,75 @@ import junit.framework.TestCase;
 /** {@link IntoMap} tests for {@link DaggerAdapter}. */
 
 public class IntoMapTest extends TestCase {
-  @dagger.Module
+  public void testMapBindings() {
+	    Injector injector =
+	        Guice.createInjector(
+	            DaggerAdapter.from(new MapBindingDaggerModule1(), new MapBindingDaggerModule2()));
+	    assertThat(injector.getInstance(new Key<Map<String, Integer>>() {}))
+	        .containsExactly("five", 5, "ten", 10, "twenty", 20);
+	  }
+
+	public void testMapBindingsWithAnnotation() {
+	    Injector injector =
+	        Guice.createInjector(DaggerAdapter.from(new MapBindingWithAnnotationDaggerModule()));
+	    assertThat(
+	            injector.getInstance(
+	                Key.get(new TypeLiteral<Map<String, Integer>>() {}, AnnotationOnMap.class)))
+	        .containsExactly("qualified", 4);
+	  }
+
+	public void testMapBindingsWithGuiceModule() {
+	    Injector injector =
+	        Guice.createInjector(
+	            new MultibindingGuiceModule(),
+	            DaggerAdapter.from(new MapBindingDaggerModule1(), new MapBindingDaggerModule2()));
+	    assertThat(injector.getInstance(new Key<Map<String, Integer>>() {}))
+	        .containsExactly(
+	            "five", 5, "ten", 10, "twenty", 20, "guice-zero", 0, "guice-provider-2", 2);
+	  }
+
+	public void testWrappedMapKeys() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(new WrappedMapKeyModule()));
+	    Map<Wrapped, Integer> map = injector.getInstance(new Key<Map<Wrapped, Integer>>() {});
+	    assertThat(map).hasSize(3);
+	    map.forEach((key, value) -> {
+	      if (value == 0) {
+	        assertWrappedEquals(0, 0, "", key);
+	      } else if (value == 1) {
+	        assertWrappedEquals(1, 1, "1", key);
+	      } else if (value == 2) {
+	        assertWrappedEquals(2, 2, "2", key);
+	      } else {
+	        throw new AssertionError();
+	      }
+	    });
+	  }
+
+	private static void assertWrappedEquals(int i, long l, String defaultValue, Wrapped actual) {
+	    assertThat(actual.i()).isEqualTo(i);
+	    assertThat(actual.l()).isEqualTo(l);
+	    assertThat(actual.defaultValue()).isEqualTo(defaultValue);
+	  }
+
+	public void testBinds() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(BindsModule.class));
+	    Map<String, Object> map = injector.getInstance(new Key<Map<String, Object>>() {});
+	    assertThat(map).containsExactly("hello", "world");
+	  }
+
+	@Qualifier
+	  @Retention(RUNTIME)
+	  public @interface AnnotationOnMap {}
+
+	@dagger.MapKey(unwrapValue = false)
+	  @Retention(RUNTIME)
+	  @interface Wrapped {
+	    int i();
+	    long l();
+	    String defaultValue() default "";
+	  }
+
+@dagger.Module
   static class MapBindingDaggerModule1 {
     @dagger.Provides
     @IntoMap
@@ -64,18 +132,6 @@ public class IntoMapTest extends TestCase {
     }
   }
 
-  public void testMapBindings() {
-    Injector injector =
-        Guice.createInjector(
-            DaggerAdapter.from(new MapBindingDaggerModule1(), new MapBindingDaggerModule2()));
-    assertThat(injector.getInstance(new Key<Map<String, Integer>>() {}))
-        .containsExactly("five", 5, "ten", 10, "twenty", 20);
-  }
-
-  @Qualifier
-  @Retention(RUNTIME)
-  public @interface AnnotationOnMap {}
-
   @dagger.Module
   static class MapBindingWithAnnotationDaggerModule {
     @dagger.Provides
@@ -87,15 +143,6 @@ public class IntoMapTest extends TestCase {
     }
   }
 
-  public void testMapBindingsWithAnnotation() {
-    Injector injector =
-        Guice.createInjector(DaggerAdapter.from(new MapBindingWithAnnotationDaggerModule()));
-    assertThat(
-            injector.getInstance(
-                Key.get(new TypeLiteral<Map<String, Integer>>() {}, AnnotationOnMap.class)))
-        .containsExactly("qualified", 4);
-  }
-
   static class MultibindingGuiceModule implements Module {
     @Override
     public void configure(Binder binder) {
@@ -103,24 +150,6 @@ public class IntoMapTest extends TestCase {
       mb.addBinding("guice-zero").toInstance(0);
       mb.addBinding("guice-provider-2").toProvider(Providers.of(2)); // mix'n'match.
     }
-  }
-
-  public void testMapBindingsWithGuiceModule() {
-    Injector injector =
-        Guice.createInjector(
-            new MultibindingGuiceModule(),
-            DaggerAdapter.from(new MapBindingDaggerModule1(), new MapBindingDaggerModule2()));
-    assertThat(injector.getInstance(new Key<Map<String, Integer>>() {}))
-        .containsExactly(
-            "five", 5, "ten", 10, "twenty", 20, "guice-zero", 0, "guice-provider-2", 2);
-  }
-
-  @dagger.MapKey(unwrapValue = false)
-  @Retention(RUNTIME)
-  @interface Wrapped {
-    int i();
-    long l();
-    String defaultValue() default "";
   }
 
   @dagger.Module
@@ -147,29 +176,6 @@ public class IntoMapTest extends TestCase {
     }
   }
 
-  public void testWrappedMapKeys() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(new WrappedMapKeyModule()));
-    Map<Wrapped, Integer> map = injector.getInstance(new Key<Map<Wrapped, Integer>>() {});
-    assertThat(map).hasSize(3);
-    map.forEach((key, value) -> {
-      if (value == 0) {
-        assertWrappedEquals(0, 0, "", key);
-      } else if (value == 1) {
-        assertWrappedEquals(1, 1, "1", key);
-      } else if (value == 2) {
-        assertWrappedEquals(2, 2, "2", key);
-      } else {
-        throw new AssertionError();
-      }
-    });
-  }
-
-  private static void assertWrappedEquals(int i, long l, String defaultValue, Wrapped actual) {
-    assertThat(actual.i()).isEqualTo(i);
-    assertThat(actual.l()).isEqualTo(l);
-    assertThat(actual.defaultValue()).isEqualTo(defaultValue);
-  }
-
   @dagger.Module
   static class HasConflict {
     @dagger.Provides
@@ -191,11 +197,5 @@ public class IntoMapTest extends TestCase {
     static String world() {
       return "world";
     }
-  }
-
-  public void testBinds() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(BindsModule.class));
-    Map<String, Object> map = injector.getInstance(new Key<Map<String, Object>>() {});
-    assertThat(map).containsExactly("hello", "world");
   }
 }

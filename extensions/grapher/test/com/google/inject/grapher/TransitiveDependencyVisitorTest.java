@@ -125,7 +125,7 @@ public class TransitiveDependencyVisitorTest extends TestCase {
   private void assertDependencies(Collection<Key<?>> dependencies, Key<?>... keys) {
     assertNotNull("Dependencies should not be null", dependencies);
     assertEquals(
-        "There should be " + keys.length + " dependencies", keys.length, dependencies.size());
+        new StringBuilder().append("There should be ").append(keys.length).append(" dependencies").toString(), keys.length, dependencies.size());
 
     for (Key<?> key : keys) {
       assertTrue("Dependencies should contain " + key, dependencies.contains(key));

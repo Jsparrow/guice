@@ -26,6 +26,7 @@ import java.util.Set;
 import net.sf.cglib.proxy.MethodProxy;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import java.util.Collections;
 
 /**
  * Intercepts a method with a stack of interceptors.
@@ -34,11 +35,11 @@ import org.aopalliance.intercept.MethodInvocation;
  */
 final class InterceptorStackCallback implements net.sf.cglib.proxy.MethodInterceptor {
   private static final Set<String> AOP_INTERNAL_CLASSES =
-      new HashSet<String>(
-          Arrays.asList(
-              InterceptorStackCallback.class.getName(),
-              InterceptedMethodInvocation.class.getName(),
-              MethodProxy.class.getName()));
+      Collections.unmodifiableSet(new HashSet<String>(
+      Arrays.asList(
+          InterceptorStackCallback.class.getName(),
+          InterceptedMethodInvocation.class.getName(),
+          MethodProxy.class.getName())));
 
   final MethodInterceptor[] interceptors;
   final Method method;
@@ -54,7 +55,25 @@ final class InterceptorStackCallback implements net.sf.cglib.proxy.MethodInterce
     return new InterceptedMethodInvocation(proxy, methodProxy, arguments, 0).proceed();
   }
 
-  private class InterceptedMethodInvocation implements MethodInvocation {
+  /**
+   * Removes stacktrace elements related to AOP internal mechanics from the throwable's stack trace
+   * and any causes it may have.
+   */
+  private void pruneStacktrace(Throwable throwable) {
+    for (Throwable t = throwable; t != null; t = t.getCause()) {
+      StackTraceElement[] stackTrace = t.getStackTrace();
+      List<StackTraceElement> pruned = Lists.newArrayList();
+      for (StackTraceElement element : stackTrace) {
+        String className = element.getClassName();
+        if (!AOP_INTERNAL_CLASSES.contains(className) && !className.contains("$EnhancerByGuice$")) {
+          pruned.add(element);
+        }
+      }
+      t.setStackTrace(pruned.toArray(new StackTraceElement[pruned.size()]));
+    }
+  }
+
+private class InterceptedMethodInvocation implements MethodInvocation {
 
     final Object proxy;
     final Object[] arguments;
@@ -100,24 +119,6 @@ final class InterceptorStackCallback implements net.sf.cglib.proxy.MethodInterce
     @Override
     public AccessibleObject getStaticPart() {
       return getMethod();
-    }
-  }
-
-  /**
-   * Removes stacktrace elements related to AOP internal mechanics from the throwable's stack trace
-   * and any causes it may have.
-   */
-  private void pruneStacktrace(Throwable throwable) {
-    for (Throwable t = throwable; t != null; t = t.getCause()) {
-      StackTraceElement[] stackTrace = t.getStackTrace();
-      List<StackTraceElement> pruned = Lists.newArrayList();
-      for (StackTraceElement element : stackTrace) {
-        String className = element.getClassName();
-        if (!AOP_INTERNAL_CLASSES.contains(className) && !className.contains("$EnhancerByGuice$")) {
-          pruned.add(element);
-        }
-      }
-      t.setStackTrace(pruned.toArray(new StackTraceElement[pruned.size()]));
     }
   }
 }

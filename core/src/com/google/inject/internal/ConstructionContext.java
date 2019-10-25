@@ -86,12 +86,11 @@ final class ConstructionContext<T> {
   }
 
   public void setProxyDelegates(T delegate) {
-    if (invocationHandlers != null) {
-      for (DelegatingInvocationHandler<T> handler : invocationHandlers) {
-        handler.setDelegate(delegate);
-      }
-      // initialization of each handler can happen no more than once
+    if (invocationHandlers == null) {
+		return;
+	}
+	invocationHandlers.forEach(handler -> handler.setDelegate(delegate));
+	// initialization of each handler can happen no more than once
       invocationHandlers = null;
-    }
   }
 }

@@ -40,6 +40,6 @@ public final class Stopwatch {
 
   /** Resets and logs elapsed time in milliseconds. */
   public void resetAndLog(String label) {
-    logger.fine(label + ": " + reset() + "ms");
+    logger.fine(new StringBuilder().append(label).append(": ").append(reset()).append("ms").toString());
   }
 }

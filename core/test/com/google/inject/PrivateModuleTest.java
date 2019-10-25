@@ -264,7 +264,7 @@ public class PrivateModuleTest extends TestCase {
     } catch (CreationException expected) {
       assertContains(
           expected.getMessage(),
-          "Could not expose() " + AB.class.getName() + ", it must be explicitly bound",
+          new StringBuilder().append("Could not expose() ").append(AB.class.getName()).append(", it must be explicitly bound").toString(),
           getDeclaringSourcePart(getClass()));
     }
   }
@@ -292,15 +292,15 @@ public class PrivateModuleTest extends TestCase {
     } catch (CreationException expected) {
       assertContains(
           expected.getMessage(),
-          "1) No implementation for " + C.class.getName() + " was bound.",
+          new StringBuilder().append("1) No implementation for ").append(C.class.getName()).append(" was bound.").toString(),
           "at " + getClass().getName(),
           getDeclaringSourcePart(getClass()),
           "2) No implementation for " + String.class.getName(),
-          "Named(value=" + Annotations.memberValueString("a") + ") was bound.",
-          "for field at " + AB.class.getName() + ".a(PrivateModuleTest.java:",
+          new StringBuilder().append("Named(value=").append(Annotations.memberValueString("a")).append(") was bound.").toString(),
+          new StringBuilder().append("for field at ").append(AB.class.getName()).append(".a(PrivateModuleTest.java:").toString(),
           "3) No implementation for " + String.class.getName(),
-          "Named(value=" + Annotations.memberValueString("b") + ") was bound.",
-          "for field at " + AB.class.getName() + ".b(PrivateModuleTest.java:",
+          new StringBuilder().append("Named(value=").append(Annotations.memberValueString("b")).append(") was bound.").toString(),
+          new StringBuilder().append("for field at ").append(AB.class.getName()).append(".b(PrivateModuleTest.java:").toString(),
           "3 errors");
     }
   }
@@ -547,18 +547,6 @@ public class PrivateModuleTest extends TestCase {
     assertEquals("ABCDE", injector.getInstance(Key.get(String.class, named("abcde"))));
   }
 
-  static class AB {
-    @Inject
-    @Named("a")
-    String a;
-
-    @Inject
-    @Named("b")
-    String b;
-  }
-
-  interface C {}
-
   public void testSpiAccess() {
     Injector injector =
         Guice.createInjector(
@@ -588,7 +576,7 @@ public class PrivateModuleTest extends TestCase {
     assertEquals("private", privateInjector.getInstance(Key.get(String.class, Names.named("a"))));
   }
 
-  public void testParentBindsSomethingInPrivate() {
+public void testParentBindsSomethingInPrivate() {
     try {
       Guice.createInjector(new FailingModule());
       fail();
@@ -598,17 +586,17 @@ public class PrivateModuleTest extends TestCase {
           expected.toString(),
           "Unable to create binding for java.util.List.",
           "It was already configured on one or more child injectors or private modules",
-          "bound at " + FailingPrivateModule.class.getName() + ".configure(",
+          new StringBuilder().append("bound at ").append(FailingPrivateModule.class.getName()).append(".configure(").toString(),
           asModuleChain(FailingModule.class, ManyPrivateModules.class, FailingPrivateModule.class),
-          "bound at " + SecondFailingPrivateModule.class.getName() + ".configure(",
+          new StringBuilder().append("bound at ").append(SecondFailingPrivateModule.class.getName()).append(".configure(").toString(),
           asModuleChain(
               FailingModule.class, ManyPrivateModules.class, SecondFailingPrivateModule.class),
           "If it was in a PrivateModule, did you forget to expose the binding?",
-          "at " + FailingModule.class.getName() + ".configure(");
+          new StringBuilder().append("at ").append(FailingModule.class.getName()).append(".configure(").toString());
     }
   }
 
-  public void testParentBindingToPrivateLinkedJitBinding() {
+public void testParentBindingToPrivateLinkedJitBinding() {
     Injector injector = Guice.createInjector(new ManyPrivateModules());
     try {
       injector.getBinding(Key.get(Types.providerOf(List.class)));
@@ -619,16 +607,16 @@ public class PrivateModuleTest extends TestCase {
           expected.toString(),
           "Unable to create binding for com.google.inject.Provider<java.util.List>.",
           "It was already configured on one or more child injectors or private modules",
-          "bound at " + FailingPrivateModule.class.getName() + ".configure(",
+          new StringBuilder().append("bound at ").append(FailingPrivateModule.class.getName()).append(".configure(").toString(),
           asModuleChain(ManyPrivateModules.class, FailingPrivateModule.class),
-          "bound at " + SecondFailingPrivateModule.class.getName() + ".configure(",
+          new StringBuilder().append("bound at ").append(SecondFailingPrivateModule.class.getName()).append(".configure(").toString(),
           asModuleChain(ManyPrivateModules.class, SecondFailingPrivateModule.class),
           "If it was in a PrivateModule, did you forget to expose the binding?",
           "while locating com.google.inject.Provider<java.util.List>");
     }
   }
 
-  public void testParentBindingToPrivateJitBinding() {
+public void testParentBindingToPrivateJitBinding() {
     Injector injector = Guice.createInjector(new ManyPrivateModules());
     try {
       injector.getBinding(PrivateFoo.class);
@@ -644,6 +632,18 @@ public class PrivateModuleTest extends TestCase {
           "while locating " + PrivateFoo.class.getName());
     }
   }
+
+static class AB {
+    @Inject
+    @Named("a")
+    String a;
+
+    @Inject
+    @Named("b")
+    String b;
+  }
+
+  interface C {}
 
   private static class FailingModule extends AbstractModule {
     @Override

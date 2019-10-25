@@ -25,67 +25,67 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class ReflectionTest extends TestCase {
 
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface I {}
+  public void testNormalBinding() {
+	    final Foo foo = new Foo();
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(Foo.class).toInstance(foo);
+	              }
+	            });
+	
+	    Binding<Foo> fooBinding = injector.getBinding(Key.get(Foo.class));
+	    assertSame(foo, fooBinding.getProvider().get());
+	    ElementSource source = (ElementSource) fooBinding.getSource();
+	    assertNotNull(source.getDeclaringSource());
+	    assertEquals(Key.get(Foo.class), fooBinding.getKey());
+	  }
 
-  public void testNormalBinding() throws CreationException {
-    final Foo foo = new Foo();
+	public void testConstantBinding() {
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bindConstant().annotatedWith(I.class).to(5);
+	              }
+	            });
+	
+	    Binding<?> i = injector.getBinding(Key.get(int.class, I.class));
+	    assertEquals(5, i.getProvider().get());
+	    ElementSource source = (ElementSource) i.getSource();
+	    assertNotNull(source.getDeclaringSource());
+	    assertEquals(Key.get(int.class, I.class), i.getKey());
+	  }
 
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Foo.class).toInstance(foo);
-              }
-            });
+	public void testLinkedBinding() {
+	    final Bar bar = new Bar();
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(Bar.class).toInstance(bar);
+	                bind(Key.get(Foo.class)).to(Key.get(Bar.class));
+	              }
+	            });
+	
+	    Binding<Foo> fooBinding = injector.getBinding(Key.get(Foo.class));
+	    assertSame(bar, fooBinding.getProvider().get());
+	    ElementSource source = (ElementSource) fooBinding.getSource();
+	    assertNotNull(source.getDeclaringSource());
+	    assertEquals(Key.get(Foo.class), fooBinding.getKey());
+	  }
 
-    Binding<Foo> fooBinding = injector.getBinding(Key.get(Foo.class));
-    assertSame(foo, fooBinding.getProvider().get());
-    ElementSource source = (ElementSource) fooBinding.getSource();
-    assertNotNull(source.getDeclaringSource());
-    assertEquals(Key.get(Foo.class), fooBinding.getKey());
-  }
+	@Retention(RUNTIME)
+	  @BindingAnnotation
+	  @interface I {}
 
-  public void testConstantBinding() throws CreationException {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bindConstant().annotatedWith(I.class).to(5);
-              }
-            });
-
-    Binding<?> i = injector.getBinding(Key.get(int.class, I.class));
-    assertEquals(5, i.getProvider().get());
-    ElementSource source = (ElementSource) i.getSource();
-    assertNotNull(source.getDeclaringSource());
-    assertEquals(Key.get(int.class, I.class), i.getKey());
-  }
-
-  public void testLinkedBinding() throws CreationException {
-    final Bar bar = new Bar();
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Bar.class).toInstance(bar);
-                bind(Key.get(Foo.class)).to(Key.get(Bar.class));
-              }
-            });
-
-    Binding<Foo> fooBinding = injector.getBinding(Key.get(Foo.class));
-    assertSame(bar, fooBinding.getProvider().get());
-    ElementSource source = (ElementSource) fooBinding.getSource();
-    assertNotNull(source.getDeclaringSource());
-    assertEquals(Key.get(Foo.class), fooBinding.getKey());
-  }
-
-  static class Foo {}
+static class Foo {}
 
   static class Bar extends Foo {}
 }

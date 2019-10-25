@@ -30,7 +30,20 @@ public class ClientServiceWithGuice {
 
   // 48 lines
 
-  public interface Service {
+  public void testClient() {
+	    MockService mock = new MockService();
+	    Client client = new Client(mock);
+	    client.go();
+	    assertTrue(mock.isGone());
+	  }
+
+	public static void main(String[] args) {
+	    new ClientServiceWithGuice().testClient();
+	    Injector injector = Guice.createInjector(new MyModule());
+	    Client client = injector.getInstance(Client.class);
+	  }
+
+public interface Service {
     void go();
   }
 
@@ -62,13 +75,6 @@ public class ClientServiceWithGuice {
     }
   }
 
-  public void testClient() {
-    MockService mock = new MockService();
-    Client client = new Client(mock);
-    client.go();
-    assertTrue(mock.isGone());
-  }
-
   public static class MockService implements Service {
 
     private boolean gone = false;
@@ -81,11 +87,5 @@ public class ClientServiceWithGuice {
     public boolean isGone() {
       return gone;
     }
-  }
-
-  public static void main(String[] args) throws CreationException {
-    new ClientServiceWithGuice().testClient();
-    Injector injector = Guice.createInjector(new MyModule());
-    Client client = injector.getInstance(Client.class);
   }
 }

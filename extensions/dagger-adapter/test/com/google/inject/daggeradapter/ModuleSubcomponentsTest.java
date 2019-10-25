@@ -27,7 +27,20 @@ import junit.framework.TestCase;
 
 public class ModuleSubcomponentsTest extends TestCase {
 
-  @Module(subcomponents = TestSubcomponent.class)
+  public void testModuleSubcomponentsNotSupported() {
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(ModuleWithSubcomponents.class));
+	      fail();
+	    } catch (CreationException expected) {
+	      assertThat(expected)
+	          .hasMessageThat()
+	          .contains("Subcomponents cannot be configured for modules used with DaggerAdapter");
+	      assertThat(expected).hasMessageThat().contains("ModuleWithSubcomponents specifies: ");
+	      assertThat(expected).hasMessageThat().contains("TestSubcomponent");
+	    }
+	  }
+
+@Module(subcomponents = TestSubcomponent.class)
   static class ModuleWithSubcomponents {}
 
   @Subcomponent
@@ -35,19 +48,6 @@ public class ModuleSubcomponentsTest extends TestCase {
     @Subcomponent.Builder
     interface Builder {
       TestSubcomponent build();
-    }
-  }
-
-  public void testModuleSubcomponentsNotSupported() {
-    try {
-      Guice.createInjector(DaggerAdapter.from(ModuleWithSubcomponents.class));
-      fail();
-    } catch (CreationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("Subcomponents cannot be configured for modules used with DaggerAdapter");
-      assertThat(expected).hasMessageThat().contains("ModuleWithSubcomponents specifies: ");
-      assertThat(expected).hasMessageThat().contains("TestSubcomponent");
     }
   }
 }

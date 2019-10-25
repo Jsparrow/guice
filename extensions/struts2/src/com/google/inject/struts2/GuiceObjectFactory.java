@@ -48,12 +48,14 @@ public class GuiceObjectFactory extends ObjectFactory {
   boolean developmentMode = false;
   List<ProvidedInterceptor> interceptors = new ArrayList<>();
 
-  @Override
+Set<Class<?>> boundClasses = new HashSet<>();
+
+@Override
   public boolean isNoArgConstructorRequired() {
     return false;
   }
 
-  @Inject(value = "guice.module", required = false)
+@Inject(value = "guice.module", required = false)
   void setModule(String moduleClassName) {
     try {
       // Instantiate user's module.
@@ -66,42 +68,39 @@ public class GuiceObjectFactory extends ObjectFactory {
     }
   }
 
-  @Inject(value = "struts.devMode", required = false)
+@Inject(value = "struts.devMode", required = false)
   void setDevelopmentMode(String developmentMode) {
-    this.developmentMode = developmentMode.trim().equals("true");
+    this.developmentMode = "true".equals(developmentMode.trim());
   }
 
-  Set<Class<?>> boundClasses = new HashSet<>();
-
-  @Override
+@Override
   public Class getClassInstance(String name) throws ClassNotFoundException {
     Class<?> clazz = super.getClassInstance(name);
 
     synchronized (this) {
-      if (injector == null) {
-        // We can only bind each class once.
-        if (!boundClasses.contains(clazz)) {
-          try {
-            // Calling these methods now helps us detect ClassNotFoundErrors
-            // early.
-            clazz.getDeclaredFields();
-            clazz.getDeclaredMethods();
+      boolean condition = injector == null && !boundClasses.contains(clazz);
+		// We can only bind each class once.
+	if (condition) {
+	  try {
+	    // Calling these methods now helps us detect ClassNotFoundErrors
+	    // early.
+	    clazz.getDeclaredFields();
+	    clazz.getDeclaredMethods();
 
-            boundClasses.add(clazz);
-          } catch (Throwable t) {
-            // Struts should still work even though some classes aren't in the
-            // classpath. It appears we always get the exception here when
-            // this is the case.
-            return clazz;
-          }
-        }
-      }
+	    boundClasses.add(clazz);
+	  } catch (Throwable t) {
+	    // Struts should still work even though some classes aren't in the
+	    // classpath. It appears we always get the exception here when
+	    // this is the case.
+	    return clazz;
+	  }
+	}
     }
 
     return clazz;
   }
 
-  @Override
+@Override
   @SuppressWarnings("unchecked")
   public Object buildBean(Class clazz, Map extraContext) {
     if (injector == null) {
@@ -115,7 +114,7 @@ public class GuiceObjectFactory extends ObjectFactory {
     return injector.getInstance(clazz);
   }
 
-  private void createInjector() {
+private void createInjector() {
     try {
       logger.info("Creating injector...");
       this.injector =
@@ -128,7 +127,7 @@ public class GuiceObjectFactory extends ObjectFactory {
 
                   // Install user's module.
                   if (module != null) {
-                    logger.info("Installing " + module + "...");
+                    logger.info(new StringBuilder().append("Installing ").append(module).append("...").toString());
                     install(module);
                   } else {
                     logger.info(
@@ -144,16 +143,12 @@ public class GuiceObjectFactory extends ObjectFactory {
                   }
 
                   // Validate the interceptor class.
-                  for (ProvidedInterceptor interceptor : interceptors) {
-                    interceptor.validate(binder());
-                  }
+				interceptors.forEach(interceptor -> interceptor.validate(binder()));
                 }
               });
 
       // Inject interceptors.
-      for (ProvidedInterceptor interceptor : interceptors) {
-        interceptor.inject();
-      }
+	interceptors.forEach(ProvidedInterceptor::inject);
 
     } catch (Throwable t) {
       t.printStackTrace();
@@ -162,10 +157,9 @@ public class GuiceObjectFactory extends ObjectFactory {
     logger.info("Injector created successfully.");
   }
 
-  @Override
+@Override
   @SuppressWarnings("unchecked")
-  public Interceptor buildInterceptor(InterceptorConfig interceptorConfig, Map interceptorRefParams)
-      throws ConfigurationException {
+  public Interceptor buildInterceptor(InterceptorConfig interceptorConfig, Map interceptorRefParams) {
     // Ensure the interceptor class is present.
     Class<? extends Interceptor> interceptorClass;
     try {
@@ -180,9 +174,18 @@ public class GuiceObjectFactory extends ObjectFactory {
     return providedInterceptor;
   }
 
-  Interceptor superBuildInterceptor(InterceptorConfig interceptorConfig, Map interceptorRefParams)
-      throws ConfigurationException {
+Interceptor superBuildInterceptor(InterceptorConfig interceptorConfig, Map interceptorRefParams) {
     return super.buildInterceptor(interceptorConfig, interceptorRefParams);
+  }
+
+/** Returns true if the given class has a scope annotation. */
+  private static boolean hasScope(Class<? extends Interceptor> interceptorClass) {
+    for (Annotation annotation : interceptorClass.getAnnotations()) {
+      if (Annotations.isScopeAnnotation(annotation.annotationType())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   class ProvidedInterceptor implements Interceptor {
@@ -203,16 +206,13 @@ public class GuiceObjectFactory extends ObjectFactory {
       // TODO: Set source from Struts XML.
       if (hasScope(interceptorClass)) {
         binder.addError(
-            "Scoping interceptors is not currently supported."
-                + " Please remove the scope annotation from "
-                + interceptorClass.getName()
-                + ".");
+            new StringBuilder().append("Scoping interceptors is not currently supported.").append(" Please remove the scope annotation from ").append(interceptorClass.getName()).append(".").toString());
       }
 
       // Make sure it implements Interceptor.
       if (!Interceptor.class.isAssignableFrom(interceptorClass)) {
         binder.addError(
-            interceptorClass.getName() + " must implement " + Interceptor.class.getName() + ".");
+            new StringBuilder().append(interceptorClass.getName()).append(" must implement ").append(Interceptor.class.getName()).append(".").toString());
       }
     }
 
@@ -236,15 +236,5 @@ public class GuiceObjectFactory extends ObjectFactory {
     public String intercept(ActionInvocation invocation) throws Exception {
       return delegate.intercept(invocation);
     }
-  }
-
-  /** Returns true if the given class has a scope annotation. */
-  private static boolean hasScope(Class<? extends Interceptor> interceptorClass) {
-    for (Annotation annotation : interceptorClass.getAnnotations()) {
-      if (Annotations.isScopeAnnotation(annotation.annotationType())) {
-        return true;
-      }
-    }
-    return false;
   }
 }

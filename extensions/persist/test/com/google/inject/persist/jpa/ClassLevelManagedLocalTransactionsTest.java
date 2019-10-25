@@ -27,6 +27,8 @@ import java.util.Date;
 import java.util.List;
 import javax.persistence.EntityManager;
 import junit.framework.TestCase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This test asserts class level @Transactional annotation behavior.
@@ -38,13 +40,14 @@ import junit.framework.TestCase;
  */
 
 public class ClassLevelManagedLocalTransactionsTest extends TestCase {
-  private Injector injector;
-  private static final String UNIQUE_TEXT = "JPAsome unique text88888" + new Date();
-  private static final String UNIQUE_TEXT_2 = "JPAsome asda unique teasdalsdplasdxt" + new Date();
-  private static final String TRANSIENT_UNIQUE_TEXT =
+  private static final Logger logger = LoggerFactory.getLogger(ClassLevelManagedLocalTransactionsTest.class);
+private static final String UNIQUE_TEXT = "JPAsome unique text88888" + new Date();
+private static final String UNIQUE_TEXT_2 = "JPAsome asda unique teasdalsdplasdxt" + new Date();
+private static final String TRANSIENT_UNIQUE_TEXT =
       "JPAsome other unique texaksoksojadasdt" + new Date();
+private Injector injector;
 
-  @Override
+@Override
   public void setUp() {
     injector = Guice.createInjector(new JpaPersistModule("testUnit"));
 
@@ -52,13 +55,13 @@ public class ClassLevelManagedLocalTransactionsTest extends TestCase {
     injector.getInstance(PersistService.class).start();
   }
 
-  @Override
+@Override
   public void tearDown() {
     injector.getInstance(PersistService.class).stop();
     injector = null;
   }
 
-  public void testSimpleTransaction() {
+public void testSimpleTransaction() {
     injector.getInstance(TransactionalObject.class).runOperationInTxn();
 
     EntityManager session = injector.getInstance(EntityManager.class);
@@ -84,10 +87,11 @@ public class ClassLevelManagedLocalTransactionsTest extends TestCase {
         (((JpaTestEntity) result).getText()));
   }
 
-  public void testSimpleTransactionRollbackOnChecked() {
+public void testSimpleTransactionRollbackOnChecked() {
     try {
       injector.getInstance(TransactionalObject2.class).runOperationInTxnThrowingChecked();
     } catch (IOException e) {
+		logger.error(e.getMessage(), e);
       //ignore
     }
 
@@ -109,12 +113,13 @@ public class ClassLevelManagedLocalTransactionsTest extends TestCase {
     assertTrue("a result was returned! rollback sure didnt happen!!!", result.isEmpty());
   }
 
-  public void testSimpleTransactionRollbackOnCheckedExcepting() {
+public void testSimpleTransactionRollbackOnCheckedExcepting() {
     Exception ex = null;
     try {
       injector.getInstance(TransactionalObject3.class).runOperationInTxnThrowingCheckedExcepting();
       fail("Exception was not thrown by test txn-al method!");
     } catch (IOException e) {
+		logger.error(e.getMessage(), e);
       //ignored
     }
 
@@ -136,10 +141,11 @@ public class ClassLevelManagedLocalTransactionsTest extends TestCase {
     assertNotNull("a result was not returned! rollback happened anyway (ignore failed)!!!", result);
   }
 
-  public void testSimpleTransactionRollbackOnUnchecked() {
+public void testSimpleTransactionRollbackOnUnchecked() {
     try {
       injector.getInstance(TransactionalObject4.class).runOperationInTxnThrowingUnchecked();
     } catch (RuntimeException re) {
+		logger.error(re.getMessage(), re);
       //ignore
     }
 
@@ -160,8 +166,7 @@ public class ClassLevelManagedLocalTransactionsTest extends TestCase {
 
     assertTrue("a result was returned! rollback sure didnt happen!!!", result.isEmpty());
   }
-
-  @Transactional
+@Transactional
   public static class TransactionalObject {
     @Inject EntityManager session;
 

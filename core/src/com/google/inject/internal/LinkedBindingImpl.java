@@ -65,12 +65,12 @@ public final class LinkedBindingImpl<T> extends BindingImpl<T>
 
   @Override
   public BindingImpl<T> withScoping(Scoping scoping) {
-    return new LinkedBindingImpl<T>(getSource(), getKey(), scoping, targetKey);
+    return new LinkedBindingImpl<>(getSource(), getKey(), scoping, targetKey);
   }
 
   @Override
   public BindingImpl<T> withKey(Key<T> key) {
-    return new LinkedBindingImpl<T>(getSource(), key, getScoping(), targetKey);
+    return new LinkedBindingImpl<>(getSource(), key, getScoping(), targetKey);
   }
 
   @Override

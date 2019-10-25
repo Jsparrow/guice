@@ -41,11 +41,6 @@ class AssistedConstructor<T> {
   private final ParameterListKey assistedParameters;
   private final List<Parameter> allParameters;
 
-  public static <T> AssistedConstructor<T> create(
-      Constructor<T> constructor, List<TypeLiteral<?>> parameterTypes) {
-    return new AssistedConstructor<T>(constructor, parameterTypes);
-  }
-
   private AssistedConstructor(Constructor<T> constructor, List<TypeLiteral<?>> parameterTypes) {
     this.constructor = constructor;
 
@@ -65,7 +60,12 @@ class AssistedConstructor<T> {
     this.assistedParameters = new ParameterListKey(typeList);
   }
 
-  /**
+public static <T> AssistedConstructor<T> create(
+      Constructor<T> constructor, List<TypeLiteral<?>> parameterTypes) {
+    return new AssistedConstructor<>(constructor, parameterTypes);
+  }
+
+/**
    * Returns the {@link ParameterListKey} for this constructor. The {@link ParameterListKey} is
    * created from the ordered list of {@link Assisted} constructor parameters.
    */
@@ -73,7 +73,7 @@ class AssistedConstructor<T> {
     return assistedParameters;
   }
 
-  /**
+/**
    * Returns an ordered list of all constructor parameters (both {@link Assisted} and {@link
    * Inject}ed).
    */
@@ -81,11 +81,11 @@ class AssistedConstructor<T> {
     return allParameters;
   }
 
-  public Set<Class<?>> getDeclaredExceptions() {
-    return new HashSet<Class<?>>(Arrays.asList(constructor.getExceptionTypes()));
+public Set<Class<?>> getDeclaredExceptions() {
+    return new HashSet<>(Arrays.asList(constructor.getExceptionTypes()));
   }
 
-  /** Returns an instance of T, constructed using this constructor, with the supplied arguments. */
+/** Returns an instance of T, constructed using this constructor, with the supplied arguments. */
   public T newInstance(Object[] args) throws Throwable {
     constructor.setAccessible(true);
     try {
@@ -95,7 +95,7 @@ class AssistedConstructor<T> {
     }
   }
 
-  @Override
+@Override
   public String toString() {
     return constructor.toString();
   }

@@ -33,13 +33,10 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
 
   @Inject private UnitOfWork unitOfWork = null;
 
-  @Transactional
-  private static class Internal {}
-
-  // Tracks if the unit of work was begun implicitly by this transaction.
+// Tracks if the unit of work was begun implicitly by this transaction.
   private final ThreadLocal<Boolean> didWeStartWork = new ThreadLocal<>();
 
-  @Override
+@Override
   public Object invoke(MethodInvocation methodInvocation) throws Throwable {
 
     // Should we start a unit of work?
@@ -95,7 +92,7 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
     return result;
   }
 
-  // TODO(dhanji): Cache this method's results.
+// TODO(dhanji): Cache this method's results.
   private Transactional readTransactionMetadata(MethodInvocation methodInvocation) {
     Transactional transactional;
     Method method = methodInvocation.getMethod();
@@ -114,7 +111,7 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
     return transactional;
   }
 
-  /**
+/**
    * Returns True if rollback DID NOT HAPPEN (i.e. if commit should continue).
    *
    * @param transactional The metadata annotaiton of the method
@@ -154,4 +151,7 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
 
     return commit;
   }
+
+  @Transactional
+  private static class Internal {}
 }

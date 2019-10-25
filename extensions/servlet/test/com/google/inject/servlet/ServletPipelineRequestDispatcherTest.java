@@ -54,9 +54,9 @@ import junit.framework.TestCase;
  */
 public class ServletPipelineRequestDispatcherTest extends TestCase {
   private static final Key<HttpServlet> HTTP_SERLVET_KEY = Key.get(HttpServlet.class);
-  private static final String A_KEY = "thinglyDEgintly" + new Date() + UUID.randomUUID();
+  private static final String A_KEY = new StringBuilder().append("thinglyDEgintly").append(new Date()).append(UUID.randomUUID()).toString();
   private static final String A_VALUE =
-      ServletPipelineRequestDispatcherTest.class.toString() + new Date() + UUID.randomUUID();
+      new StringBuilder().append(ServletPipelineRequestDispatcherTest.class.toString()).append(new Date()).append(UUID.randomUUID()).toString();
 
   public final void testIncludeManagedServlet() throws IOException, ServletException {
     String pattern = "blah.html";

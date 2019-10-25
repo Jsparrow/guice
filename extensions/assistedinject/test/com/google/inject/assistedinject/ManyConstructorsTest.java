@@ -130,11 +130,7 @@ public class ManyConstructorsTest extends TestCase {
     } catch (CreationException expected) {
       Asserts.assertContains(
           expected.getMessage(),
-          "1) "
-              + TooManyMatches.class.getName()
-              + " has more than one constructor annotated with @AssistedInject that "
-              + "matches the parameters in method "
-              + SimpleFactory2.class.getName());
+          new StringBuilder().append("1) ").append(TooManyMatches.class.getName()).append(" has more than one constructor annotated with @AssistedInject that ").append("matches the parameters in method ").append(SimpleFactory2.class.getName()).toString());
     }
   }
 
@@ -151,10 +147,7 @@ public class ManyConstructorsTest extends TestCase {
     } catch (CreationException expected) {
       Asserts.assertContains(
           expected.getMessage(),
-          "1) "
-              + Foo.class.getName()
-              + " has @AssistedInject constructors, but none of them match the parameters in method "
-              + ComplexFactory.class.getName());
+          new StringBuilder().append("1) ").append(Foo.class.getName()).append(" has @AssistedInject constructors, but none of them match the parameters in method ").append(ComplexFactory.class.getName()).toString());
     }
   }
 
@@ -171,14 +164,33 @@ public class ManyConstructorsTest extends TestCase {
     } catch (CreationException expected) {
       Asserts.assertContains(
           expected.getMessage(),
-          "1) "
-              + Foo.class.getName()
-              + " has @AssistedInject constructors, but none of them match the parameters in method "
-              + NullFactory.class.getName());
+          new StringBuilder().append("1) ").append(Foo.class.getName()).append(" has @AssistedInject constructors, but none of them match the parameters in method ").append(NullFactory.class.getName()).toString());
     }
   }
 
-  public static interface ComplexFactory {
+  public void testDependenciesAndOtherAnnotations() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                install(new FactoryModuleBuilder().build(FamilyFarmFactory.class));
+              }
+            });
+
+    FamilyFarmFactory factory = injector.getInstance(FamilyFarmFactory.class);
+    Farm pops = factory.popsFarm("Pop");
+    assertEquals("Pop", pops.pop);
+    assertEquals(null, pops.mom);
+    Farm moms = factory.momsFarm("Mom");
+    assertEquals(null, moms.pop);
+    assertEquals("Mom", moms.mom);
+    Farm momAndPop = factory.momAndPopsFarm("Mom", "Pop");
+    assertEquals("Pop", momAndPop.pop);
+    assertEquals("Mom", momAndPop.mom);
+  }
+
+public static interface ComplexFactory {
     Foo create(String name, int idx, float weight);
   }
 
@@ -257,28 +269,6 @@ public class ManyConstructorsTest extends TestCase {
     String getName();
 
     Integer getIndex();
-  }
-
-  public void testDependenciesAndOtherAnnotations() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                install(new FactoryModuleBuilder().build(FamilyFarmFactory.class));
-              }
-            });
-
-    FamilyFarmFactory factory = injector.getInstance(FamilyFarmFactory.class);
-    Farm pops = factory.popsFarm("Pop");
-    assertEquals("Pop", pops.pop);
-    assertEquals(null, pops.mom);
-    Farm moms = factory.momsFarm("Mom");
-    assertEquals(null, moms.pop);
-    assertEquals("Mom", moms.mom);
-    Farm momAndPop = factory.momAndPopsFarm("Mom", "Pop");
-    assertEquals("Pop", momAndPop.pop);
-    assertEquals("Mom", momAndPop.mom);
   }
 
   public static interface FamilyFarmFactory {

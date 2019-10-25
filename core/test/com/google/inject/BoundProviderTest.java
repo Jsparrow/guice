@@ -21,7 +21,7 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class BoundProviderTest extends TestCase {
 
-  public void testFooProvider() throws CreationException {
+  public void testFooProvider() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -41,7 +41,7 @@ public class BoundProviderTest extends TestCase {
     assertNotSame(a.bar, b.bar);
   }
 
-  public void testSingletonFooProvider() throws CreationException {
+  public void testSingletonFooProvider() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {

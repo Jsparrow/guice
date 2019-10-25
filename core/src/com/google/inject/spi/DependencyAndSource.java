@@ -72,7 +72,7 @@ public final class DependencyAndSource {
     Dependency<?> dep = getDependency();
     Object source = getBindingSource();
     if (dep != null) {
-      return "Dependency: " + dep + ", source: " + source;
+      return new StringBuilder().append("Dependency: ").append(dep).append(", source: ").append(source).toString();
     } else {
       return "Source: " + source;
     }

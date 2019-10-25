@@ -30,16 +30,16 @@ import java.util.Arrays;
 final class BindingSubject extends Subject {
   private final Binding<?> actual;
 
-  static BindingSubject assertThat(Binding<?> binding) {
-    return assert_().<BindingSubject, Binding<?>>about(BindingSubject::new).that(binding);
-  }
-
   private BindingSubject(FailureMetadata metadata, Binding<?> actual) {
     super(metadata, actual);
     this.actual = actual;
   }
 
-  void hasSource(Class<?> moduleClass, String moduleMethod, Class<?>... moduleMethodArgs) {
+static BindingSubject assertThat(Binding<?> binding) {
+    return assert_().<BindingSubject, Binding<?>>about(BindingSubject::new).that(binding);
+  }
+
+void hasSource(Class<?> moduleClass, String moduleMethod, Class<?>... moduleMethodArgs) {
     Method method;
     try {
       method = moduleClass.getDeclaredMethod(moduleMethod, moduleMethodArgs);
@@ -61,7 +61,7 @@ final class BindingSubject extends Subject {
     }
   }
 
-  Subject hasProvidedValueThat() {
+Subject hasProvidedValueThat() {
     return check("provided value").that(actual.getProvider().get());
   }
 }

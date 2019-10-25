@@ -19,14 +19,14 @@ package com.google.inject;
 import static com.google.inject.name.Names.named;
 
 import com.google.inject.name.Named;
-import java.util.Arrays;
 import java.util.List;
 import junit.framework.TestCase;
+import java.util.Collections;
 
 /** @author crazybob@google.com (Bob Lee) */
 public class ProviderInjectionTest extends TestCase {
 
-  public void testProviderInjection() throws CreationException {
+  public void testProviderInjection() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -113,7 +113,7 @@ public class ProviderInjectionTest extends TestCase {
 
                           @Override
                           public List get() {
-                            return Arrays.asList(injectedYet);
+                            return Collections.singletonList(injectedYet);
                           }
                         });
 

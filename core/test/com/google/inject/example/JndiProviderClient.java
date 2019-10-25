@@ -28,7 +28,7 @@ import javax.sql.DataSource;
 
 class JndiProviderClient {
 
-  public static void main(String[] args) throws CreationException {
+  public static void main(String[] args) {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {

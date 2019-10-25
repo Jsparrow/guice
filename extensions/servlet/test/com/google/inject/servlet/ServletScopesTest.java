@@ -178,14 +178,6 @@ public class ServletScopesTest extends TestCase {
     assertFalse(ServletScopes.isRequestScoped(injector.getBinding(j)));
   }
 
-  @RequestScoped
-  static class AnnotatedRequestScopedClass {}
-
-  @Target({ElementType.TYPE, ElementType.METHOD})
-  @Retention(RUNTIME)
-  @ScopeAnnotation
-  private @interface CustomScoped {}
-
   private ImmutableMap<Key<?>, Binding<?>> indexBindings(Iterable<Element> elements) {
     ImmutableMap.Builder<Key<?>, Binding<?>> builder = ImmutableMap.builder();
     for (Element element : elements) {
@@ -202,4 +194,12 @@ public class ServletScopesTest extends TestCase {
     }
     return builder.build();
   }
+
+@Target({ElementType.TYPE, ElementType.METHOD})
+  @Retention(RUNTIME)
+  @ScopeAnnotation
+  private @interface CustomScoped {}
+
+@RequestScoped
+  static class AnnotatedRequestScopedClass {}
 }

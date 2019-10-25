@@ -63,7 +63,7 @@ abstract class AbstractBindingProcessor extends AbstractProcessor {
 
   protected <T> UntargettedBindingImpl<T> invalidBinding(
       InjectorImpl injector, Key<T> key, Object source) {
-    return new UntargettedBindingImpl<T>(injector, key, source);
+    return new UntargettedBindingImpl<>(injector, key, source);
   }
 
   protected void putBinding(BindingImpl<?> binding) {

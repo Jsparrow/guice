@@ -52,8 +52,8 @@ public class AllTests {
 
   private static final ImmutableSet<String> SUPPRESSED_TEST_NAMES =
       ImmutableSet.of(
-          "testUnscopedProviderWorksOutsideOfRequestedScope(" + ScopesTest.class.getName() + ")",
-          "testCannotConvertUnannotatedBindings(" + TypeConversionTest.class.getName() + ")");
+          new StringBuilder().append("testUnscopedProviderWorksOutsideOfRequestedScope(").append(ScopesTest.class.getName()).append(")").toString(),
+          new StringBuilder().append("testCannotConvertUnannotatedBindings(").append(TypeConversionTest.class.getName()).append(")").toString());
 
   public static Test suite() {
     TestSuite suite = new TestSuite();

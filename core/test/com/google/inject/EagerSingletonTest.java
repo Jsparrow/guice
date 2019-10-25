@@ -154,16 +154,16 @@ public class EagerSingletonTest extends TestCase {
         @Override
         public Class<?> loadClass(String name) throws ClassNotFoundException {
           // This means for every class besides cls we delegate to our parent (so things like
-          // @Singleton and Object are well defined), but for this one class we load a new one in
-          // this loader.
-          if (name.equals(cls.getName())) {
-            Class<?> c = findLoadedClass(name);
-            if (c == null) {
-              return super.findClass(name);
-            }
-            return c;
-          }
-          return super.loadClass(name);
+			// @Singleton and Object are well defined), but for this one class we load a new one in
+			// this loader.
+		if (!name.equals(cls.getName())) {
+			return super.loadClass(name);
+		}
+		Class<?> c = findLoadedClass(name);
+		if (c == null) {
+		  return super.findClass(name);
+		}
+		return c;
         }
       }.loadClass(cls.getName());
     } catch (ClassNotFoundException cnfe) {

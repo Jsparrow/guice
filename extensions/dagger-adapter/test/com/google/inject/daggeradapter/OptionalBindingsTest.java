@@ -34,11 +34,24 @@ import junit.framework.TestCase;
 /** Tests of {@link BindsOptionalOf} support in {@link DaggerAdapter}. */
 
 public class OptionalBindingsTest extends TestCase {
-  @Retention(RetentionPolicy.RUNTIME)
-  @Qualifier
-  @interface TestQualifier {}
+  public void testBinds() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(BasicModule.class));
+	
+	    Binding<Optional<String>> optionalBinding = injector.getBinding(new Key<Optional<String>>() {});
+	    assertThat(optionalBinding).hasProvidedValueThat().isEqualTo(Optional.empty());
+	    assertThat(optionalBinding).hasSource(BasicModule.class, "optionalString");
+	
+	    Binding<Optional<Integer>> qualifiedOptionalBinding =
+	        injector.getBinding(Key.get(new TypeLiteral<Optional<Integer>>() {}, TestQualifier.class));
+	    assertThat(qualifiedOptionalBinding).hasProvidedValueThat().isEqualTo(Optional.empty());
+	    assertThat(qualifiedOptionalBinding).hasSource(BasicModule.class, "optionalQualifiedInteger");
+	  }
 
-  @Module
+	@Retention(RetentionPolicy.RUNTIME)
+	  @Qualifier
+	  @interface TestQualifier {}
+
+@Module
   interface BasicModule {
     @BindsOptionalOf
     String optionalString();
@@ -46,18 +59,5 @@ public class OptionalBindingsTest extends TestCase {
     @BindsOptionalOf
     @TestQualifier
     Integer optionalQualifiedInteger();
-  }
-
-  public void testBinds() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(BasicModule.class));
-
-    Binding<Optional<String>> optionalBinding = injector.getBinding(new Key<Optional<String>>() {});
-    assertThat(optionalBinding).hasProvidedValueThat().isEqualTo(Optional.empty());
-    assertThat(optionalBinding).hasSource(BasicModule.class, "optionalString");
-
-    Binding<Optional<Integer>> qualifiedOptionalBinding =
-        injector.getBinding(Key.get(new TypeLiteral<Optional<Integer>>() {}, TestQualifier.class));
-    assertThat(qualifiedOptionalBinding).hasProvidedValueThat().isEqualTo(Optional.empty());
-    assertThat(qualifiedOptionalBinding).hasSource(BasicModule.class, "optionalQualifiedInteger");
   }
 }

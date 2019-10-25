@@ -46,7 +46,7 @@ import java.util.Set;
  */
 interface State {
 
-  static final State NONE =
+  State NONE =
       new State() {
         @Override
         public State parent() {

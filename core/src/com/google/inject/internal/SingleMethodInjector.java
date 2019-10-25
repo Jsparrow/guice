@@ -44,13 +44,7 @@ final class SingleMethodInjector implements SingleMemberInjector {
       if (fastClass != null) {
         final int index = fastClass.getMethod(method).getIndex();
 
-        return new MethodInvoker() {
-          @Override
-          public Object invoke(Object target, Object... parameters)
-              throws IllegalAccessException, InvocationTargetException {
-            return fastClass.invoke(index, target, parameters);
-          }
-        };
+        return (Object target, Object... parameters) -> fastClass.invoke(index, target, parameters);
       }
     } catch (net.sf.cglib.core.CodeGenerationException e) {
       /* fall-through */
@@ -63,13 +57,7 @@ final class SingleMethodInjector implements SingleMemberInjector {
       method.setAccessible(true);
     }
 
-    return new MethodInvoker() {
-      @Override
-      public Object invoke(Object target, Object... parameters)
-          throws IllegalAccessException, InvocationTargetException {
-        return method.invoke(target, parameters);
-      }
-    };
+    return method::invoke;
   }
 
   @Override

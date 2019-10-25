@@ -58,12 +58,6 @@ public enum UriPatternType {
     private final String originalPattern;
     private final Kind patternKind;
 
-    private static enum Kind {
-      PREFIX,
-      SUFFIX,
-      LITERAL,
-    }
-
     public ServletStyleUriPatternMatcher(String pattern) {
       this.originalPattern = pattern;
       if (pattern.startsWith("*")) {
@@ -84,15 +78,11 @@ public enum UriPatternType {
       }
       if (!pattern.equals(normalized)) {
         throw new IllegalArgumentException(
-            "Servlet patterns cannot contain escape patterns. Registered pattern: '"
-                + pattern
-                + "' normalizes to: '"
-                + normalized
-                + "'");
+            new StringBuilder().append("Servlet patterns cannot contain escape patterns. Registered pattern: '").append(pattern).append("' normalizes to: '").append(normalized).append("'").toString());
       }
     }
 
-    @Override
+	@Override
     public boolean matches(String uri) {
       if (null == uri) {
         return false;
@@ -109,7 +99,7 @@ public enum UriPatternType {
       return literal.equals(uri);
     }
 
-    @Override
+	@Override
     public String extractPath(String path) {
       if (patternKind == Kind.PREFIX) {
         return null;
@@ -128,14 +118,20 @@ public enum UriPatternType {
       return path;
     }
 
-    @Override
+	@Override
     public UriPatternType getPatternType() {
       return UriPatternType.SERVLET;
     }
 
-    @Override
+	@Override
     public String getOriginalPattern() {
       return originalPattern;
+    }
+
+	private static enum Kind {
+      PREFIX,
+      SUFFIX,
+      LITERAL,
     }
   }
 

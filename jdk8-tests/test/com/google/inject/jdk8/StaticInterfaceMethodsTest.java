@@ -31,7 +31,20 @@ import junit.framework.TestCase;
  */
 public class StaticInterfaceMethodsTest extends TestCase {
 
-  private static class Thing {
+  public void testAssistedInjection() {
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                install(new FactoryModuleBuilder().build(Factory.class));
+	              }
+	            });
+	    Factory factory = injector.getInstance(Factory.class);
+	    assertEquals(1, factory.create(1).i);
+	  }
+
+private static class Thing {
     final int i;
 
     @Inject
@@ -46,18 +59,5 @@ public class StaticInterfaceMethodsTest extends TestCase {
     static Factory getDefault() {
       return Thing::new;
     }
-  }
-
-  public void testAssistedInjection() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                install(new FactoryModuleBuilder().build(Factory.class));
-              }
-            });
-    Factory factory = injector.getInstance(Factory.class);
-    assertEquals(1, factory.create(1).i);
   }
 }

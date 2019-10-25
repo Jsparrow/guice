@@ -30,55 +30,55 @@ import com.google.inject.Key;
  */
 public final class NodeId {
 
-  /**
-   * Type of node.
-   *
-   * @since 4.0
-   */
-  public enum NodeType {
-    /** Type or class node. */
-    TYPE,
-
-    /** Instance node, used when something is bound to an instance. */
-    INSTANCE
-  }
-
   private final Key<?> key;
-  private final NodeType nodeType;
+	private final NodeType nodeType;
 
-  private NodeId(Key<?> key, NodeType nodeType) {
-    this.key = key;
-    this.nodeType = nodeType;
-  }
+	private NodeId(Key<?> key, NodeType nodeType) {
+	    this.key = key;
+	    this.nodeType = nodeType;
+	  }
 
-  public static NodeId newTypeId(Key<?> key) {
-    return new NodeId(key, NodeType.TYPE);
-  }
+	public static NodeId newTypeId(Key<?> key) {
+	    return new NodeId(key, NodeType.TYPE);
+	  }
 
-  public static NodeId newInstanceId(Key<?> key) {
-    return new NodeId(key, NodeType.INSTANCE);
-  }
+	public static NodeId newInstanceId(Key<?> key) {
+	    return new NodeId(key, NodeType.INSTANCE);
+	  }
 
-  public Key<?> getKey() {
-    return key;
-  }
+	public Key<?> getKey() {
+	    return key;
+	  }
 
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(key, nodeType);
-  }
+	@Override
+	  public int hashCode() {
+	    return Objects.hashCode(key, nodeType);
+	  }
 
-  @Override
-  public boolean equals(Object obj) {
-    if (obj == null || !(obj.getClass().equals(NodeId.class))) {
-      return false;
-    }
-    NodeId other = (NodeId) obj;
-    return Objects.equal(key, other.key) && Objects.equal(nodeType, other.nodeType);
-  }
+	@Override
+	  public boolean equals(Object obj) {
+	    if (obj == null || !(obj.getClass().equals(NodeId.class))) {
+	      return false;
+	    }
+	    NodeId other = (NodeId) obj;
+	    return Objects.equal(key, other.key) && Objects.equal(nodeType, other.nodeType);
+	  }
 
-  @Override
-  public String toString() {
-    return "NodeId{nodeType=" + nodeType + " key=" + key + "}";
-  }
+	@Override
+	  public String toString() {
+	    return new StringBuilder().append("NodeId{nodeType=").append(nodeType).append(" key=").append(key).append("}").toString();
+	  }
+
+	/**
+	   * Type of node.
+	   *
+	   * @since 4.0
+	   */
+	  public enum NodeType {
+	    /** Type or class node. */
+	    TYPE,
+	
+	    /** Instance node, used when something is bound to an instance. */
+	    INSTANCE
+	  }
 }

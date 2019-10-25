@@ -56,9 +56,9 @@ public class MembersInjectorTest extends TestCase {
 
   public void testMembersInjectorFromBinder() {
     final AtomicReference<MembersInjector<A<C>>> aMembersInjectorReference =
-        new AtomicReference<MembersInjector<A<C>>>();
+        new AtomicReference<>();
     final AtomicReference<MembersInjector<B>> bMembersInjectorReference =
-        new AtomicReference<MembersInjector<B>>();
+        new AtomicReference<>();
 
     Guice.createInjector(
         new AbstractModule() {
@@ -229,11 +229,11 @@ public class MembersInjectorTest extends TestCase {
     } catch (ConfigurationException expected) {
       assertContains(
           expected.getMessage(),
-          "1) No implementation for " + Unimplemented.class.getName() + " was bound.",
+          new StringBuilder().append("1) No implementation for ").append(Unimplemented.class.getName()).append(" was bound.").toString(),
           "while locating " + Unimplemented.class.getName(),
-          "for field at " + A.class.getName() + ".t(MembersInjectorTest.java:",
+          new StringBuilder().append("for field at ").append(A.class.getName()).append(".t(MembersInjectorTest.java:").toString(),
           "while locating com.google.inject.MembersInjector<",
-          "for field at " + InjectsBrokenMembersInjector.class.getName() + ".aMembersInjector(",
+          new StringBuilder().append("for field at ").append(InjectsBrokenMembersInjector.class.getName()).append(".aMembersInjector(").toString(),
           "while locating " + InjectsBrokenMembersInjector.class.getName());
     }
   }
@@ -279,14 +279,46 @@ public class MembersInjectorTest extends TestCase {
     } catch (ConfigurationException expected) {
       assertContains(
           expected.getMessage(),
-          "1) No implementation for com.google.inject.MembersInjector<java.lang.String> "
-              + "annotated with @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("foo")
-              + ") was bound.");
+          new StringBuilder().append("1) No implementation for com.google.inject.MembersInjector<java.lang.String> ").append("annotated with @com.google.inject.name.Named(value=").append(Annotations.memberValueString("foo")).append(") was bound.").toString());
     }
   }
 
-  /** Callback for member injection. Uses a static type to be referable by getInstance(). */
+  /**
+   * Tests that member injections could happen in parallel.
+   *
+   * <p>Additional check that when member injection happen other threads would wait for it to finish
+   * to provide proper resolution order semantics.
+   */
+
+  public void testMemberInjectorParallelization() throws Exception {
+    final ParallelMemberInjectionCallback1 c1 = new ParallelMemberInjectionCallback1();
+    final ParallelMemberInjectionCallback2 c2 = new ParallelMemberInjectionCallback2();
+    Guice.createInjector(
+        new AbstractModule() {
+          @Override
+          protected void configure() {
+            bind(ParallelMemberInjectionCallback1.class).toInstance(c1);
+            bind(ParallelMemberInjectionCallback2.class).toInstance(c2);
+          }
+        });
+    assertTrue(c1.called);
+    assertTrue(c2.called);
+  }
+
+/** Verifies that member injection injecting itself would get a non initialized instance. */
+  public void testRecursiveMemberInjector() throws Exception {
+    final RecursiveMemberInjection rmi = new RecursiveMemberInjection();
+    Guice.createInjector(
+        new AbstractModule() {
+          @Override
+          protected void configure() {
+            bind(RecursiveMemberInjection.class).toInstance(rmi);
+          }
+        });
+    assertTrue("Member injection should happen", rmi.called);
+  }
+
+/** Callback for member injection. Uses a static type to be referable by getInstance(). */
   abstract static class AbstractParallelMemberInjectionCallback {
 
     volatile boolean called = false;
@@ -342,28 +374,6 @@ public class MembersInjectorTest extends TestCase {
     }
   }
 
-  /**
-   * Tests that member injections could happen in parallel.
-   *
-   * <p>Additional check that when member injection happen other threads would wait for it to finish
-   * to provide proper resolution order semantics.
-   */
-
-  public void testMemberInjectorParallelization() throws Exception {
-    final ParallelMemberInjectionCallback1 c1 = new ParallelMemberInjectionCallback1();
-    final ParallelMemberInjectionCallback2 c2 = new ParallelMemberInjectionCallback2();
-    Guice.createInjector(
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            bind(ParallelMemberInjectionCallback1.class).toInstance(c1);
-            bind(ParallelMemberInjectionCallback2.class).toInstance(c2);
-          }
-        });
-    assertTrue(c1.called);
-    assertTrue(c2.called);
-  }
-
   /** Member injection callback that injects itself. */
   static class RecursiveMemberInjection {
     boolean called = false;
@@ -375,19 +385,6 @@ public class MembersInjectorTest extends TestCase {
       }
       called = true;
     }
-  }
-
-  /** Verifies that member injection injecting itself would get a non initialized instance. */
-  public void testRecursiveMemberInjector() throws Exception {
-    final RecursiveMemberInjection rmi = new RecursiveMemberInjection();
-    Guice.createInjector(
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            bind(RecursiveMemberInjection.class).toInstance(rmi);
-          }
-        });
-    assertTrue("Member injection should happen", rmi.called);
   }
 
   static class A<T> {

@@ -41,7 +41,7 @@ public class ShortNameFactory implements NameFactory {
     if (member instanceof Constructor) {
       return "<init>";
     } else if (member instanceof Method) {
-      return "#" + member.getName() + "(...)";
+      return new StringBuilder().append("#").append(member.getName()).append("(...)").toString();
     } else {
       return member.getName();
     }
@@ -79,16 +79,14 @@ public class ShortNameFactory implements NameFactory {
     }
 
     if (instance instanceof CharSequence) {
-      return "\"" + instance + "\"";
+      return new StringBuilder().append("\"").append(instance).append("\"").toString();
     }
 
     try {
       if (instance.getClass().getMethod("toString").getDeclaringClass().equals(Object.class)) {
         return stripPackages(instance.getClass().getName());
       }
-    } catch (SecurityException e) {
-      throw new AssertionError(e);
-    } catch (NoSuchMethodException e) {
+    } catch (NoSuchMethodException | SecurityException e) {
       throw new AssertionError(e);
     }
 
@@ -117,7 +115,7 @@ public class ShortNameFactory implements NameFactory {
   }
 
   protected String getFileString(StackTraceElement stackTraceElement) {
-    return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
+    return new StringBuilder().append(stackTraceElement.getFileName()).append(":").append(stackTraceElement.getLineNumber()).toString();
   }
 
   protected String getMethodString(Method method) {
@@ -127,7 +125,7 @@ public class ShortNameFactory implements NameFactory {
     }
 
     String paramString = Joiner.on(", ").join(paramStrings);
-    return "#" + method.getName() + "(" + paramString + ")";
+    return new StringBuilder().append("#").append(method.getName()).append("(").append(paramString).append(")").toString();
   }
 
   /**

@@ -63,36 +63,26 @@ import javax.servlet.http.HttpServletResponse;
 public class GuiceFilter implements Filter {
   static final ThreadLocal<Context> localContext = new ThreadLocal<>();
   static volatile FilterPipeline pipeline = new DefaultFilterPipeline();
-
-  /** We allow both the static and dynamic versions of the pipeline to exist. */
+/** Used to inject the servlets configured via {@link ServletModule} */
+  static volatile WeakReference<ServletContext> servletContext =
+      new WeakReference<>(null);
+private static final String MULTIPLE_INJECTORS_WARNING =
+      new StringBuilder().append("Multiple Servlet injectors detected. This is a warning ").append("indicating that you have more than one ").append(GuiceFilter.class.getSimpleName()).append(" running ").append("in your web application. If this is deliberate, you may safely ").append("ignore this message. If this is NOT deliberate however, ").append("your application may not work as expected.").toString();
+private static final Logger LOGGER = Logger.getLogger(GuiceFilter.class.getName());
+/** We allow both the static and dynamic versions of the pipeline to exist. */
   private final FilterPipeline injectedPipeline;
 
-  /** Used to inject the servlets configured via {@link ServletModule} */
-  static volatile WeakReference<ServletContext> servletContext =
-      new WeakReference<ServletContext>(null);
-
-  private static final String MULTIPLE_INJECTORS_WARNING =
-      "Multiple Servlet injectors detected. This is a warning "
-          + "indicating that you have more than one "
-          + GuiceFilter.class.getSimpleName()
-          + " running "
-          + "in your web application. If this is deliberate, you may safely "
-          + "ignore this message. If this is NOT deliberate however, "
-          + "your application may not work as expected.";
-
-  private static final Logger LOGGER = Logger.getLogger(GuiceFilter.class.getName());
-
-  public GuiceFilter() {
+public GuiceFilter() {
     // Use the static FilterPipeline
     this(null);
   }
 
-  @Inject
+@Inject
   GuiceFilter(FilterPipeline filterPipeline) {
     injectedPipeline = filterPipeline;
   }
 
-  //VisibleForTesting
+//VisibleForTesting
   @Inject
   static void setPipeline(FilterPipeline pipeline) {
 
@@ -106,13 +96,13 @@ public class GuiceFilter implements Filter {
     GuiceFilter.pipeline = pipeline;
   }
 
-  //VisibleForTesting
+//VisibleForTesting
   static void reset() {
     pipeline = new DefaultFilterPipeline();
     localContext.remove();
   }
 
-  @Override
+@Override
   public void doFilter(
       final ServletRequest servletRequest,
       final ServletResponse servletResponse,
@@ -134,43 +124,69 @@ public class GuiceFilter implements Filter {
       } finally {
         scope.close();
       }
-    } catch (IOException e) {
-      throw e;
-    } catch (ServletException e) {
+    } catch (ServletException | IOException e) {
       throw e;
     } catch (Exception e) {
       Throwables.propagate(e);
     }
   }
 
-  static HttpServletRequest getOriginalRequest(Key<?> key) {
+static HttpServletRequest getOriginalRequest(Key<?> key) {
     return getContext(key).getOriginalRequest();
   }
 
-  static HttpServletRequest getRequest(Key<?> key) {
+static HttpServletRequest getRequest(Key<?> key) {
     return getContext(key).getRequest();
   }
 
-  static HttpServletResponse getResponse(Key<?> key) {
+static HttpServletResponse getResponse(Key<?> key) {
     return getContext(key).getResponse();
   }
 
-  static ServletContext getServletContext() {
+static ServletContext getServletContext() {
     return servletContext.get();
   }
 
-  private static Context getContext(Key<?> key) {
+private static Context getContext(Key<?> key) {
     Context context = localContext.get();
     if (context == null) {
       throw new OutOfScopeException(
-          "Cannot access scoped ["
-              + Errors.convert(key)
-              + "]. Either we are not currently inside an HTTP Servlet request, or you may"
-              + " have forgotten to apply "
-              + GuiceFilter.class.getName()
-              + " as a servlet filter for this request.");
+          new StringBuilder().append("Cannot access scoped [").append(Errors.convert(key)).append("]. Either we are not currently inside an HTTP Servlet request, or you may").append(" have forgotten to apply ").append(GuiceFilter.class.getName()).append(" as a servlet filter for this request.").toString());
     }
     return context;
+  }
+
+@Override
+  public void init(FilterConfig filterConfig) throws ServletException {
+    final ServletContext servletContext = filterConfig.getServletContext();
+
+    // Store servlet context in a weakreference, for injection
+    GuiceFilter.servletContext = new WeakReference<>(servletContext);
+
+    // In the default pipeline, this is a noop. However, if replaced
+    // by a managed pipeline, a lazy init will be triggered the first time
+    // dispatch occurs.
+    FilterPipeline filterPipeline = getFilterPipeline();
+    filterPipeline.initPipeline(servletContext);
+  }
+
+@Override
+  public void destroy() {
+
+    try {
+      // Destroy all registered filters & servlets in that order
+      FilterPipeline filterPipeline = getFilterPipeline();
+      filterPipeline.destroyPipeline();
+
+    } finally {
+      reset();
+      servletContext.clear();
+    }
+  }
+
+private FilterPipeline getFilterPipeline() {
+    // Prefer the injected pipeline, but fall back on the static one for web.xml users.
+    return (null != injectedPipeline) ? injectedPipeline : pipeline;
   }
 
   static class Context implements RequestScoper {
@@ -208,46 +224,10 @@ public class GuiceFilter implements Filter {
       lock.lock();
       final Context previous = localContext.get();
       localContext.set(this);
-      return new CloseableScope() {
-        @Override
-        public void close() {
-          localContext.set(previous);
-          lock.unlock();
-        }
-      };
+      return () -> {
+	  localContext.set(previous);
+	  lock.unlock();
+	};
     }
-  }
-
-  @Override
-  public void init(FilterConfig filterConfig) throws ServletException {
-    final ServletContext servletContext = filterConfig.getServletContext();
-
-    // Store servlet context in a weakreference, for injection
-    GuiceFilter.servletContext = new WeakReference<>(servletContext);
-
-    // In the default pipeline, this is a noop. However, if replaced
-    // by a managed pipeline, a lazy init will be triggered the first time
-    // dispatch occurs.
-    FilterPipeline filterPipeline = getFilterPipeline();
-    filterPipeline.initPipeline(servletContext);
-  }
-
-  @Override
-  public void destroy() {
-
-    try {
-      // Destroy all registered filters & servlets in that order
-      FilterPipeline filterPipeline = getFilterPipeline();
-      filterPipeline.destroyPipeline();
-
-    } finally {
-      reset();
-      servletContext.clear();
-    }
-  }
-
-  private FilterPipeline getFilterPipeline() {
-    // Prefer the injected pipeline, but fall back on the static one for web.xml users.
-    return (null != injectedPipeline) ? injectedPipeline : pipeline;
   }
 }

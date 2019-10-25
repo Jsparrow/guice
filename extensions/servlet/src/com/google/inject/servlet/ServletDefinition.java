@@ -102,9 +102,7 @@ class ServletDefinition implements ProviderWithExtensionVisitor<ServletDefinitio
     // This absolutely must be a singleton, and so is only initialized once.
     if (!Scopes.isSingleton(injector.getBinding(servletKey))) {
       throw new ServletException(
-          "Servlets must be bound as singletons. "
-              + servletKey
-              + " was not bound in singleton scope.");
+          new StringBuilder().append("Servlets must be bound as singletons. ").append(servletKey).append(" was not bound in singleton scope.").toString());
     }
 
     HttpServlet httpServlet = injector.getInstance(servletKey);

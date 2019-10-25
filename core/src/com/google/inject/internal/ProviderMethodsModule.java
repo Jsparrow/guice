@@ -186,12 +186,8 @@ public final class ProviderMethodsModule implements Module {
                     ? "@Provides"
                     : "@" + annotation.annotationType().getCanonicalName();
             binder.addError(
-                "Overriding "
-                    + annotationString
-                    + " methods is not allowed."
-                    + "\n\t"
-                    + annotationString
-                    + " method: %s\n\toverridden by: %s",
+                new StringBuilder().append("Overriding ").append(annotationString).append(" methods is not allowed.").append("\n\t").append(annotationString).append(" method: %s\n\toverridden by: %s")
+						.toString(),
                 method,
                 matchingSignature);
             break;
@@ -200,16 +196,6 @@ public final class ProviderMethodsModule implements Module {
       }
     }
     return result;
-  }
-
-  private static class MethodAndAnnotation {
-    final Method method;
-    final Annotation annotation;
-
-    MethodAndAnnotation(Method method, Annotation annotation) {
-      this.method = method;
-      this.annotation = annotation;
-    }
   }
 
   /** Returns the annotation that is claimed by the scanner, or null if there is none. */
@@ -234,43 +220,7 @@ public final class ProviderMethodsModule implements Module {
     return annotation;
   }
 
-  private static final class Signature {
-    final Class<?>[] parameters;
-    final String name;
-    final int hashCode;
-
-    Signature(TypeLiteral<?> typeLiteral, Method method) {
-      this.name = method.getName();
-      // We need to 'resolve' the parameters against the actual class type in case this method uses
-      // type parameters.  This is so we can detect overrides of generic superclass methods where
-      // the subclass specifies the type parameter.  javac implements these kinds of overrides via
-      // bridge methods, but we don't want to give errors on bridge methods (but rather the target
-      // of the bridge).
-      List<TypeLiteral<?>> resolvedParameterTypes = typeLiteral.getParameterTypes(method);
-      this.parameters = new Class<?>[resolvedParameterTypes.size()];
-      int i = 0;
-      for (TypeLiteral<?> type : resolvedParameterTypes) {
-        parameters[i] = type.getRawType();
-      }
-      this.hashCode = name.hashCode() + 31 * Arrays.hashCode(parameters);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (obj instanceof Signature) {
-        Signature other = (Signature) obj;
-        return other.name.equals(name) && Arrays.equals(parameters, other.parameters);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return hashCode;
-    }
-  }
-
-  /** Returns true if a overrides b, assumes that the signatures match */
+/** Returns true if a overrides b, assumes that the signatures match */
   private static boolean overrides(Method a, Method b) {
     // See JLS section 8.4.8.1
     int modifiers = b.getModifiers();
@@ -284,7 +234,7 @@ public final class ProviderMethodsModule implements Module {
     return a.getDeclaringClass().getPackage().equals(b.getDeclaringClass().getPackage());
   }
 
-  private <T> ProviderMethod<T> createProviderMethod(
+private <T> ProviderMethod<T> createProviderMethod(
       Binder binder, Method method, Annotation annotation) {
     binder = binder.withSource(method);
     Errors errors = new Errors(method);
@@ -334,20 +284,66 @@ public final class ProviderMethodsModule implements Module {
         annotation);
   }
 
-  <T> Key<T> getKey(Errors errors, TypeLiteral<T> type, Member member, Annotation[] annotations) {
+<T> Key<T> getKey(Errors errors, TypeLiteral<T> type, Member member, Annotation[] annotations) {
     Annotation bindingAnnotation = Annotations.findBindingAnnotation(errors, member, annotations);
     return bindingAnnotation == null ? Key.get(type) : Key.get(type, bindingAnnotation);
   }
 
-  @Override
+@Override
   public boolean equals(Object o) {
     return o instanceof ProviderMethodsModule
         && ((ProviderMethodsModule) o).delegate == delegate
         && ((ProviderMethodsModule) o).scanner == scanner;
   }
 
-  @Override
+@Override
   public int hashCode() {
     return delegate.hashCode();
+  }
+
+private static class MethodAndAnnotation {
+    final Method method;
+    final Annotation annotation;
+
+    MethodAndAnnotation(Method method, Annotation annotation) {
+      this.method = method;
+      this.annotation = annotation;
+    }
+  }
+
+  private static final class Signature {
+    final Class<?>[] parameters;
+    final String name;
+    final int hashCode;
+
+    Signature(TypeLiteral<?> typeLiteral, Method method) {
+      this.name = method.getName();
+      // We need to 'resolve' the parameters against the actual class type in case this method uses
+      // type parameters.  This is so we can detect overrides of generic superclass methods where
+      // the subclass specifies the type parameter.  javac implements these kinds of overrides via
+      // bridge methods, but we don't want to give errors on bridge methods (but rather the target
+      // of the bridge).
+      List<TypeLiteral<?>> resolvedParameterTypes = typeLiteral.getParameterTypes(method);
+      this.parameters = new Class<?>[resolvedParameterTypes.size()];
+      int i = 0;
+      for (TypeLiteral<?> type : resolvedParameterTypes) {
+        parameters[i] = type.getRawType();
+      }
+      this.hashCode = name.hashCode() + 31 * Arrays.hashCode(parameters);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Signature)) {
+		return false;
+	}
+	Signature other = (Signature) obj;
+	return other.name.equals(name) && Arrays.equals(parameters, other.parameters);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
   }
 }

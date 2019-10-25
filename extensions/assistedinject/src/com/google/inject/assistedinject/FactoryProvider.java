@@ -175,17 +175,27 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
   private final TypeLiteral<?> implementationType;
   private final Map<Method, AssistedConstructor<?>> factoryMethodToConstructor;
 
-  public static <F> Provider<F> newFactory(Class<F> factoryType, Class<?> implementationType) {
+  private FactoryProvider(
+      TypeLiteral<F> factoryType,
+      TypeLiteral<?> implementationType,
+      Map<Method, AssistedConstructor<?>> factoryMethodToConstructor) {
+    this.factoryType = factoryType;
+    this.implementationType = implementationType;
+    this.factoryMethodToConstructor = factoryMethodToConstructor;
+    checkDeclaredExceptionsMatch();
+  }
+
+public static <F> Provider<F> newFactory(Class<F> factoryType, Class<?> implementationType) {
     return newFactory(TypeLiteral.get(factoryType), TypeLiteral.get(implementationType));
   }
 
-  public static <F> Provider<F> newFactory(
+public static <F> Provider<F> newFactory(
       TypeLiteral<F> factoryType, TypeLiteral<?> implementationType) {
     Map<Method, AssistedConstructor<?>> factoryMethodToConstructor =
         createMethodMapping(factoryType, implementationType);
 
     if (!factoryMethodToConstructor.isEmpty()) {
-      return new FactoryProvider<F>(factoryType, implementationType, factoryMethodToConstructor);
+      return new FactoryProvider<>(factoryType, implementationType, factoryMethodToConstructor);
     } else {
       BindingCollector collector = new BindingCollector();
 
@@ -206,21 +216,11 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
         throw new ConfigurationException(e.getErrors().getMessages());
       }
 
-      return new FactoryProvider2<F>(Key.get(factoryType), collector);
+      return new FactoryProvider2<>(Key.get(factoryType), collector);
     }
   }
 
-  private FactoryProvider(
-      TypeLiteral<F> factoryType,
-      TypeLiteral<?> implementationType,
-      Map<Method, AssistedConstructor<?>> factoryMethodToConstructor) {
-    this.factoryType = factoryType;
-    this.implementationType = implementationType;
-    this.factoryMethodToConstructor = factoryMethodToConstructor;
-    checkDeclaredExceptionsMatch();
-  }
-
-  @Inject
+@Inject
   void setInjectorAndCheckUnboundParametersAreInjectable(Injector injector) {
     this.injector = injector;
     for (AssistedConstructor<?> c : factoryMethodToConstructor.values()) {
@@ -238,7 +238,7 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
     }
   }
 
-  private void checkDeclaredExceptionsMatch() {
+private void checkDeclaredExceptionsMatch() {
     for (Map.Entry<Method, AssistedConstructor<?>> entry : factoryMethodToConstructor.entrySet()) {
       for (Class<?> constructorException : entry.getValue().getDeclaredExceptions()) {
         if (!isConstructorExceptionCompatibleWithFactoryExeception(
@@ -252,7 +252,7 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
     }
   }
 
-  private boolean isConstructorExceptionCompatibleWithFactoryExeception(
+private boolean isConstructorExceptionCompatibleWithFactoryExeception(
       Class<?> constructorException, Class<?>[] factoryExceptions) {
     for (Class<?> factoryException : factoryExceptions) {
       if (factoryException.isAssignableFrom(constructorException)) {
@@ -262,11 +262,11 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
     return false;
   }
 
-  private boolean paramCanBeInjected(Parameter parameter, Injector injector) {
+private boolean paramCanBeInjected(Parameter parameter, Injector injector) {
     return parameter.isBound(injector);
   }
 
-  private static Map<Method, AssistedConstructor<?>> createMethodMapping(
+private static Map<Method, AssistedConstructor<?>> createMethodMapping(
       TypeLiteral<?> factoryType, TypeLiteral<?> implementationType) {
     List<AssistedConstructor<?>> constructors = Lists.newArrayList();
 
@@ -326,9 +326,7 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
         for (Annotation parameterAnnotation : parameterAnnotations) {
           if (parameterAnnotation.annotationType() == Assisted.class) {
             throw newConfigurationException(
-                "Factory method %s has an @Assisted parameter, which "
-                    + "is incompatible with the deprecated @AssistedInject annotation. Please replace "
-                    + "@AssistedInject with @Inject on the %s constructor.",
+                new StringBuilder().append("Factory method %s has an @Assisted parameter, which ").append("is incompatible with the deprecated @AssistedInject annotation. Please replace ").append("@AssistedInject with @Inject on the %s constructor.").toString(),
                 method, implementationType);
           }
         }
@@ -341,20 +339,16 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
     return result;
   }
 
-  @Override
+@Override
   public Set<Dependency<?>> getDependencies() {
     List<Dependency<?>> dependencies = Lists.newArrayList();
     for (AssistedConstructor<?> constructor : factoryMethodToConstructor.values()) {
-      for (Parameter parameter : constructor.getAllParameters()) {
-        if (!parameter.isProvidedByFactory()) {
-          dependencies.add(Dependency.get(parameter.getPrimaryBindingKey()));
-        }
-      }
+      constructor.getAllParameters().stream().filter(parameter -> !parameter.isProvidedByFactory()).forEach(parameter -> dependencies.add(Dependency.get(parameter.getPrimaryBindingKey())));
     }
     return ImmutableSet.copyOf(dependencies);
   }
 
-  @Override
+@Override
   public F get() {
     InvocationHandler invocationHandler =
         new InvocationHandler() {
@@ -407,12 +401,12 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
             invocationHandler));
   }
 
-  @Override
+@Override
   public int hashCode() {
     return Objects.hashCode(factoryType, implementationType);
   }
 
-  @Override
+@Override
   public boolean equals(Object obj) {
     if (!(obj instanceof FactoryProvider)) {
       return false;
@@ -422,7 +416,7 @@ public class FactoryProvider<F> implements Provider<F>, HasDependencies {
         && implementationType.equals(other.implementationType);
   }
 
-  private static ConfigurationException newConfigurationException(String format, Object... args) {
+private static ConfigurationException newConfigurationException(String format, Object... args) {
     return new ConfigurationException(ImmutableSet.of(new Message(Errors.format(format, args))));
   }
 }

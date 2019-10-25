@@ -49,14 +49,70 @@ public class CheckedProviderMethodsModuleTest extends TestCase {
 
   private final TestScope testScope = new TestScope();
 
-  interface RpcProvider<T> extends CheckedProvider<T> {
+  public void testNoAnnotationNoScope() throws BindException, RemoteException {
+    Injector injector = Guice.createInjector(new TestModule());
+    RpcProvider<String> provider = injector.getInstance(Key.get(rpcProviderOfString));
+    assertEquals("Works", provider.get());
+  }
+
+public void testWithScope() throws BindException, RemoteException {
+    TestModule testModule = new TestModule();
+    Injector injector = Guice.createInjector(testModule);
+    RpcProvider<Integer> provider = injector.getInstance(Key.get(rpcProviderOfInteger));
+
+    assertEquals((Integer) 100, provider.get());
+    testModule.setNextIntToReturn(120);
+    assertEquals((Integer) 100, provider.get());
+    testScope.beginNewScope();
+    assertEquals((Integer) 120, provider.get());
+  }
+
+public void testWithAnnotation() throws BindException, RemoteException {
+    TestModule testModule = new TestModule();
+    Injector injector = Guice.createInjector(testModule);
+    RpcProvider<Long> provider =
+        injector.getInstance(Key.get(rpcProviderOfLong, TestAnnotation.class));
+    assertEquals((Long) 0xffL, provider.get());
+  }
+
+public void testWithInjectedParameters() throws BindException, RemoteException {
+    TestModule testModule = new TestModule();
+    Injector injector = Guice.createInjector(testModule);
+    RpcProvider<Pair<Double, String>> provider = injector.getInstance(Key.get(rpcProviderOfPair));
+    Pair<Double, String> pair = provider.get();
+    assertEquals(pair.first, 4.0d, 0.0);
+  }
+
+public void testWithThrownException() {
+    TestModule testModule = new TestModule();
+    Injector injector = Guice.createInjector(testModule);
+    RpcProvider<Float> provider = injector.getInstance(Key.get(rpcProviderOfFloat));
+    try {
+      provider.get();
+      fail();
+    } catch (RemoteException e) {
+      fail();
+    } catch (BindException e) {
+      // good
+    }
+  }
+
+public void testExposedMethod() throws BindException, RemoteException {
+    TestModule testModule = new TestModule();
+    Injector injector = Guice.createInjector(testModule);
+    RpcProvider<String> provider =
+        injector.getInstance(Key.get(rpcProviderOfString, Names.named("fruit")));
+    assertEquals("apple", provider.get());
+  }
+
+@Retention(RetentionPolicy.RUNTIME)
+  @BindingAnnotation
+  @interface TestAnnotation {}
+
+interface RpcProvider<T> extends CheckedProvider<T> {
     @Override
     T get() throws RemoteException, BindException;
   }
-
-  @Retention(RetentionPolicy.RUNTIME)
-  @BindingAnnotation
-  @interface TestAnnotation {}
 
   class TestModule extends AbstractModule {
 
@@ -93,7 +149,7 @@ public class CheckedProviderMethodsModuleTest extends TestCase {
 
     @CheckedProvides(RpcProvider.class)
     Pair<Double, String> getSomePair(Double input) {
-      return new Pair<Double, String>(input * 2, "foo");
+      return new Pair<>(input * 2, "foo");
     }
 
     @CheckedProvides(RpcProvider.class)
@@ -119,62 +175,6 @@ public class CheckedProviderMethodsModuleTest extends TestCase {
     String provideApples() {
       return "apple";
     }
-  }
-
-  public void testNoAnnotationNoScope() throws BindException, RemoteException {
-    Injector injector = Guice.createInjector(new TestModule());
-    RpcProvider<String> provider = injector.getInstance(Key.get(rpcProviderOfString));
-    assertEquals("Works", provider.get());
-  }
-
-  public void testWithScope() throws BindException, RemoteException {
-    TestModule testModule = new TestModule();
-    Injector injector = Guice.createInjector(testModule);
-    RpcProvider<Integer> provider = injector.getInstance(Key.get(rpcProviderOfInteger));
-
-    assertEquals((Integer) 100, provider.get());
-    testModule.setNextIntToReturn(120);
-    assertEquals((Integer) 100, provider.get());
-    testScope.beginNewScope();
-    assertEquals((Integer) 120, provider.get());
-  }
-
-  public void testWithAnnotation() throws BindException, RemoteException {
-    TestModule testModule = new TestModule();
-    Injector injector = Guice.createInjector(testModule);
-    RpcProvider<Long> provider =
-        injector.getInstance(Key.get(rpcProviderOfLong, TestAnnotation.class));
-    assertEquals((Long) 0xffL, provider.get());
-  }
-
-  public void testWithInjectedParameters() throws BindException, RemoteException {
-    TestModule testModule = new TestModule();
-    Injector injector = Guice.createInjector(testModule);
-    RpcProvider<Pair<Double, String>> provider = injector.getInstance(Key.get(rpcProviderOfPair));
-    Pair<Double, String> pair = provider.get();
-    assertEquals(pair.first, 4.0d, 0.0);
-  }
-
-  public void testWithThrownException() {
-    TestModule testModule = new TestModule();
-    Injector injector = Guice.createInjector(testModule);
-    RpcProvider<Float> provider = injector.getInstance(Key.get(rpcProviderOfFloat));
-    try {
-      provider.get();
-      fail();
-    } catch (RemoteException e) {
-      fail();
-    } catch (BindException e) {
-      // good
-    }
-  }
-
-  public void testExposedMethod() throws BindException, RemoteException {
-    TestModule testModule = new TestModule();
-    Injector injector = Guice.createInjector(testModule);
-    RpcProvider<String> provider =
-        injector.getInstance(Key.get(rpcProviderOfString, Names.named("fruit")));
-    assertEquals("apple", provider.get());
   }
 
   private static class Pair<A, B> {

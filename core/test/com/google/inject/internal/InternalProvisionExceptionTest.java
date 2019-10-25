@@ -33,13 +33,7 @@ public final class InternalProvisionExceptionTest extends TestCase {
                 .toProvisionException()
                 .getMessage())
         .isEqualTo(
-            ""
-                + "Unable to provision, see the following errors:\n"
-                + "\n"
-                + "1) An error\n"
-                + "  at Source1\n"
-                + "  at Source2\n"
-                + "\n"
-                + "1 error");
+            new StringBuilder().append("").append("Unable to provision, see the following errors:\n").append("\n").append("1) An error\n").append("  at Source1\n").append("  at Source2\n").append("\n").append("1 error")
+					.toString());
   }
 }

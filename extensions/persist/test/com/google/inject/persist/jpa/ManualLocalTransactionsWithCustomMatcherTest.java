@@ -38,58 +38,58 @@ import junit.framework.TestCase;
  */
 
 public class ManualLocalTransactionsWithCustomMatcherTest extends TestCase {
-  private Injector injector;
   private static final String UNIQUE_TEXT = "some unique text" + new Date();
-  private static final String UNIQUE_TEXT_2 = "some other unique text" + new Date();
+	private static final String UNIQUE_TEXT_2 = "some other unique text" + new Date();
+	private Injector injector;
 
-  @Override
-  public void setUp() {
-    injector = Guice.createInjector(new JpaPersistModule("testUnit"));
+	@Override
+	  public void setUp() {
+	    injector = Guice.createInjector(new JpaPersistModule("testUnit"));
+	
+	    //startup persistence
+	    injector.getInstance(PersistService.class).start();
+	  }
 
-    //startup persistence
-    injector.getInstance(PersistService.class).start();
-  }
+	@Override
+	  public void tearDown() {
+	    injector.getInstance(EntityManagerFactory.class).close();
+	  }
 
-  @Override
-  public void tearDown() {
-    injector.getInstance(EntityManagerFactory.class).close();
-  }
+	public void testSimpleCrossTxnWork() {
+	    //pretend that the request was started here
+	    EntityManager em = injector.getInstance(EntityManager.class);
+	
+	    JpaTestEntity entity =
+	        injector
+	            .getInstance(ManualLocalTransactionsWithCustomMatcherTest.TransactionalObject.class)
+	            .runOperationInTxn();
+	    injector
+	        .getInstance(ManualLocalTransactionsWithCustomMatcherTest.TransactionalObject.class)
+	        .runOperationInTxn2();
+	
+	    //persisted entity should remain in the same em (which should still be open)
+	    assertTrue(
+	        "EntityManager  appears to have been closed across txns!",
+	        injector.getInstance(EntityManager.class).contains(entity));
+	    assertTrue("EntityManager  appears to have been closed across txns!", em.contains(entity));
+	    assertTrue("EntityManager appears to have been closed across txns!", em.isOpen());
+	
+	    injector.getInstance(UnitOfWork.class).end();
+	
+	    //try to query them back out
+	    em = injector.getInstance(EntityManager.class);
+	    assertNotNull(
+	        em.createQuery("from JpaTestEntity where text = :text")
+	            .setParameter("text", UNIQUE_TEXT)
+	            .getSingleResult());
+	    assertNotNull(
+	        em.createQuery("from JpaTestEntity where text = :text")
+	            .setParameter("text", UNIQUE_TEXT_2)
+	            .getSingleResult());
+	    em.close();
+	  }
 
-  public void testSimpleCrossTxnWork() {
-    //pretend that the request was started here
-    EntityManager em = injector.getInstance(EntityManager.class);
-
-    JpaTestEntity entity =
-        injector
-            .getInstance(ManualLocalTransactionsWithCustomMatcherTest.TransactionalObject.class)
-            .runOperationInTxn();
-    injector
-        .getInstance(ManualLocalTransactionsWithCustomMatcherTest.TransactionalObject.class)
-        .runOperationInTxn2();
-
-    //persisted entity should remain in the same em (which should still be open)
-    assertTrue(
-        "EntityManager  appears to have been closed across txns!",
-        injector.getInstance(EntityManager.class).contains(entity));
-    assertTrue("EntityManager  appears to have been closed across txns!", em.contains(entity));
-    assertTrue("EntityManager appears to have been closed across txns!", em.isOpen());
-
-    injector.getInstance(UnitOfWork.class).end();
-
-    //try to query them back out
-    em = injector.getInstance(EntityManager.class);
-    assertNotNull(
-        em.createQuery("from JpaTestEntity where text = :text")
-            .setParameter("text", UNIQUE_TEXT)
-            .getSingleResult());
-    assertNotNull(
-        em.createQuery("from JpaTestEntity where text = :text")
-            .setParameter("text", UNIQUE_TEXT_2)
-            .getSingleResult());
-    em.close();
-  }
-
-  public static class TransactionalObject {
+public static class TransactionalObject {
     @Inject EntityManager em;
 
     @Transactional

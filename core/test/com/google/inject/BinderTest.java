@@ -55,7 +55,7 @@ public class BinderTest extends TestCase {
         public void flush() {}
 
         @Override
-        public void close() throws SecurityException {}
+        public void close() {}
       };
 
   Provider<Foo> fooProvider;
@@ -91,8 +91,6 @@ public class BinderTest extends TestCase {
     assertNotNull(fooProvider.get());
   }
 
-  static class Foo {}
-
   public void testMissingBindings() {
     try {
       Guice.createInjector(
@@ -126,15 +124,11 @@ public class BinderTest extends TestCase {
     } catch (CreationException e) {
       assertEquals(4, e.getErrorMessages().size());
       String segment1 = "No implementation for java.lang.Runnable was bound.";
-      String segment2 = "No implementation for " + Comparator.class.getName() + " was bound.";
+      String segment2 = new StringBuilder().append("No implementation for ").append(Comparator.class.getName()).append(" was bound.").toString();
       String segment3 =
           "No implementation for java.util.concurrent.Callable<java.lang.String> was" + " bound.";
       String segment4 =
-          "No implementation for java.util.Date annotated with @"
-              + Named.class.getName()
-              + "(value="
-              + Annotations.memberValueString("date")
-              + ") was bound.";
+          new StringBuilder().append("No implementation for java.util.Date annotated with @").append(Named.class.getName()).append("(value=").append(Annotations.memberValueString("date")).append(") was bound.").toString();
       String atSegment = "at " + getClass().getName();
       String sourceFileName = getDeclaringSourcePart(getClass());
       assertContains(
@@ -154,7 +148,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  public void testMissingDependency() {
+public void testMissingDependency() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -176,11 +170,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  static class NeedsRunnable {
-    @Inject Runnable runnable;
-  }
-
-  public void testDanglingConstantBinding() {
+public void testDanglingConstantBinding() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -198,7 +188,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  public void testRecursiveBinding() {
+public void testRecursiveBinding() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -217,7 +207,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  public void testBindingNullConstant() {
+public void testBindingNullConstant() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -237,7 +227,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  public void testToStringOnBinderApi() {
+public void testToStringOnBinderApi() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -267,7 +257,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  public void testNothingIsSerializableInBinderApi() {
+public void testNothingIsSerializableInBinderApi() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -291,7 +281,7 @@ public class BinderTest extends TestCase {
     }
   }
 
-  /**
+/**
    * Although {@code String[].class} isn't equal to {@code new GenericArrayTypeImpl(String.class)},
    * Guice should treat these two types interchangeably.
    */
@@ -350,6 +340,236 @@ public class BinderTest extends TestCase {
     assertSame(strings, injector.getInstance(String[].class));
   }
 
+/** Binding something to two different things should give an error. */
+  public void testSettingBindingTwice() {
+    try {
+      Guice.createInjector(new ParentModule());
+      fail();
+    } catch (CreationException expected) {
+      assertContains(
+          expected.getMessage(),
+          "1) A binding to java.lang.String was already configured at "
+              + ConstantModule.class.getName(),
+          asModuleChain(ParentModule.class, FooModule.class, ConstantModule.class),
+          "at " + ConstantModule.class.getName(),
+          getDeclaringSourcePart(getClass()),
+          asModuleChain(ParentModule.class, BarModule.class, ConstantModule.class));
+      assertContains(expected.getMessage(), "1 error");
+    }
+  }
+
+/** Binding an @ImplementedBy thing to something else should also fail. */
+  public void testSettingAtImplementedByTwice() {
+    try {
+      Guice.createInjector(
+          new AbstractModule() {
+            @Override
+            protected void configure() {
+              bind(HasImplementedBy1.class);
+              bind(HasImplementedBy1.class).toInstance(new HasImplementedBy1() {});
+            }
+          });
+      fail();
+    } catch (CreationException expected) {
+      expected.printStackTrace();
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("1) A binding to ").append(HasImplementedBy1.class.getName()).append(" was already configured at ").append(getClass().getName()).toString(),
+          "at " + getClass().getName(),
+          getDeclaringSourcePart(getClass()));
+      assertContains(expected.getMessage(), "1 error");
+    }
+  }
+
+/** See issue 614, Problem One https://github.com/google/guice/issues/614 */
+  public void testJitDependencyDoesntBlockOtherExplicitBindings() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(HasImplementedByThatNeedsAnotherImplementedBy.class);
+                bind(HasImplementedBy1.class).toInstance(new HasImplementedBy1() {});
+              }
+            });
+    injector.getAllBindings(); // just validate it doesn't throw.
+    // Also validate that we're using the explicit (and not @ImplementedBy) implementation
+    assertFalse(
+        injector.getInstance(HasImplementedBy1.class) instanceof ImplementsHasImplementedBy1);
+  }
+
+/** See issue 614, Problem Two https://github.com/google/guice/issues/id=614 */
+  public void testJitDependencyCanUseExplicitDependencies() {
+    Guice.createInjector(
+        new AbstractModule() {
+          @Override
+          protected void configure() {
+            bind(HasImplementedByThatWantsExplicit.class);
+            bind(JustAnInterface.class).toInstance(new JustAnInterface() {});
+          }
+        });
+  }
+
+/**
+   * Untargetted bindings should follow @ImplementedBy and @ProvidedBy annotations if they exist.
+   * Otherwise the class should be constructed directly.
+   */
+  public void testUntargettedBinding() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(HasProvidedBy1.class);
+                bind(HasImplementedBy1.class);
+                bind(HasProvidedBy2.class);
+                bind(HasImplementedBy2.class);
+                bind(JustAClass.class);
+              }
+            });
+
+    assertNotNull(injector.getInstance(HasProvidedBy1.class));
+    assertNotNull(injector.getInstance(HasImplementedBy1.class));
+    assertNotSame(HasProvidedBy2.class, injector.getInstance(HasProvidedBy2.class).getClass());
+    assertSame(
+        ExtendsHasImplementedBy2.class, injector.getInstance(HasImplementedBy2.class).getClass());
+    assertSame(JustAClass.class, injector.getInstance(JustAClass.class).getClass());
+  }
+
+public void testPartialInjectorGetInstance() {
+    Injector injector = Guice.createInjector();
+    try {
+      injector.getInstance(MissingParameter.class);
+      fail();
+    } catch (ConfigurationException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("1) No implementation for ").append(NoInjectConstructor.class.getName()).append(" (with no qualifier annotation) was bound, and could not find an injectable").append(" constructor").toString(),
+          new StringBuilder().append("for the 1st parameter of ").append(MissingParameter.class.getName()).append(".<init>(BinderTest.java:").toString());
+    }
+  }
+
+public void testUserReportedError() {
+    final Message message = new Message(getClass(), "Whoops!");
+    try {
+      Guice.createInjector(
+          new AbstractModule() {
+            @Override
+            protected void configure() {
+              addError(message);
+            }
+          });
+      fail();
+    } catch (CreationException expected) {
+      assertSame(message, Iterables.getOnlyElement(expected.getErrorMessages()));
+    }
+  }
+
+public void testUserReportedErrorsAreAlsoLogged() {
+    try {
+      Guice.createInjector(
+          new AbstractModule() {
+            @Override
+            protected void configure() {
+              addError(new Message("Whoops!", new IllegalArgumentException()));
+            }
+          });
+      fail();
+    } catch (CreationException expected) {
+    }
+
+    LogRecord logRecord = Iterables.getOnlyElement(this.logRecords);
+    assertContains(
+        logRecord.getMessage(),
+        "An exception was caught and reported. Message: java.lang.IllegalArgumentException");
+  }
+
+public void testBindingToProvider() {
+    try {
+      Guice.createInjector(
+          new AbstractModule() {
+            @Override
+            protected void configure() {
+              bind(new TypeLiteral<Provider<String>>() {}).toInstance(Providers.of("A"));
+            }
+          });
+      fail();
+    } catch (CreationException expected) {
+      assertContains(
+          expected.getMessage(),
+          "1) Binding to Provider is not allowed.",
+          "at " + BinderTest.class.getName(),
+          getDeclaringSourcePart(getClass()));
+    }
+  }
+
+public void testCannotBindToGuiceTypes() {
+    try {
+      Guice.createInjector(new OuterCoreModule());
+      fail();
+    } catch (CreationException expected) {
+      assertContains(
+          expected.getMessage(),
+          "Binding to core guice framework type is not allowed: AbstractModule.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Binder.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Binding.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Injector.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Key.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Module.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to Provider is not allowed.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Scope.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Stage.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: TypeLiteral.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
+          "Binding to core guice framework type is not allowed: Key.",
+          new StringBuilder().append("at ").append(InnerCoreModule.class.getName()).append(getDeclaringSourcePart(getClass())).toString(),
+          asModuleChain(OuterCoreModule.class, InnerCoreModule.class));
+    }
+  }
+
+public void testInjectRawProvider() {
+    try {
+      Guice.createInjector().getInstance(Provider.class);
+      fail();
+    } catch (ConfigurationException expected) {
+      Asserts.assertContains(
+          expected.getMessage(),
+          "1) Cannot inject a Provider that has no type parameter",
+          "while locating " + Provider.class.getName());
+    }
+  }
+
+enum Roshambo {
+    ROCK,
+    SCISSORS,
+    PAPER
+  }
+
+static class Foo {}
+
+  static class NeedsRunnable {
+    @Inject Runnable runnable;
+  }
+
   static class ParentModule extends AbstractModule {
     @Override
     protected void configure() {
@@ -385,177 +605,6 @@ public class BinderTest extends TestCase {
     }
   }
 
-  /** Binding something to two different things should give an error. */
-  public void testSettingBindingTwice() {
-    try {
-      Guice.createInjector(new ParentModule());
-      fail();
-    } catch (CreationException expected) {
-      assertContains(
-          expected.getMessage(),
-          "1) A binding to java.lang.String was already configured at "
-              + ConstantModule.class.getName(),
-          asModuleChain(ParentModule.class, FooModule.class, ConstantModule.class),
-          "at " + ConstantModule.class.getName(),
-          getDeclaringSourcePart(getClass()),
-          asModuleChain(ParentModule.class, BarModule.class, ConstantModule.class));
-      assertContains(expected.getMessage(), "1 error");
-    }
-  }
-
-  /** Binding an @ImplementedBy thing to something else should also fail. */
-  public void testSettingAtImplementedByTwice() {
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              bind(HasImplementedBy1.class);
-              bind(HasImplementedBy1.class).toInstance(new HasImplementedBy1() {});
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-      expected.printStackTrace();
-      assertContains(
-          expected.getMessage(),
-          "1) A binding to "
-              + HasImplementedBy1.class.getName()
-              + " was already configured at "
-              + getClass().getName(),
-          "at " + getClass().getName(),
-          getDeclaringSourcePart(getClass()));
-      assertContains(expected.getMessage(), "1 error");
-    }
-  }
-
-  /** See issue 614, Problem One https://github.com/google/guice/issues/614 */
-  public void testJitDependencyDoesntBlockOtherExplicitBindings() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(HasImplementedByThatNeedsAnotherImplementedBy.class);
-                bind(HasImplementedBy1.class).toInstance(new HasImplementedBy1() {});
-              }
-            });
-    injector.getAllBindings(); // just validate it doesn't throw.
-    // Also validate that we're using the explicit (and not @ImplementedBy) implementation
-    assertFalse(
-        injector.getInstance(HasImplementedBy1.class) instanceof ImplementsHasImplementedBy1);
-  }
-
-  /** See issue 614, Problem Two https://github.com/google/guice/issues/id=614 */
-  public void testJitDependencyCanUseExplicitDependencies() {
-    Guice.createInjector(
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            bind(HasImplementedByThatWantsExplicit.class);
-            bind(JustAnInterface.class).toInstance(new JustAnInterface() {});
-          }
-        });
-  }
-
-  /**
-   * Untargetted bindings should follow @ImplementedBy and @ProvidedBy annotations if they exist.
-   * Otherwise the class should be constructed directly.
-   */
-  public void testUntargettedBinding() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(HasProvidedBy1.class);
-                bind(HasImplementedBy1.class);
-                bind(HasProvidedBy2.class);
-                bind(HasImplementedBy2.class);
-                bind(JustAClass.class);
-              }
-            });
-
-    assertNotNull(injector.getInstance(HasProvidedBy1.class));
-    assertNotNull(injector.getInstance(HasImplementedBy1.class));
-    assertNotSame(HasProvidedBy2.class, injector.getInstance(HasProvidedBy2.class).getClass());
-    assertSame(
-        ExtendsHasImplementedBy2.class, injector.getInstance(HasImplementedBy2.class).getClass());
-    assertSame(JustAClass.class, injector.getInstance(JustAClass.class).getClass());
-  }
-
-  public void testPartialInjectorGetInstance() {
-    Injector injector = Guice.createInjector();
-    try {
-      injector.getInstance(MissingParameter.class);
-      fail();
-    } catch (ConfigurationException expected) {
-      assertContains(
-          expected.getMessage(),
-          "1) No implementation for "
-              + NoInjectConstructor.class.getName()
-              + " (with no qualifier annotation) was bound, and could not find an injectable"
-              + " constructor",
-          "for the 1st parameter of "
-              + MissingParameter.class.getName()
-              + ".<init>(BinderTest.java:");
-    }
-  }
-
-  public void testUserReportedError() {
-    final Message message = new Message(getClass(), "Whoops!");
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              addError(message);
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-      assertSame(message, Iterables.getOnlyElement(expected.getErrorMessages()));
-    }
-  }
-
-  public void testUserReportedErrorsAreAlsoLogged() {
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              addError(new Message("Whoops!", new IllegalArgumentException()));
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-    }
-
-    LogRecord logRecord = Iterables.getOnlyElement(this.logRecords);
-    assertContains(
-        logRecord.getMessage(),
-        "An exception was caught and reported. Message: java.lang.IllegalArgumentException");
-  }
-
-  public void testBindingToProvider() {
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              bind(new TypeLiteral<Provider<String>>() {}).toInstance(Providers.of("A"));
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-      assertContains(
-          expected.getMessage(),
-          "1) Binding to Provider is not allowed.",
-          "at " + BinderTest.class.getName(),
-          getDeclaringSourcePart(getClass()));
-    }
-  }
-
   static class OuterCoreModule extends AbstractModule {
     @Override
     protected void configure() {
@@ -579,49 +628,6 @@ public class BinderTest extends TestCase {
       bind(Stage.class).annotatedWith(red).toProvider(Providers.<Stage>of(null));
       bind(TypeLiteral.class).annotatedWith(red).toProvider(Providers.<TypeLiteral>of(null));
       bind(new TypeLiteral<Key<String>>() {}).toProvider(Providers.<Key<String>>of(null));
-    }
-  }
-
-  public void testCannotBindToGuiceTypes() {
-    try {
-      Guice.createInjector(new OuterCoreModule());
-      fail();
-    } catch (CreationException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Binding to core guice framework type is not allowed: AbstractModule.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Binder.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Binding.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Injector.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Key.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Module.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to Provider is not allowed.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Scope.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Stage.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: TypeLiteral.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class),
-          "Binding to core guice framework type is not allowed: Key.",
-          "at " + InnerCoreModule.class.getName() + getDeclaringSourcePart(getClass()),
-          asModuleChain(OuterCoreModule.class, InnerCoreModule.class));
     }
   }
 
@@ -694,21 +700,4 @@ public class BinderTest extends TestCase {
   //    }).getInstance(Runnable.class);
   //  }
 
-  enum Roshambo {
-    ROCK,
-    SCISSORS,
-    PAPER
-  }
-
-  public void testInjectRawProvider() {
-    try {
-      Guice.createInjector().getInstance(Provider.class);
-      fail();
-    } catch (ConfigurationException expected) {
-      Asserts.assertContains(
-          expected.getMessage(),
-          "1) Cannot inject a Provider that has no type parameter",
-          "while locating " + Provider.class.getName());
-    }
-  }
 }

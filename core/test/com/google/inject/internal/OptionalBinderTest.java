@@ -238,16 +238,6 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(null, optionalJxP.get().get());
   }
 
-  private static class JitBinding {
-    @Inject
-    JitBinding() {}
-  }
-
-  private static class DependsOnJitBinding {
-    @Inject
-    DependsOnJitBinding(JitBinding jitBinding) {}
-  }
-
   // A previous version of OptionalBinder would fail to find jit dependendencies that were created
   // by other bindings
   public void testOptionalBinderDependsOnJitBinding() {
@@ -308,11 +298,11 @@ public class OptionalBinderTest extends TestCase {
     assertNotNull(injector.getExistingBinding(Key.get(JitBinding.class)));
   }
 
-  public <T> Key<Optional<T>> optionalKey(Class<T> type) {
+public <T> Key<Optional<T>> optionalKey(Class<T> type) {
     return Key.get(RealOptionalBinder.optionalOf(TypeLiteral.get(type)));
   }
 
-  public void testSetDefault() throws Exception {
+public void testSetDefault() throws Exception {
     Module module =
         new AbstractModule() {
           @Override
@@ -352,7 +342,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("a", optionalJxP.get().get());
   }
 
-  public void testSetBinding() throws Exception {
+public void testSetBinding() throws Exception {
     Module module =
         new AbstractModule() {
           @Override
@@ -392,7 +382,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("a", optionalJxP.get().get());
   }
 
-  public void testSetBindingOverridesDefault() throws Exception {
+public void testSetBindingOverridesDefault() throws Exception {
     Module module =
         new AbstractModule() {
           @Override
@@ -436,7 +426,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("b", optionalJxP.get().get());
   }
 
-  public void testSpreadAcrossModules() throws Exception {
+public void testSpreadAcrossModules() throws Exception {
     Module module1 =
         new AbstractModule() {
           @Override
@@ -498,17 +488,17 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("b", optionalJxP.get().get());
   }
 
-  public void testExactSameBindingCollapses_defaults() throws Exception {
+public void testExactSameBindingCollapses_defaults() throws Exception {
     Module module =
         new AbstractModule() {
           @Override
           protected void configure() {
             OptionalBinder.newOptionalBinder(binder(), String.class)
                 .setDefault()
-                .toInstance(new String("a")); // using new String to ensure .equals is checked.
+                .toInstance("a"); // using new String to ensure .equals is checked.
             OptionalBinder.newOptionalBinder(binder(), String.class)
                 .setDefault()
-                .toInstance(new String("a"));
+                .toInstance("a");
           }
         };
     Injector injector = Guice.createInjector(module);
@@ -543,17 +533,17 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("a", optionalJxP.get().get());
   }
 
-  public void testExactSameBindingCollapses_actual() throws Exception {
+public void testExactSameBindingCollapses_actual() throws Exception {
     Module module =
         new AbstractModule() {
           @Override
           protected void configure() {
             OptionalBinder.newOptionalBinder(binder(), String.class)
                 .setBinding()
-                .toInstance(new String("a")); // using new String to ensure .equals is checked.
+                .toInstance("a"); // using new String to ensure .equals is checked.
             OptionalBinder.newOptionalBinder(binder(), String.class)
                 .setBinding()
-                .toInstance(new String("a"));
+                .toInstance("a");
           }
         };
     Injector injector = Guice.createInjector(module);
@@ -588,7 +578,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("a", optionalJxP.get().get());
   }
 
-  public void testDifferentBindingsFail_defaults() {
+public void testDifferentBindingsFail_defaults() {
     Module module =
         new AbstractModule() {
           @Override
@@ -604,16 +594,12 @@ public class OptionalBinderTest extends TestCase {
       assertEquals(ce.getMessage(), 1, ce.getErrorMessages().size());
       assertContains(
           ce.getMessage(),
-          "1) A binding to java.lang.String annotated with @"
-              + RealOptionalBinder.Default.class.getName()
-              + " was already configured at "
-              + module.getClass().getName()
-              + ".configure(",
-          "at " + module.getClass().getName() + ".configure(");
+          new StringBuilder().append("1) A binding to java.lang.String annotated with @").append(RealOptionalBinder.Default.class.getName()).append(" was already configured at ").append(module.getClass().getName()).append(".configure(").toString(),
+          new StringBuilder().append("at ").append(module.getClass().getName()).append(".configure(").toString());
     }
   }
 
-  public void testDifferentBindingsFail_actual() {
+public void testDifferentBindingsFail_actual() {
     Module module =
         new AbstractModule() {
           @Override
@@ -629,16 +615,12 @@ public class OptionalBinderTest extends TestCase {
       assertEquals(ce.getMessage(), 1, ce.getErrorMessages().size());
       assertContains(
           ce.getMessage(),
-          "1) A binding to java.lang.String annotated with @"
-              + RealOptionalBinder.Actual.class.getName()
-              + " was already configured at "
-              + module.getClass().getName()
-              + ".configure(",
-          "at " + module.getClass().getName() + ".configure(");
+          new StringBuilder().append("1) A binding to java.lang.String annotated with @").append(RealOptionalBinder.Actual.class.getName()).append(" was already configured at ").append(module.getClass().getName()).append(".configure(").toString(),
+          new StringBuilder().append("at ").append(module.getClass().getName()).append(".configure(").toString());
     }
   }
 
-  public void testDifferentBindingsFail_both() {
+public void testDifferentBindingsFail_both() {
     Module module =
         new AbstractModule() {
           @Override
@@ -656,22 +638,14 @@ public class OptionalBinderTest extends TestCase {
       assertEquals(ce.getMessage(), 2, ce.getErrorMessages().size());
       assertContains(
           ce.getMessage(),
-          "1) A binding to java.lang.String annotated with @"
-              + RealOptionalBinder.Default.class.getName()
-              + " was already configured at "
-              + module.getClass().getName()
-              + ".configure(",
-          "at " + module.getClass().getName() + ".configure(",
-          "2) A binding to java.lang.String annotated with @"
-              + RealOptionalBinder.Actual.class.getName()
-              + " was already configured at "
-              + module.getClass().getName()
-              + ".configure(",
-          "at " + module.getClass().getName() + ".configure(");
+          new StringBuilder().append("1) A binding to java.lang.String annotated with @").append(RealOptionalBinder.Default.class.getName()).append(" was already configured at ").append(module.getClass().getName()).append(".configure(").toString(),
+          new StringBuilder().append("at ").append(module.getClass().getName()).append(".configure(").toString(),
+          new StringBuilder().append("2) A binding to java.lang.String annotated with @").append(RealOptionalBinder.Actual.class.getName()).append(" was already configured at ").append(module.getClass().getName()).append(".configure(").toString(),
+          new StringBuilder().append("at ").append(module.getClass().getName()).append(".configure(").toString());
     }
   }
 
-  public void testQualifiedAggregatesTogether() throws Exception {
+public void testQualifiedAggregatesTogether() throws Exception {
     Module module1 =
         new AbstractModule() {
           @Override
@@ -743,7 +717,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("b", optionalJxP.get().get());
   }
 
-  public void testMultipleDifferentOptionals() {
+public void testMultipleDifferentOptionals() {
     final Key<String> bKey = Key.get(String.class, named("b"));
     final Key<String> cKey = Key.get(String.class, named("c"));
     Module module =
@@ -769,7 +743,7 @@ public class OptionalBinderTest extends TestCase {
     assertOptionalVisitor(cKey, setOf(module), VisitType.BOTH, 3, instance("c"), null, null);
   }
 
-  public void testOptionalIsAppropriatelyLazy() throws Exception {
+public void testOptionalIsAppropriatelyLazy() throws Exception {
     Module module =
         new AbstractModule() {
           int nextValue = 1;
@@ -828,7 +802,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(14, optionalJxP.get().get().intValue());
   }
 
-  public void testLinkedToNullProvidersMakeAbsentValuesAndPresentProviders_default()
+public void testLinkedToNullProvidersMakeAbsentValuesAndPresentProviders_default()
       throws Exception {
     Module module =
         new AbstractModule() {
@@ -876,7 +850,7 @@ public class OptionalBinderTest extends TestCase {
     assertNull(optionalJxP.get().get());
   }
 
-  public void testLinkedToNullProvidersMakeAbsentValuesAndPresentProviders_actual()
+public void testLinkedToNullProvidersMakeAbsentValuesAndPresentProviders_actual()
       throws Exception {
     Module module =
         new AbstractModule() {
@@ -924,7 +898,7 @@ public class OptionalBinderTest extends TestCase {
     assertNull(optionalJxP.get().get());
   }
 
-  // TODO(sameb): Maybe change this?
+// TODO(sameb): Maybe change this?
   public void testLinkedToNullActualDoesntFallbackToDefault() throws Exception {
     Module module =
         new AbstractModule() {
@@ -973,7 +947,7 @@ public class OptionalBinderTest extends TestCase {
     assertNull(optionalJxP.get().get());
   }
 
-  public void testSourceLinesInException() {
+public void testSourceLinesInException() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -991,7 +965,7 @@ public class OptionalBinderTest extends TestCase {
     }
   }
 
-  public void testDependencies_both() {
+public void testDependencies_both() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -1012,7 +986,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(ImmutableSet.of("B"), elements);
   }
 
-  public void testDependencies_actual() {
+public void testDependencies_actual() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -1032,7 +1006,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(ImmutableSet.of("B"), elements);
   }
 
-  public void testDependencies_default() {
+public void testDependencies_default() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -1051,7 +1025,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(ImmutableSet.of("A"), elements);
   }
 
-  @SuppressWarnings("rawtypes")
+@SuppressWarnings("rawtypes")
   private Set<String> recurseForDependencies(Injector injector, HasDependencies hasDependencies) {
     Set<String> elements = Sets.newHashSet();
     for (Dependency<?> dependency : hasDependencies.getDependencies()) {
@@ -1066,7 +1040,7 @@ public class OptionalBinderTest extends TestCase {
     return elements;
   }
 
-  /** Doubly-installed modules should not conflict, even when one is overridden. */
+/** Doubly-installed modules should not conflict, even when one is overridden. */
   public void testModuleOverrideRepeatedInstalls_toInstance() {
     Module m =
         new AbstractModule() {
@@ -1093,7 +1067,7 @@ public class OptionalBinderTest extends TestCase {
         null);
   }
 
-  public void testModuleOverrideRepeatedInstalls_toKey() {
+public void testModuleOverrideRepeatedInstalls_toKey() {
     final Key<String> aKey = Key.get(String.class, Names.named("A_string"));
     final Key<String> bKey = Key.get(String.class, Names.named("B_string"));
     Module m =
@@ -1124,7 +1098,7 @@ public class OptionalBinderTest extends TestCase {
         null);
   }
 
-  public void testModuleOverrideRepeatedInstalls_toProviderInstance() {
+public void testModuleOverrideRepeatedInstalls_toProviderInstance() {
     // Providers#of() does not redefine equals/hashCode, so use the same one both times.
     final Provider<String> aProvider = Providers.of("A");
     final Provider<String> bProvider = Providers.of("B");
@@ -1153,21 +1127,7 @@ public class OptionalBinderTest extends TestCase {
         null);
   }
 
-  private static class AStringProvider implements Provider<String> {
-    @Override
-    public String get() {
-      return "A";
-    }
-  }
-
-  private static class BStringProvider implements Provider<String> {
-    @Override
-    public String get() {
-      return "B";
-    }
-  }
-
-  public void testModuleOverrideRepeatedInstalls_toProviderKey() {
+public void testModuleOverrideRepeatedInstalls_toProviderKey() {
     Module m =
         new AbstractModule() {
           @Override
@@ -1193,36 +1153,7 @@ public class OptionalBinderTest extends TestCase {
         null);
   }
 
-  private static class StringGrabber {
-    private final String string;
-
-    @SuppressWarnings("unused") // Found by reflection
-    public StringGrabber(@Named("A_string") String string) {
-      this.string = string;
-    }
-
-    @SuppressWarnings("unused") // Found by reflection
-    public StringGrabber(@Named("B_string") String string, int unused) {
-      this.string = string;
-    }
-
-    @Override
-    public int hashCode() {
-      return string.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return (obj instanceof StringGrabber) && ((StringGrabber) obj).string.equals(string);
-    }
-
-    @Override
-    public String toString() {
-      return "StringGrabber(" + string + ")";
-    }
-  }
-
-  public void testModuleOverrideRepeatedInstalls_toConstructor() {
+public void testModuleOverrideRepeatedInstalls_toConstructor() {
     Module m =
         new AbstractModule() {
           @Override
@@ -1251,7 +1182,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals("B", injector.getInstance(Key.get(StringGrabber.class)).string);
   }
 
-  /**
+/**
    * Unscoped bindings should not conflict, whether they were bound with no explicit scope, or
    * explicitly bound in {@link Scopes#NO_SCOPE}.
    */
@@ -1276,7 +1207,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(5, Guice.createInjector(m).getInstance(Integer.class).intValue());
   }
 
-  /** Ensure key hash codes are fixed at injection time, not binding time. */
+/** Ensure key hash codes are fixed at injection time, not binding time. */
   public void testKeyHashCodesFixedAtInjectionTime() {
     Module m =
         new AbstractModule() {
@@ -1305,13 +1236,13 @@ public class OptionalBinderTest extends TestCase {
       }
       assertEquals(bindingKey, clonedKey);
       assertEquals(
-          "Incorrect hashcode for " + bindingKey + " -> " + entry.getValue(),
+          new StringBuilder().append("Incorrect hashcode for ").append(bindingKey).append(" -> ").append(entry.getValue()).toString(),
           bindingKey.hashCode(),
           clonedKey.hashCode());
     }
   }
 
-  /** Ensure bindings do not rehash their keys once returned from {@link Elements#getElements}. */
+/** Ensure bindings do not rehash their keys once returned from {@link Elements#getElements}. */
   public void testBindingKeysFixedOnReturnFromGetElements() {
     final List<String> list = Lists.newArrayList();
     Module m =
@@ -1339,12 +1270,7 @@ public class OptionalBinderTest extends TestCase {
     assertSame(keyBefore, keyAfter);
   }
 
-  @BindingAnnotation
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-  private static @interface Marker {}
-
-  @Marker
+@Marker
   public void testMatchingMarkerAnnotations() throws Exception {
     Method m = OptionalBinderTest.class.getDeclaredMethod("testMatchingMarkerAnnotations");
     assertNotNull(m);
@@ -1375,7 +1301,7 @@ public class OptionalBinderTest extends TestCase {
     assertEquals(2, i2.intValue());
   }
 
-  // Tests for com.google.inject.internal.WeakKeySet not leaking memory.
+// Tests for com.google.inject.internal.WeakKeySet not leaking memory.
   public void testWeakKeySet_integration() {
     Injector parentInjector =
         Guice.createInjector(
@@ -1407,7 +1333,7 @@ public class OptionalBinderTest extends TestCase {
     WeakKeySetUtils.assertNotBlacklisted(parentInjector, Key.get(Integer.class));
   }
 
-  public void testCompareEqualsAgainstOtherAnnotation() {
+public void testCompareEqualsAgainstOtherAnnotation() {
     RealOptionalBinder.Actual impl1 = new RealOptionalBinder.ActualImpl("foo");
     RealOptionalBinder.Actual other1 = Dummy.class.getAnnotation(RealOptionalBinder.Actual.class);
     assertEquals(impl1, other1);
@@ -1422,12 +1348,70 @@ public class OptionalBinderTest extends TestCase {
     assertFalse(other1.equals(other2));
   }
 
-  @RealOptionalBinder.Actual("foo")
-  @RealOptionalBinder.Default("foo")
-  static class Dummy {}
-
-  @SuppressWarnings("unchecked")
+@SuppressWarnings("unchecked")
   private <V> Set<V> setOf(V... elements) {
     return ImmutableSet.copyOf(elements);
   }
+
+@BindingAnnotation
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+  private static @interface Marker {}
+
+private static class JitBinding {
+    @Inject
+    JitBinding() {}
+  }
+
+  private static class DependsOnJitBinding {
+    @Inject
+    DependsOnJitBinding(JitBinding jitBinding) {}
+  }
+
+  private static class AStringProvider implements Provider<String> {
+    @Override
+    public String get() {
+      return "A";
+    }
+  }
+
+  private static class BStringProvider implements Provider<String> {
+    @Override
+    public String get() {
+      return "B";
+    }
+  }
+
+  private static class StringGrabber {
+    private final String string;
+
+    @SuppressWarnings("unused") // Found by reflection
+    public StringGrabber(@Named("A_string") String string) {
+      this.string = string;
+    }
+
+    @SuppressWarnings("unused") // Found by reflection
+    public StringGrabber(@Named("B_string") String string, int unused) {
+      this.string = string;
+    }
+
+    @Override
+    public int hashCode() {
+      return string.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return (obj instanceof StringGrabber) && ((StringGrabber) obj).string.equals(string);
+    }
+
+    @Override
+    public String toString() {
+      return new StringBuilder().append("StringGrabber(").append(string).append(")").toString();
+    }
+  }
+
+  @RealOptionalBinder.Actual("foo")
+  @RealOptionalBinder.Default("foo")
+  static class Dummy {}
 }

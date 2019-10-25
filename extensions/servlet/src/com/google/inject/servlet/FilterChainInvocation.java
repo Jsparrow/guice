@@ -128,7 +128,7 @@ class FilterChainInvocation implements FilterChain {
       StackTraceElement[] stackTrace = t.getStackTrace();
       List<StackTraceElement> pruned = Lists.newArrayList();
       for (StackTraceElement element : stackTrace) {
-        String name = element.getClassName() + "." + element.getMethodName();
+        String name = new StringBuilder().append(element.getClassName()).append(".").append(element.getMethodName()).toString();
         if (!SERVLET_INTERNAL_METHODS.contains(name)) {
           pruned.add(element);
         }

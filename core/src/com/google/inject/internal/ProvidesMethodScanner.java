@@ -97,24 +97,6 @@ final class ProvidesMethodScanner extends ModuleAnnotatedMethodScanner {
     throw new IllegalStateException("Invalid annotation: " + annotation);
   }
 
-  private static class AnnotationOrError {
-    final Annotation annotation;
-    final boolean error;
-
-    AnnotationOrError(Annotation annotation, boolean error) {
-      this.annotation = annotation;
-      this.error = error;
-    }
-
-    static AnnotationOrError forPossiblyNullAnnotation(Annotation annotation) {
-      return new AnnotationOrError(annotation, false);
-    }
-
-    static AnnotationOrError forError() {
-      return new AnnotationOrError(null, true);
-    }
-  }
-
   private static AnnotationOrError findMapKeyAnnotation(Binder binder, Method method) {
     Annotation foundAnnotation = null;
     for (Annotation annotation : method.getAnnotations()) {
@@ -147,7 +129,7 @@ final class ProvidesMethodScanner extends ModuleAnnotatedMethodScanner {
     return AnnotationOrError.forPossiblyNullAnnotation(foundAnnotation);
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
+@SuppressWarnings({"unchecked", "rawtypes"})
   static TypeAndValue<?> typeAndValueOfMapKey(Annotation mapKeyAnnotation) {
     if (!mapKeyAnnotation.annotationType().getAnnotation(MapKey.class).unwrapValue()) {
       return new TypeAndValue(TypeLiteral.get(mapKeyAnnotation.annotationType()), mapKeyAnnotation);
@@ -158,15 +140,27 @@ final class ProvidesMethodScanner extends ModuleAnnotatedMethodScanner {
         TypeLiteral<?> returnType =
             TypeLiteral.get(mapKeyAnnotation.annotationType()).getReturnType(valueMethod);
         return new TypeAndValue(returnType, valueMethod.invoke(mapKeyAnnotation));
-      } catch (NoSuchMethodException e) {
-        throw new IllegalStateException(e);
-      } catch (SecurityException e) {
-        throw new IllegalStateException(e);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
+      } catch (InvocationTargetException | IllegalAccessException | SecurityException | NoSuchMethodException e) {
         throw new IllegalStateException(e);
       }
+    }
+  }
+
+private static class AnnotationOrError {
+    final Annotation annotation;
+    final boolean error;
+
+    AnnotationOrError(Annotation annotation, boolean error) {
+      this.annotation = annotation;
+      this.error = error;
+    }
+
+    static AnnotationOrError forPossiblyNullAnnotation(Annotation annotation) {
+      return new AnnotationOrError(annotation, false);
+    }
+
+    static AnnotationOrError forError() {
+      return new AnnotationOrError(null, true);
     }
   }
 

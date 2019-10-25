@@ -237,7 +237,7 @@ public class ExtensionSpiTest extends TestCase {
     Iterator<Params> actualIterator = visitor.actual.iterator();
     int i = 0;
     for (Params param : expected) {
-      assertEquals("wrong " + i++ + "th param", param, actualIterator.next());
+      assertEquals(new StringBuilder().append("wrong ").append(i++).append("th param").toString(), param, actualIterator.next());
     }
   }
 

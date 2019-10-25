@@ -69,11 +69,11 @@ class JpaFinderProxy implements MethodInterceptor {
     }
 
     //depending upon return type, decorate or return the result as is
-    if (JpaFinderProxy.ReturnType.PLAIN.equals(finderDescriptor.returnType)) {
+    if (JpaFinderProxy.ReturnType.PLAIN == finderDescriptor.returnType) {
       result = jpaQuery.getSingleResult();
-    } else if (JpaFinderProxy.ReturnType.COLLECTION.equals(finderDescriptor.returnType)) {
+    } else if (JpaFinderProxy.ReturnType.COLLECTION == finderDescriptor.returnType) {
       result = getAsCollection(finderDescriptor, jpaQuery.getResultList());
-    } else if (JpaFinderProxy.ReturnType.ARRAY.equals(finderDescriptor.returnType)) {
+    } else if (JpaFinderProxy.ReturnType.ARRAY == finderDescriptor.returnType) {
       result = jpaQuery.getResultList().toArray();
     }
 
@@ -197,7 +197,7 @@ class JpaFinderProxy implements MethodInterceptor {
     finderDescriptor.parameterAnnotations = discoveredAnnotations;
 
     //discover the returned collection implementation if this finder returns a collection
-    if (JpaFinderProxy.ReturnType.COLLECTION.equals(finderDescriptor.returnType)
+    if (JpaFinderProxy.ReturnType.COLLECTION == finderDescriptor.returnType
         && finderDescriptor.returnClass != Collection.class) {
       finderDescriptor.returnCollectionType = finder.returnAs();
       try {
@@ -239,7 +239,13 @@ class JpaFinderProxy implements MethodInterceptor {
     return JpaFinderProxy.ReturnType.PLAIN;
   }
 
-  /** A wrapper data class that caches information about a finder method. */
+  private static enum ReturnType {
+    PLAIN,
+    COLLECTION,
+    ARRAY
+  }
+
+/** A wrapper data class that caches information about a finder method. */
   private static class FinderDescriptor {
     private volatile boolean isKeyedQuery = false;
     volatile boolean isBindAsRawParameters = true;
@@ -270,11 +276,5 @@ class JpaFinderProxy implements MethodInterceptor {
     Query createQuery(EntityManager em) {
       return isKeyedQuery ? em.createNamedQuery(name) : em.createQuery(query);
     }
-  }
-
-  private static enum ReturnType {
-    PLAIN,
-    COLLECTION,
-    ARRAY
   }
 }

@@ -41,14 +41,16 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
   private final String persistenceUnitName;
   private final Map<?, ?> persistenceProperties;
 
-  @Inject
+private volatile EntityManagerFactory emFactory;
+
+@Inject
   public JpaPersistService(
       @Jpa String persistenceUnitName, @Nullable @Jpa Map<?, ?> persistenceProperties) {
     this.persistenceUnitName = persistenceUnitName;
     this.persistenceProperties = persistenceProperties;
   }
 
-  @Override
+@Override
   public EntityManager get() {
     if (!isWorking()) {
       begin();
@@ -57,18 +59,16 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     EntityManager em = entityManager.get();
     Preconditions.checkState(
         null != em,
-        "Requested EntityManager outside work unit. "
-            + "Try calling UnitOfWork.begin() first, or use a PersistFilter if you "
-            + "are inside a servlet environment.");
+        new StringBuilder().append("Requested EntityManager outside work unit. ").append("Try calling UnitOfWork.begin() first, or use a PersistFilter if you ").append("are inside a servlet environment.").toString());
 
     return em;
   }
 
-  public boolean isWorking() {
+public boolean isWorking() {
     return entityManager.get() != null;
   }
 
-  @Override
+@Override
   public void begin() {
     Preconditions.checkState(
         null == entityManager.get(),
@@ -78,7 +78,7 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     entityManager.set(emFactory.createEntityManager());
   }
 
-  @Override
+@Override
   public void end() {
     EntityManager em = entityManager.get();
 
@@ -94,14 +94,12 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     }
   }
 
-  private volatile EntityManagerFactory emFactory;
-
-  @VisibleForTesting
+@VisibleForTesting
   synchronized void start(EntityManagerFactory emFactory) {
     this.emFactory = emFactory;
   }
 
-  @Override
+@Override
   public synchronized void start() {
     Preconditions.checkState(null == emFactory, "Persistence service was already initialized.");
 
@@ -113,11 +111,16 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     }
   }
 
-  @Override
+@Override
   public synchronized void stop() {
     Preconditions.checkState(emFactory.isOpen(), "Persistence service was already shut down.");
     emFactory.close();
   }
+
+@Documented
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.PARAMETER)
+  private @interface Nullable {}
 
   @Singleton
   public static class EntityManagerFactoryProvider implements Provider<EntityManagerFactory> {
@@ -134,9 +137,4 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
       return emProvider.emFactory;
     }
   }
-
-  @Documented
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target(ElementType.PARAMETER)
-  private @interface Nullable {}
 }

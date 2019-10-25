@@ -124,7 +124,7 @@ public final class ProviderLookup<T> implements Element {
 
       @Override
       public String toString() {
-        return "Provider<" + getKey().getTypeLiteral() + ">";
+        return new StringBuilder().append("Provider<").append(getKey().getTypeLiteral()).append(">").toString();
       }
     };
   }

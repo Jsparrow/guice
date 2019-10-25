@@ -36,7 +36,65 @@ import junit.framework.TestCase;
 /** Tests of {@link Binds} support in {@link DaggerAdapter}. */
 
 public class BindsTest extends TestCase {
-  @Module
+  public void testBinds() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(BasicModule.class));
+	    Binding<Object> binding = injector.getBinding(Object.class);
+	    assertThat(binding).hasProvidedValueThat().isEqualTo("bound");
+	    assertThat(binding).hasSource(BasicModule.class, "object", CharSequence.class);
+	  }
+
+	public void testMultibindings() {
+	    Injector injector =
+	        Guice.createInjector(
+	            DaggerAdapter.from(
+	                new CountingMultibindingProviderModule(), MultibindingBindsModule.class));
+	
+	    Binding<Set<Object>> binding = injector.getBinding(new Key<Set<Object>>() {});
+	    assertThat(binding)
+	        .hasProvidedValueThat()
+	        .isEqualTo(ImmutableSet.of("multibound-1", "multibound-2"));
+	    assertThat(binding)
+	        .hasProvidedValueThat()
+	        .isEqualTo(ImmutableSet.of("multibound-3", "multibound-4"));
+	  }
+
+	public void testScopedMultibindings() {
+	    Injector injector =
+	        Guice.createInjector(
+	            DaggerAdapter.from(
+	                new CountingMultibindingProviderModule(), ScopedMultibindingBindsModule.class));
+	
+	    Binding<Set<Object>> binding = injector.getBinding(new Key<Set<Object>>() {});
+	    assertThat(binding)
+	        .hasProvidedValueThat()
+	        .isEqualTo(ImmutableSet.of("multibound-1", "multibound-2"));
+	    assertThat(binding)
+	        .hasProvidedValueThat()
+	        .isEqualTo(ImmutableSet.of("multibound-1", "multibound-2"));
+	  }
+
+	public void testQualifiers() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(QualifiedBinds.class));
+	
+	    Binding<String> stringBinding = injector.getBinding(String.class);
+	    assertThat(stringBinding).hasProvidedValueThat().isEqualTo("qualifiers");
+	    assertThat(stringBinding).hasSource(QualifiedBinds.class, "unqualifiedToBinds", String.class);
+	
+	    Binding<String> qualifiedBinds =
+	        injector.getBinding(Key.get(String.class, BindsQualifier.class));
+	    assertThat(qualifiedBinds).hasProvidedValueThat().isEqualTo("qualifiers");
+	    assertThat(qualifiedBinds).hasSource(QualifiedBinds.class, "bindsToProvides", String.class);
+	  }
+
+	@Retention(RetentionPolicy.RUNTIME)
+	  @Qualifier
+	  @interface ProvidesQualifier {}
+
+	@Retention(RetentionPolicy.RUNTIME)
+	  @Qualifier
+	  @interface BindsQualifier {}
+
+@Module
   interface BasicModule {
     @Provides
     static String string() {
@@ -48,13 +106,6 @@ public class BindsTest extends TestCase {
 
     @Binds
     Object object(CharSequence charSequence);
-  }
-
-  public void testBinds() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(BasicModule.class));
-    Binding<Object> binding = injector.getBinding(Object.class);
-    assertThat(binding).hasProvidedValueThat().isEqualTo("bound");
-    assertThat(binding).hasSource(BasicModule.class, "object", CharSequence.class);
   }
 
   @Module
@@ -82,21 +133,6 @@ public class BindsTest extends TestCase {
     Object fromCharSequence(CharSequence charSequence);
   }
 
-  public void testMultibindings() {
-    Injector injector =
-        Guice.createInjector(
-            DaggerAdapter.from(
-                new CountingMultibindingProviderModule(), MultibindingBindsModule.class));
-
-    Binding<Set<Object>> binding = injector.getBinding(new Key<Set<Object>>() {});
-    assertThat(binding)
-        .hasProvidedValueThat()
-        .isEqualTo(ImmutableSet.of("multibound-1", "multibound-2"));
-    assertThat(binding)
-        .hasProvidedValueThat()
-        .isEqualTo(ImmutableSet.of("multibound-3", "multibound-4"));
-  }
-
   @Module
   interface ScopedMultibindingBindsModule {
     @Binds
@@ -113,29 +149,6 @@ public class BindsTest extends TestCase {
     Object fromCharSequence(CharSequence charSequence);
   }
 
-  public void testScopedMultibindings() {
-    Injector injector =
-        Guice.createInjector(
-            DaggerAdapter.from(
-                new CountingMultibindingProviderModule(), ScopedMultibindingBindsModule.class));
-
-    Binding<Set<Object>> binding = injector.getBinding(new Key<Set<Object>>() {});
-    assertThat(binding)
-        .hasProvidedValueThat()
-        .isEqualTo(ImmutableSet.of("multibound-1", "multibound-2"));
-    assertThat(binding)
-        .hasProvidedValueThat()
-        .isEqualTo(ImmutableSet.of("multibound-1", "multibound-2"));
-  }
-
-  @Retention(RetentionPolicy.RUNTIME)
-  @Qualifier
-  @interface ProvidesQualifier {}
-
-  @Retention(RetentionPolicy.RUNTIME)
-  @Qualifier
-  @interface BindsQualifier {}
-
   @Module
   interface QualifiedBinds {
     @Provides
@@ -150,18 +163,5 @@ public class BindsTest extends TestCase {
 
     @Binds
     String unqualifiedToBinds(@BindsQualifier String binds);
-  }
-
-  public void testQualifiers() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(QualifiedBinds.class));
-
-    Binding<String> stringBinding = injector.getBinding(String.class);
-    assertThat(stringBinding).hasProvidedValueThat().isEqualTo("qualifiers");
-    assertThat(stringBinding).hasSource(QualifiedBinds.class, "unqualifiedToBinds", String.class);
-
-    Binding<String> qualifiedBinds =
-        injector.getBinding(Key.get(String.class, BindsQualifier.class));
-    assertThat(qualifiedBinds).hasProvidedValueThat().isEqualTo("qualifiers");
-    assertThat(qualifiedBinds).hasSource(QualifiedBinds.class, "bindsToProvides", String.class);
   }
 }

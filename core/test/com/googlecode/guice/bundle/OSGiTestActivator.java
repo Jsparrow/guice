@@ -42,7 +42,48 @@ public class OSGiTestActivator implements BundleActivator {
 
   // varying visibilities to test our code-generation support
 
-  public static class Undefined {}
+  static final Class<?>[] TEST_CLAZZES = {A.class, B.class, C.class, D.class};
+
+	// called from OSGi when bundle starts
+	  @Override
+	  public void start(BundleContext context) throws BundleException {
+	
+	    final Bundle bundle = context.getBundle();
+	
+	    Injector injector = Guice.createInjector(new TestModule(bundle));
+	    /*if[AOP]*/
+	    Injector aopInjector = Guice.createInjector(new TestModule(bundle), new InterceptorModule());
+	    /*end[AOP]*/
+	
+	    // test code-generation support
+	    for (Class<?> api : TEST_CLAZZES) {
+	      for (Visibility vis : Visibility.values()) {
+	        injector.getInstance(Key.get(api, named(vis.name())));
+	        /*if[AOP]*/
+	        aopInjector.getInstance(Key.get(api, named(vis.name())));
+	        /*end[AOP]*/
+	      }
+	    }
+	
+	    // test injection of system class (issue 343)
+	    injector.getInstance(Random.class);
+	    /*if[AOP]*/
+	    aopInjector.getInstance(Random.class);
+	    /*end[AOP]*/
+	  }
+
+	// called from OSGi when bundle stops
+	  @Override
+	  public void stop(BundleContext context) {}
+
+	enum Visibility {
+	    PUBLIC,
+	    PROTECTED,
+	    PACKAGE_PRIVATE,
+	    PRIVATE
+	  }
+
+public static class Undefined {}
 
   public interface A {}
 
@@ -54,415 +95,406 @@ public class OSGiTestActivator implements BundleActivator {
 
   public static class AA implements A {
 
-    public AA() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	public AA() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   protected static class AB implements A {
 
-    public AB() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	public AB() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   static class AC implements A {
 
-    public AC() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	public AC() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   private static class AD implements A {
 
-    public AD() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	public AD() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   public static class BA implements B {
 
-    protected BA() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	protected BA() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   protected static class BB implements B {
 
-    protected BB() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	protected BB() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   static class BC implements B {
 
-    protected BC() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	protected BC() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   private static class BD implements B {
 
-    protected BD() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	protected BD() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   public static class CA implements C {
 
-    CA() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	CA() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   protected static class CB implements C {
 
-    CB() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	CB() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   static class CC implements C {
 
-    CC() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	CC() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   private static class CD implements C {
 
-    CD() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	CD() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   public static class DA implements D {
 
-    @Inject
-    private DA() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	@Inject
+    private DA() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   protected static class DB implements D {
 
-    @Inject
-    private DB() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	@Inject
+    private DB() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   static class DC implements D {
 
-    @Inject
-    private DC() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	@Inject
+    private DC() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
 
   private static class DD implements D {
 
-    private DD() {}
-
-    @Inject
-    public void setA(Undefined undefined) {}
-
-    @Inject
-    protected void setB(Undefined undefined) {}
-
-    @Inject
-    void setC(Undefined undefined) {}
-
-    @Inject
-    private void setD(Undefined undefined) {}
-
     @Inject public Undefined a;
 
-    @Inject protected Undefined b;
+	@Inject protected Undefined b;
 
-    @Inject Undefined c;
+	@Inject Undefined c;
 
-    @Inject private Undefined d;
+	@Inject private Undefined d;
+
+	private DD() {}
+
+	@Inject
+    public void setA(Undefined undefined) {}
+
+	@Inject
+    protected void setB(Undefined undefined) {}
+
+	@Inject
+    void setC(Undefined undefined) {}
+
+	@Inject
+    private void setD() {}
   }
-
-  enum Visibility {
-    PUBLIC,
-    PROTECTED,
-    PACKAGE_PRIVATE,
-    PRIVATE
-  }
-
-  static final Class<?>[] TEST_CLAZZES = {A.class, B.class, C.class, D.class};
 
   // registers all the class combinations
   static class TestModule extends AbstractModule {
@@ -534,36 +566,4 @@ public class OSGiTestActivator implements BundleActivator {
     }
   }
   /*end[AOP]*/
-
-  // called from OSGi when bundle starts
-  @Override
-  public void start(BundleContext context) throws BundleException {
-
-    final Bundle bundle = context.getBundle();
-
-    Injector injector = Guice.createInjector(new TestModule(bundle));
-    /*if[AOP]*/
-    Injector aopInjector = Guice.createInjector(new TestModule(bundle), new InterceptorModule());
-    /*end[AOP]*/
-
-    // test code-generation support
-    for (Class<?> api : TEST_CLAZZES) {
-      for (Visibility vis : Visibility.values()) {
-        injector.getInstance(Key.get(api, named(vis.name())));
-        /*if[AOP]*/
-        aopInjector.getInstance(Key.get(api, named(vis.name())));
-        /*end[AOP]*/
-      }
-    }
-
-    // test injection of system class (issue 343)
-    injector.getInstance(Random.class);
-    /*if[AOP]*/
-    aopInjector.getInstance(Random.class);
-    /*end[AOP]*/
-  }
-
-  // called from OSGi when bundle stops
-  @Override
-  public void stop(BundleContext context) {}
 }

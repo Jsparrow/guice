@@ -33,33 +33,32 @@ import java.util.Collection;
  */
 public final class ProvisionException extends RuntimeException {
 
-  private final ImmutableSet<Message> messages;
-
-  /** Creates a ProvisionException containing {@code messages}. */
-  public ProvisionException(Iterable<Message> messages) {
-    this.messages = ImmutableSet.copyOf(messages);
-    checkArgument(!this.messages.isEmpty());
-    initCause(Messages.getOnlyCause(this.messages));
-  }
-
-  public ProvisionException(String message, Throwable cause) {
-    super(cause);
-    this.messages = ImmutableSet.of(new Message(message, cause));
-  }
-
-  public ProvisionException(String message) {
-    this.messages = ImmutableSet.of(new Message(message));
-  }
-
-  /** Returns messages for the errors that caused this exception. */
-  public Collection<Message> getErrorMessages() {
-    return messages;
-  }
-
-  @Override
-  public String getMessage() {
-    return Messages.formatMessages("Unable to provision, see the following errors", messages);
-  }
-
   private static final long serialVersionUID = 0;
+	private final ImmutableSet<Message> messages;
+
+	/** Creates a ProvisionException containing {@code messages}. */
+	  public ProvisionException(Iterable<Message> messages) {
+	    this.messages = ImmutableSet.copyOf(messages);
+	    checkArgument(!this.messages.isEmpty());
+	    initCause(Messages.getOnlyCause(this.messages));
+	  }
+
+	public ProvisionException(String message, Throwable cause) {
+	    super(cause);
+	    this.messages = ImmutableSet.of(new Message(message, cause));
+	  }
+
+	public ProvisionException(String message) {
+	    this.messages = ImmutableSet.of(new Message(message));
+	  }
+
+	/** Returns messages for the errors that caused this exception. */
+	  public Collection<Message> getErrorMessages() {
+	    return messages;
+	  }
+
+	@Override
+	  public String getMessage() {
+	    return Messages.formatMessages("Unable to provision, see the following errors", messages);
+	  }
 }

@@ -53,8 +53,11 @@ public class TypesTest extends TestCase {
   private ParameterizedType setString;
   private ParameterizedType outerInner;
   private GenericArrayType setStringArray;
+public List<? extends CharSequence> wildcardExtends;
+public List<? super CharSequence> wildcardSuper;
+public List<?> wildcardObject;
 
-  @Override
+@Override
   protected void setUp() throws Exception {
     super.setUp();
     mapStringInteger = (ParameterizedType) getClass().getDeclaredField("a").getGenericType();
@@ -66,13 +69,13 @@ public class TypesTest extends TestCase {
     setStringArray = (GenericArrayType) listSetStringArray.getActualTypeArguments()[0];
   }
 
-  public void testListSetMap() {
+public void testListSetMap() {
     assertEqualsBothWays(mapStringInteger, Types.mapOf(String.class, Integer.class));
     assertEqualsBothWays(listString, Types.listOf(String.class));
     assertEqualsBothWays(setString, Types.setOf(String.class));
   }
 
-  public void testDefensiveCopies() {
+public void testDefensiveCopies() {
     Type[] arguments = new Type[] {String.class, Integer.class};
     ParameterizedType parameterizedType = Types.newParameterizedType(Map.class, arguments);
     arguments[0] = null;
@@ -81,7 +84,7 @@ public class TypesTest extends TestCase {
     assertEquals(Integer.class, parameterizedType.getActualTypeArguments()[1]);
   }
 
-  public void testTypeWithOwnerType() {
+public void testTypeWithOwnerType() {
     ParameterizedType actual =
         Types.newParameterizedTypeWithOwner(
             TypesTest.class, Inner.class, Float.class, Double.class);
@@ -98,7 +101,7 @@ public class TypesTest extends TestCase {
         actual.toString());
   }
 
-  public void testTypeParametersMustNotBePrimitives() {
+public void testTypeParametersMustNotBePrimitives() {
     try {
       Types.newParameterizedType(Map.class, String.class, int.class);
       fail();
@@ -108,11 +111,7 @@ public class TypesTest extends TestCase {
     }
   }
 
-  public List<? extends CharSequence> wildcardExtends;
-  public List<? super CharSequence> wildcardSuper;
-  public List<?> wildcardObject;
-
-  public void testWildcardTypes() throws NoSuchFieldException, IOException {
+public void testWildcardTypes() throws NoSuchFieldException, IOException {
     assertEqualsBothWays(getWildcard("wildcardSuper"), supertypeOf(CharSequence.class));
     assertEqualsBothWays(getWildcard("wildcardExtends"), subtypeOf(CharSequence.class));
     assertEqualsBothWays(getWildcard("wildcardObject"), subtypeOf(Object.class));
@@ -125,7 +124,7 @@ public class TypesTest extends TestCase {
     assertEqualWhenReserialized(subtypeOf(CharSequence.class));
   }
 
-  public void testWildcardBoundsMustNotBePrimitives() {
+public void testWildcardBoundsMustNotBePrimitives() {
     try {
       supertypeOf(int.class);
       fail();
@@ -143,12 +142,12 @@ public class TypesTest extends TestCase {
     }
   }
 
-  private WildcardType getWildcard(String fieldName) throws NoSuchFieldException {
+private WildcardType getWildcard(String fieldName) throws NoSuchFieldException {
     ParameterizedType type = (ParameterizedType) getClass().getField(fieldName).getGenericType();
     return (WildcardType) type.getActualTypeArguments()[0];
   }
 
-  public void testEqualsAndHashcode() {
+public void testEqualsAndHashcode() {
     ParameterizedType parameterizedType =
         Types.newParameterizedType(Map.class, String.class, Integer.class);
     assertEqualsBothWays(mapStringInteger, parameterizedType);
@@ -160,7 +159,7 @@ public class TypesTest extends TestCase {
     assertEquals(setStringArray.toString(), genericArrayType.toString());
   }
 
-  public void testToString() {
+public void testToString() {
     Assert.assertEquals("java.lang.String", MoreTypes.typeToString(String.class));
     assertEquals("java.util.Set<java.lang.String>[][]", MoreTypes.typeToString(setStringArray));
     assertEquals(
@@ -172,9 +171,7 @@ public class TypesTest extends TestCase {
     assertEquals(innerFloatDouble.toString(), MoreTypes.typeToString(innerFloatDouble));
   }
 
-  static class Owning<A> {}
-
-  /** Ensure that owning types are required when necessary, and forbidden otherwise. */
+/** Ensure that owning types are required when necessary, and forbidden otherwise. */
   public void testCanonicalizeRequiresOwnerTypes() {
     try {
       Types.newParameterizedType(Owning.class, String.class);
@@ -191,10 +188,7 @@ public class TypesTest extends TestCase {
     }
   }
 
-  @SuppressWarnings("UnusedDeclaration")
-  class Inner<T1, T2> {}
-
-  public void testInnerParameterizedEvenWithZeroArgs() {
+public void testInnerParameterizedEvenWithZeroArgs() {
     TypeLiteral<Outer<String>.Inner> type = new TypeLiteral<Outer<String>.Inner>() {};
     assertEqualsBothWays(outerInner, type.getType());
 
@@ -203,6 +197,11 @@ public class TypesTest extends TestCase {
     assertEquals(new TypeLiteral<Outer<String>>() {}.getType(), parameterizedType.getOwnerType());
     assertEquals(Outer.Inner.class, parameterizedType.getRawType());
   }
+
+  static class Owning<A> {}
+
+  @SuppressWarnings("UnusedDeclaration")
+  class Inner<T1, T2> {}
 
   static class Outer<T> {
     @SuppressWarnings("ClassCanBeStatic")

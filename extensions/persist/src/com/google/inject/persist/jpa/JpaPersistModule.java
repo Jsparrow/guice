@@ -44,17 +44,17 @@ import org.aopalliance.intercept.MethodInvocation;
  */
 public final class JpaPersistModule extends PersistModule {
   private final String jpaUnit;
+private Map<?, ?> properties;
+private MethodInterceptor transactionInterceptor;
+private final List<Class<?>> dynamicFinders = Lists.newArrayList();
 
-  public JpaPersistModule(String jpaUnit) {
+public JpaPersistModule(String jpaUnit) {
     Preconditions.checkArgument(
         null != jpaUnit && jpaUnit.length() > 0, "JPA unit name must be a non-empty string.");
     this.jpaUnit = jpaUnit;
   }
 
-  private Map<?, ?> properties;
-  private MethodInterceptor transactionInterceptor;
-
-  @Override
+@Override
   protected void configurePersistence() {
     bindConstant().annotatedWith(Jpa.class).to(jpaUnit);
 
@@ -75,18 +75,18 @@ public final class JpaPersistModule extends PersistModule {
     }
   }
 
-  @Override
+@Override
   protected MethodInterceptor getTransactionInterceptor() {
     return transactionInterceptor;
   }
 
-  @Provides
+@Provides
   @Jpa
   Map<?, ?> provideProperties() {
     return properties;
   }
 
-  /**
+/**
    * Configures the JPA persistence provider with a set of properties.
    *
    * @param properties A set of name value pairs that configure a JPA persistence provider as per
@@ -98,9 +98,7 @@ public final class JpaPersistModule extends PersistModule {
     return this;
   }
 
-  private final List<Class<?>> dynamicFinders = Lists.newArrayList();
-
-  /**
+/**
    * Adds an interface to this module to use as a dynamic finder.
    *
    * @param iface Any interface type whose methods are all dynamic finders.
@@ -110,7 +108,7 @@ public final class JpaPersistModule extends PersistModule {
     return this;
   }
 
-  private <T> void bindFinder(Class<T> iface) {
+private <T> void bindFinder(Class<T> iface) {
     if (!isDynamicFinderValid(iface)) {
       return;
     }
@@ -173,7 +171,7 @@ public final class JpaPersistModule extends PersistModule {
     bind(iface).toInstance(proxy);
   }
 
-  private boolean isDynamicFinderValid(Class<?> iface) {
+private boolean isDynamicFinderValid(Class<?> iface) {
     boolean valid = true;
     if (!iface.isInterface()) {
       addError(iface + " is not an interface. Dynamic Finders must be interfaces.");
@@ -184,11 +182,7 @@ public final class JpaPersistModule extends PersistModule {
       DynamicFinder finder = DynamicFinder.from(method);
       if (null == finder) {
         addError(
-            "Dynamic Finder methods must be annotated with @Finder, but "
-                + iface
-                + "."
-                + method.getName()
-                + " was not");
+            new StringBuilder().append("Dynamic Finder methods must be annotated with @Finder, but ").append(iface).append(".").append(method.getName()).append(" was not").toString());
         valid = false;
       }
     }

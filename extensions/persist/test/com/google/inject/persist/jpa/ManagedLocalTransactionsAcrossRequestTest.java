@@ -30,18 +30,21 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
 import junit.framework.TestCase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** @author Dhanji R. Prasanna (dhanji@gmail.com) */
 
 public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
-  private Injector injector;
-  private static final String UNIQUE_TEXT = "some unique text" + new Date();
-  private static final String UNIQUE_TEXT_MERGE = "meRG_Esome unique text" + new Date();
-  private static final String UNIQUE_TEXT_MERGE_FORDF =
+  private static final Logger logger = LoggerFactory.getLogger(ManagedLocalTransactionsAcrossRequestTest.class);
+private static final String UNIQUE_TEXT = "some unique text" + new Date();
+private static final String UNIQUE_TEXT_MERGE = "meRG_Esome unique text" + new Date();
+private static final String UNIQUE_TEXT_MERGE_FORDF =
       "aSdoaksdoaksdmeRG_Esome unique text" + new Date();
-  private static final String TRANSIENT_UNIQUE_TEXT = "some other unique text" + new Date();
+private static final String TRANSIENT_UNIQUE_TEXT = "some other unique text" + new Date();
+private Injector injector;
 
-  @Override
+@Override
   public void setUp() {
     injector = Guice.createInjector(new JpaPersistModule("testUnit"));
 
@@ -49,12 +52,12 @@ public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
     injector.getInstance(PersistService.class).start();
   }
 
-  @Override
+@Override
   public final void tearDown() {
     injector.getInstance(EntityManagerFactory.class).close();
   }
 
-  public void testSimpleTransaction() {
+public void testSimpleTransaction() {
     injector.getInstance(TransactionalObject.class).runOperationInTxn();
 
     EntityManager em = injector.getInstance(EntityManager.class);
@@ -76,7 +79,7 @@ public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
     injector.getInstance(UnitOfWork.class).end();
   }
 
-  public void testSimpleTransactionWithMerge() {
+public void testSimpleTransactionWithMerge() {
     EntityManager emOrig = injector.getInstance(EntityManager.class);
     JpaTestEntity entity =
         injector.getInstance(TransactionalObject.class).runOperationInTxnWithMerge();
@@ -106,7 +109,7 @@ public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
     injector.getInstance(UnitOfWork.class).end();
   }
 
-  public void disabled_testSimpleTransactionWithMergeAndDF() {
+public void disabled_testSimpleTransactionWithMergeAndDF() {
     EntityManager emOrig = injector.getInstance(EntityManager.class);
     JpaTestEntity entity =
         injector.getInstance(TransactionalObject.class).runOperationInTxnWithMergeForDf();
@@ -132,11 +135,12 @@ public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
     injector.getInstance(UnitOfWork.class).end();
   }
 
-  public void testSimpleTransactionRollbackOnChecked() {
+public void testSimpleTransactionRollbackOnChecked() {
     try {
       injector.getInstance(TransactionalObject.class).runOperationInTxnThrowingChecked();
     } catch (IOException e) {
-      //ignore
+      logger.error(e.getMessage(), e);
+	//ignore
       injector.getInstance(UnitOfWork.class).end();
     }
 
@@ -155,16 +159,18 @@ public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
       injector.getInstance(UnitOfWork.class).end();
       fail();
     } catch (NoResultException e) {
+		logger.error(e.getMessage(), e);
     }
 
     injector.getInstance(UnitOfWork.class).end();
   }
 
-  public void testSimpleTransactionRollbackOnUnchecked() {
+public void testSimpleTransactionRollbackOnUnchecked() {
     try {
       injector.getInstance(TransactionalObject.class).runOperationInTxnThrowingUnchecked();
     } catch (RuntimeException re) {
-      //ignore
+      logger.error(re.getMessage(), re);
+	//ignore
       injector.getInstance(UnitOfWork.class).end();
     }
 
@@ -181,12 +187,12 @@ public class ManagedLocalTransactionsAcrossRequestTest extends TestCase {
       injector.getInstance(UnitOfWork.class).end();
       fail();
     } catch (NoResultException e) {
+		logger.error(e.getMessage(), e);
     }
 
     injector.getInstance(UnitOfWork.class).end();
   }
-
-  public static class TransactionalObject {
+public static class TransactionalObject {
     private final EntityManager em;
 
     @Inject

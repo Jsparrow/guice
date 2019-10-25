@@ -71,7 +71,8 @@ class ProviderInstanceBindingImpl<T> extends BindingImpl<T> implements ProviderI
     }
   }
 
-  public Provider<? extends T> getProviderInstance() {
+  @Override
+public Provider<? extends T> getProviderInstance() {
     return Providers.guicify(providerInstance);
   }
 
@@ -94,13 +95,13 @@ class ProviderInstanceBindingImpl<T> extends BindingImpl<T> implements ProviderI
 
   @Override
   public BindingImpl<T> withScoping(Scoping scoping) {
-    return new ProviderInstanceBindingImpl<T>(
+    return new ProviderInstanceBindingImpl<>(
         getSource(), getKey(), scoping, injectionPoints, providerInstance);
   }
 
   @Override
   public BindingImpl<T> withKey(Key<T> key) {
-    return new ProviderInstanceBindingImpl<T>(
+    return new ProviderInstanceBindingImpl<>(
         getSource(), key, getScoping(), injectionPoints, providerInstance);
   }
 

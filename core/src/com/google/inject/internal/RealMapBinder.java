@@ -64,273 +64,281 @@ import java.util.Set;
  */
 public final class RealMapBinder<K, V> implements Module {
 
-  /**
-   * Returns a new mapbinder that collects entries of {@code keyType}/{@code valueType} in a {@link
-   * Map} that is itself bound with no binding annotation.
-   */
-  public static <K, V> RealMapBinder<K, V> newMapRealBinder(
-      Binder binder, TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    binder = binder.skipSources(RealMapBinder.class);
-    return newRealMapBinder(
-        binder,
-        keyType,
-        valueType,
-        Key.get(mapOf(keyType, valueType)),
-        RealMultibinder.newRealSetBinder(binder, Key.get(entryOfProviderOf(keyType, valueType))));
-  }
-
-  /**
-   * Returns a new mapbinder that collects entries of {@code keyType}/{@code valueType} in a {@link
-   * Map} that is itself bound with {@code annotation}.
-   */
-  public static <K, V> RealMapBinder<K, V> newRealMapBinder(
-      Binder binder, TypeLiteral<K> keyType, TypeLiteral<V> valueType, Annotation annotation) {
-    binder = binder.skipSources(RealMapBinder.class);
-    return newRealMapBinder(
-        binder,
-        keyType,
-        valueType,
-        Key.get(mapOf(keyType, valueType), annotation),
-        RealMultibinder.newRealSetBinder(
-            binder, Key.get(entryOfProviderOf(keyType, valueType), annotation)));
-  }
-
-  /**
-   * Returns a new mapbinder that collects entries of {@code keyType}/{@code valueType} in a {@link
-   * Map} that is itself bound with {@code annotationType}.
-   */
-  public static <K, V> RealMapBinder<K, V> newRealMapBinder(
-      Binder binder,
-      TypeLiteral<K> keyType,
-      TypeLiteral<V> valueType,
-      Class<? extends Annotation> annotationType) {
-    binder = binder.skipSources(RealMapBinder.class);
-    return newRealMapBinder(
-        binder,
-        keyType,
-        valueType,
-        Key.get(mapOf(keyType, valueType), annotationType),
-        RealMultibinder.newRealSetBinder(
-            binder, Key.get(entryOfProviderOf(keyType, valueType), annotationType)));
-  }
-
-  @SuppressWarnings("unchecked") // a map of <K, V> is safely a Map<K, V>
-  static <K, V> TypeLiteral<Map<K, V>> mapOf(TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, V>>)
-        TypeLiteral.get(Types.mapOf(keyType.getType(), valueType.getType()));
-  }
-
-  @SuppressWarnings("unchecked") // a provider map <K, V> is safely a Map<K, Provider<V>>
-  static <K, V> TypeLiteral<Map<K, Provider<V>>> mapOfProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, Provider<V>>>)
-        TypeLiteral.get(Types.mapOf(keyType.getType(), Types.providerOf(valueType.getType())));
-  }
-
-  // provider map <K, V> is safely a Map<K, javax.inject.Provider<V>>>
-  @SuppressWarnings("unchecked")
-  static <K, V> TypeLiteral<Map<K, javax.inject.Provider<V>>> mapOfJavaxProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, javax.inject.Provider<V>>>)
-        TypeLiteral.get(
-            Types.mapOf(
-                keyType.getType(),
-                newParameterizedType(javax.inject.Provider.class, valueType.getType())));
-  }
-
-  @SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
-  static <K, V> TypeLiteral<Map<K, Set<Provider<V>>>> mapOfSetOfProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, Set<Provider<V>>>>)
-        TypeLiteral.get(
-            Types.mapOf(keyType.getType(), Types.setOf(Types.providerOf(valueType.getType()))));
-  }
-
-  @SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
-  static <K, V> TypeLiteral<Map<K, Set<javax.inject.Provider<V>>>> mapOfSetOfJavaxProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, Set<javax.inject.Provider<V>>>>)
-        TypeLiteral.get(
-            Types.mapOf(
-                keyType.getType(), Types.setOf(Types.javaxProviderOf(valueType.getType()))));
-  }
-
-  @SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
-  static <K, V> TypeLiteral<Map<K, Collection<Provider<V>>>> mapOfCollectionOfProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, Collection<Provider<V>>>>)
-        TypeLiteral.get(
-            Types.mapOf(
-                keyType.getType(), Types.collectionOf(Types.providerOf(valueType.getType()))));
-  }
-
-  @SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
-  static <K, V>
-      TypeLiteral<Map<K, Collection<javax.inject.Provider<V>>>> mapOfCollectionOfJavaxProviderOf(
-          TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map<K, Collection<javax.inject.Provider<V>>>>)
-        TypeLiteral.get(
-            Types.mapOf(
-                keyType.getType(), Types.collectionOf(Types.javaxProviderOf(valueType.getType()))));
-  }
-
-  @SuppressWarnings("unchecked") // a provider entry <K, V> is safely a Map.Entry<K, Provider<V>>
-  static <K, V> TypeLiteral<Map.Entry<K, Provider<V>>> entryOfProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map.Entry<K, Provider<V>>>)
-        TypeLiteral.get(
-            newParameterizedTypeWithOwner(
-                Map.class,
-                Map.Entry.class,
-                keyType.getType(),
-                Types.providerOf(valueType.getType())));
-  }
-
-  @SuppressWarnings("unchecked") // a provider entry <K, V> is safely a Map.Entry<K, Provider<V>>
-  static <K, V> TypeLiteral<Map.Entry<K, Provider<V>>> entryOfJavaxProviderOf(
-      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Map.Entry<K, Provider<V>>>)
-        TypeLiteral.get(
-            newParameterizedTypeWithOwner(
-                Map.class,
-                Map.Entry.class,
-                keyType.getType(),
-                Types.javaxProviderOf(valueType.getType())));
-  }
-
-  @SuppressWarnings("unchecked") // a provider entry <K, V> is safely a Map.Entry<K, Provider<V>>
-  static <K, V>
-      TypeLiteral<Set<Map.Entry<K, javax.inject.Provider<V>>>> setOfEntryOfJavaxProviderOf(
-          TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
-    return (TypeLiteral<Set<Map.Entry<K, javax.inject.Provider<V>>>>)
-        TypeLiteral.get(Types.setOf(entryOfJavaxProviderOf(keyType, valueType).getType()));
-  }
-
-  /** Given a Key<T> will return a Key<Provider<T>> */
-  @SuppressWarnings("unchecked")
-  private static <T> Key<Provider<T>> getKeyOfProvider(Key<T> valueKey) {
-    return (Key<Provider<T>>)
-        valueKey.ofType(Types.providerOf(valueKey.getTypeLiteral().getType()));
-  }
-
-  // Note: We use valueTypeAndAnnotation effectively as a Pair<TypeLiteral, Annotation|Class>
-  // since it's an easy way to group a type and an optional annotation type or instance.
-  static <K, V> RealMapBinder<K, V> newRealMapBinder(
-      Binder binder, TypeLiteral<K> keyType, Key<V> valueTypeAndAnnotation) {
-    binder = binder.skipSources(RealMapBinder.class);
-    TypeLiteral<V> valueType = valueTypeAndAnnotation.getTypeLiteral();
-    return newRealMapBinder(
-        binder,
-        keyType,
-        valueType,
-        valueTypeAndAnnotation.ofType(mapOf(keyType, valueType)),
-        RealMultibinder.newRealSetBinder(
-            binder, valueTypeAndAnnotation.ofType(entryOfProviderOf(keyType, valueType))));
-  }
-
-  private static <K, V> RealMapBinder<K, V> newRealMapBinder(
-      Binder binder,
-      TypeLiteral<K> keyType,
-      TypeLiteral<V> valueType,
-      Key<Map<K, V>> mapKey,
-      RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder) {
-    RealMapBinder<K, V> mapBinder =
-        new RealMapBinder<K, V>(binder, keyType, valueType, mapKey, entrySetBinder);
-    binder.install(mapBinder);
-    return mapBinder;
-  }
-
   // Until the injector initializes us, we don't know what our dependencies are,
-  // so initialize to the whole Injector.
-  private static final ImmutableSet<Dependency<?>> MODULE_DEPENDENCIES =
-      ImmutableSet.<Dependency<?>>of(Dependency.get(Key.get(Injector.class)));
+	  // so initialize to the whole Injector.
+	  private static final ImmutableSet<Dependency<?>> MODULE_DEPENDENCIES =
+	      ImmutableSet.<Dependency<?>>of(Dependency.get(Key.get(Injector.class)));
 
-  private final BindingSelection<K, V> bindingSelection;
-  private final Binder binder;
+	private final BindingSelection<K, V> bindingSelection;
 
-  private final RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder;
+	private final Binder binder;
 
-  private RealMapBinder(
-      Binder binder,
-      TypeLiteral<K> keyType,
-      TypeLiteral<V> valueType,
-      Key<Map<K, V>> mapKey,
-      RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder) {
-    this.bindingSelection = new BindingSelection<>(keyType, valueType, mapKey, entrySetBinder);
-    this.binder = binder;
-    this.entrySetBinder = entrySetBinder;
-  }
+	private final RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder;
 
-  public void permitDuplicates() {
-    checkConfiguration(!bindingSelection.isInitialized(), "MapBinder was already initialized");
-    entrySetBinder.permitDuplicates();
-    binder.install(new MultimapBinder<K, V>(bindingSelection));
-  }
+	private RealMapBinder(
+	      Binder binder,
+	      TypeLiteral<K> keyType,
+	      TypeLiteral<V> valueType,
+	      Key<Map<K, V>> mapKey,
+	      RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder) {
+	    this.bindingSelection = new BindingSelection<>(keyType, valueType, mapKey, entrySetBinder);
+	    this.binder = binder;
+	    this.entrySetBinder = entrySetBinder;
+	  }
 
-  /** Adds a binding to the map for the given key. */
-  Key<V> getKeyForNewValue(K key) {
-    checkNotNull(key, "key");
-    checkConfiguration(!bindingSelection.isInitialized(), "MapBinder was already initialized");
-    RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder =
-        bindingSelection.getEntrySetBinder();
+	/**
+	   * Returns a new mapbinder that collects entries of {@code keyType}/{@code valueType} in a {@link
+	   * Map} that is itself bound with no binding annotation.
+	   */
+	  public static <K, V> RealMapBinder<K, V> newMapRealBinder(
+	      Binder binder, TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    binder = binder.skipSources(RealMapBinder.class);
+	    return newRealMapBinder(
+	        binder,
+	        keyType,
+	        valueType,
+	        Key.get(mapOf(keyType, valueType)),
+	        RealMultibinder.newRealSetBinder(binder, Key.get(entryOfProviderOf(keyType, valueType))));
+	  }
 
-    Key<V> valueKey =
-        Key.get(
-            bindingSelection.getValueType(),
-            new RealElement(
-                entrySetBinder.getSetName(), MAPBINDER, bindingSelection.getKeyType().toString()));
-    entrySetBinder.addBinding().toProvider(new ProviderMapEntry<K, V>(key, valueKey));
-    return valueKey;
-  }
+	/**
+	   * Returns a new mapbinder that collects entries of {@code keyType}/{@code valueType} in a {@link
+	   * Map} that is itself bound with {@code annotation}.
+	   */
+	  public static <K, V> RealMapBinder<K, V> newRealMapBinder(
+	      Binder binder, TypeLiteral<K> keyType, TypeLiteral<V> valueType, Annotation annotation) {
+	    binder = binder.skipSources(RealMapBinder.class);
+	    return newRealMapBinder(
+	        binder,
+	        keyType,
+	        valueType,
+	        Key.get(mapOf(keyType, valueType), annotation),
+	        RealMultibinder.newRealSetBinder(
+	            binder, Key.get(entryOfProviderOf(keyType, valueType), annotation)));
+	  }
 
-  /**
-   * This creates two bindings. One for the {@code Map.Entry<K, Provider<V>>} and another for {@code
-   * V}.
-   */
-  public LinkedBindingBuilder<V> addBinding(K key) {
-    return binder.bind(getKeyForNewValue(key));
-  }
+	/**
+	   * Returns a new mapbinder that collects entries of {@code keyType}/{@code valueType} in a {@link
+	   * Map} that is itself bound with {@code annotationType}.
+	   */
+	  public static <K, V> RealMapBinder<K, V> newRealMapBinder(
+	      Binder binder,
+	      TypeLiteral<K> keyType,
+	      TypeLiteral<V> valueType,
+	      Class<? extends Annotation> annotationType) {
+	    binder = binder.skipSources(RealMapBinder.class);
+	    return newRealMapBinder(
+	        binder,
+	        keyType,
+	        valueType,
+	        Key.get(mapOf(keyType, valueType), annotationType),
+	        RealMultibinder.newRealSetBinder(
+	            binder, Key.get(entryOfProviderOf(keyType, valueType), annotationType)));
+	  }
 
-  @Override
-  public void configure(Binder binder) {
-    checkConfiguration(!bindingSelection.isInitialized(), "MapBinder was already initialized");
+	@SuppressWarnings("unchecked") // a map of <K, V> is safely a Map<K, V>
+	  static <K, V> TypeLiteral<Map<K, V>> mapOf(TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, V>>)
+	        TypeLiteral.get(Types.mapOf(keyType.getType(), valueType.getType()));
+	  }
 
-    // Binds a Map<K, Provider<V>>
-    RealProviderMapProvider<K, V> providerMapProvider =
-        new RealProviderMapProvider<K, V>(bindingSelection);
-    binder.bind(bindingSelection.getProviderMapKey()).toProvider(providerMapProvider);
+	@SuppressWarnings("unchecked") // a provider map <K, V> is safely a Map<K, Provider<V>>
+	  static <K, V> TypeLiteral<Map<K, Provider<V>>> mapOfProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, Provider<V>>>)
+	        TypeLiteral.get(Types.mapOf(keyType.getType(), Types.providerOf(valueType.getType())));
+	  }
 
-    // The map this exposes is internally an ImmutableMap, so it's OK to massage
-    // the guice Provider to javax Provider in the value (since Guice provider
-    // implements javax Provider).
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    Provider<Map<K, javax.inject.Provider<V>>> javaxProviderMapProvider =
-        (Provider) providerMapProvider;
-    binder.bind(bindingSelection.getJavaxProviderMapKey()).toProvider(javaxProviderMapProvider);
+	// provider map <K, V> is safely a Map<K, javax.inject.Provider<V>>>
+	  @SuppressWarnings("unchecked")
+	  static <K, V> TypeLiteral<Map<K, javax.inject.Provider<V>>> mapOfJavaxProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, javax.inject.Provider<V>>>)
+	        TypeLiteral.get(
+	            Types.mapOf(
+	                keyType.getType(),
+	                newParameterizedType(javax.inject.Provider.class, valueType.getType())));
+	  }
 
-    RealMapProvider<K, V> mapProvider = new RealMapProvider<>(bindingSelection);
-    binder.bind(bindingSelection.getMapKey()).toProvider(mapProvider);
+	@SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
+	  static <K, V> TypeLiteral<Map<K, Set<Provider<V>>>> mapOfSetOfProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, Set<Provider<V>>>>)
+	        TypeLiteral.get(
+	            Types.mapOf(keyType.getType(), Types.setOf(Types.providerOf(valueType.getType()))));
+	  }
 
-    // The Map.Entries are all ProviderMapEntry instances which do not allow setValue, so it is
-    // safe to massage the return type like this
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> massagedEntrySetProviderKey =
-        (Key) bindingSelection.getEntrySetBinder().getSetKey();
-    binder.bind(bindingSelection.getEntrySetJavaxProviderKey()).to(massagedEntrySetProviderKey);
-  }
+	@SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
+	  static <K, V> TypeLiteral<Map<K, Set<javax.inject.Provider<V>>>> mapOfSetOfJavaxProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, Set<javax.inject.Provider<V>>>>)
+	        TypeLiteral.get(
+	            Types.mapOf(
+	                keyType.getType(), Types.setOf(Types.javaxProviderOf(valueType.getType()))));
+	  }
 
-  @Override
-  public boolean equals(Object o) {
-    return o instanceof RealMapBinder
-        && ((RealMapBinder<?, ?>) o).bindingSelection.equals(bindingSelection);
-  }
+	@SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
+	  static <K, V> TypeLiteral<Map<K, Collection<Provider<V>>>> mapOfCollectionOfProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, Collection<Provider<V>>>>)
+	        TypeLiteral.get(
+	            Types.mapOf(
+	                keyType.getType(), Types.collectionOf(Types.providerOf(valueType.getType()))));
+	  }
 
-  @Override
-  public int hashCode() {
-    return bindingSelection.hashCode();
-  }
+	@SuppressWarnings("unchecked") // a provider map <K, Set<V>> is safely a Map<K, Set<Provider<V>>>
+	  static <K, V>
+	      TypeLiteral<Map<K, Collection<javax.inject.Provider<V>>>> mapOfCollectionOfJavaxProviderOf(
+	          TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map<K, Collection<javax.inject.Provider<V>>>>)
+	        TypeLiteral.get(
+	            Types.mapOf(
+	                keyType.getType(), Types.collectionOf(Types.javaxProviderOf(valueType.getType()))));
+	  }
 
-  /**
+	@SuppressWarnings("unchecked") // a provider entry <K, V> is safely a Map.Entry<K, Provider<V>>
+	  static <K, V> TypeLiteral<Map.Entry<K, Provider<V>>> entryOfProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map.Entry<K, Provider<V>>>)
+	        TypeLiteral.get(
+	            newParameterizedTypeWithOwner(
+	                Map.class,
+	                Map.Entry.class,
+	                keyType.getType(),
+	                Types.providerOf(valueType.getType())));
+	  }
+
+	@SuppressWarnings("unchecked") // a provider entry <K, V> is safely a Map.Entry<K, Provider<V>>
+	  static <K, V> TypeLiteral<Map.Entry<K, Provider<V>>> entryOfJavaxProviderOf(
+	      TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Map.Entry<K, Provider<V>>>)
+	        TypeLiteral.get(
+	            newParameterizedTypeWithOwner(
+	                Map.class,
+	                Map.Entry.class,
+	                keyType.getType(),
+	                Types.javaxProviderOf(valueType.getType())));
+	  }
+
+	@SuppressWarnings("unchecked") // a provider entry <K, V> is safely a Map.Entry<K, Provider<V>>
+	  static <K, V>
+	      TypeLiteral<Set<Map.Entry<K, javax.inject.Provider<V>>>> setOfEntryOfJavaxProviderOf(
+	          TypeLiteral<K> keyType, TypeLiteral<V> valueType) {
+	    return (TypeLiteral<Set<Map.Entry<K, javax.inject.Provider<V>>>>)
+	        TypeLiteral.get(Types.setOf(entryOfJavaxProviderOf(keyType, valueType).getType()));
+	  }
+
+	/** Given a Key<T> will return a Key<Provider<T>> */
+	  @SuppressWarnings("unchecked")
+	  private static <T> Key<Provider<T>> getKeyOfProvider(Key<T> valueKey) {
+	    return (Key<Provider<T>>)
+	        valueKey.ofType(Types.providerOf(valueKey.getTypeLiteral().getType()));
+	  }
+
+	// Note: We use valueTypeAndAnnotation effectively as a Pair<TypeLiteral, Annotation|Class>
+	  // since it's an easy way to group a type and an optional annotation type or instance.
+	  static <K, V> RealMapBinder<K, V> newRealMapBinder(
+	      Binder binder, TypeLiteral<K> keyType, Key<V> valueTypeAndAnnotation) {
+	    binder = binder.skipSources(RealMapBinder.class);
+	    TypeLiteral<V> valueType = valueTypeAndAnnotation.getTypeLiteral();
+	    return newRealMapBinder(
+	        binder,
+	        keyType,
+	        valueType,
+	        valueTypeAndAnnotation.ofType(mapOf(keyType, valueType)),
+	        RealMultibinder.newRealSetBinder(
+	            binder, valueTypeAndAnnotation.ofType(entryOfProviderOf(keyType, valueType))));
+	  }
+
+	private static <K, V> RealMapBinder<K, V> newRealMapBinder(
+	      Binder binder,
+	      TypeLiteral<K> keyType,
+	      TypeLiteral<V> valueType,
+	      Key<Map<K, V>> mapKey,
+	      RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder) {
+	    RealMapBinder<K, V> mapBinder =
+	        new RealMapBinder<>(binder, keyType, valueType, mapKey, entrySetBinder);
+	    binder.install(mapBinder);
+	    return mapBinder;
+	  }
+
+	public void permitDuplicates() {
+	    checkConfiguration(!bindingSelection.isInitialized(), "MapBinder was already initialized");
+	    entrySetBinder.permitDuplicates();
+	    binder.install(new MultimapBinder<K, V>(bindingSelection));
+	  }
+
+	/** Adds a binding to the map for the given key. */
+	  Key<V> getKeyForNewValue(K key) {
+	    checkNotNull(key, "key");
+	    checkConfiguration(!bindingSelection.isInitialized(), "MapBinder was already initialized");
+	    RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder =
+	        bindingSelection.getEntrySetBinder();
+	
+	    Key<V> valueKey =
+	        Key.get(
+	            bindingSelection.getValueType(),
+	            new RealElement(
+	                entrySetBinder.getSetName(), MAPBINDER, bindingSelection.getKeyType().toString()));
+	    entrySetBinder.addBinding().toProvider(new ProviderMapEntry<K, V>(key, valueKey));
+	    return valueKey;
+	  }
+
+	/**
+	   * This creates two bindings. One for the {@code Map.Entry<K, Provider<V>>} and another for {@code
+	   * V}.
+	   */
+	  public LinkedBindingBuilder<V> addBinding(K key) {
+	    return binder.bind(getKeyForNewValue(key));
+	  }
+
+	@Override
+	  public void configure(Binder binder) {
+	    checkConfiguration(!bindingSelection.isInitialized(), "MapBinder was already initialized");
+	
+	    // Binds a Map<K, Provider<V>>
+	    RealProviderMapProvider<K, V> providerMapProvider =
+	        new RealProviderMapProvider<>(bindingSelection);
+	    binder.bind(bindingSelection.getProviderMapKey()).toProvider(providerMapProvider);
+	
+	    // The map this exposes is internally an ImmutableMap, so it's OK to massage
+	    // the guice Provider to javax Provider in the value (since Guice provider
+	    // implements javax Provider).
+	    @SuppressWarnings({"unchecked", "rawtypes"})
+	    Provider<Map<K, javax.inject.Provider<V>>> javaxProviderMapProvider =
+	        (Provider) providerMapProvider;
+	    binder.bind(bindingSelection.getJavaxProviderMapKey()).toProvider(javaxProviderMapProvider);
+	
+	    RealMapProvider<K, V> mapProvider = new RealMapProvider<>(bindingSelection);
+	    binder.bind(bindingSelection.getMapKey()).toProvider(mapProvider);
+	
+	    // The Map.Entries are all ProviderMapEntry instances which do not allow setValue, so it is
+	    // safe to massage the return type like this
+	    @SuppressWarnings({"unchecked", "rawtypes"})
+	    Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> massagedEntrySetProviderKey =
+	        (Key) bindingSelection.getEntrySetBinder().getSetKey();
+	    binder.bind(bindingSelection.getEntrySetJavaxProviderKey()).to(massagedEntrySetProviderKey);
+	  }
+
+	@Override
+	  public boolean equals(Object o) {
+	    return o instanceof RealMapBinder
+	        && ((RealMapBinder<?, ?>) o).bindingSelection.equals(bindingSelection);
+	  }
+
+	@Override
+	  public int hashCode() {
+	    return bindingSelection.hashCode();
+	  }
+
+	private static <K, V> InternalProvisionException createNullValueException(
+	      K key, Binding<V> binding) {
+	    return InternalProvisionException.create(
+	        "Map injection failed due to null value for key \"%s\", bound at: %s",
+	        key, binding.getSource());
+	  }
+
+/**
    * The BindingSelection contains some of the core state and logic for the MapBinder.
    *
    * <p>It lazily computes the value for keys for various permutations of Maps that are provided by
@@ -345,47 +353,35 @@ public final class RealMapBinder<K, V> implements Module {
    * BindingSelection contains mutable state.
    */
   private static final class BindingSelection<K, V> {
-    private enum InitializationState {
-      UNINITIALIZED,
-      INITIALIZED,
-      HAS_ERRORS;
-    }
-
     private final TypeLiteral<K> keyType;
-    private final TypeLiteral<V> valueType;
-    private final Key<Map<K, V>> mapKey;
-
-    // Lazily computed
+	private final TypeLiteral<V> valueType;
+	private final Key<Map<K, V>> mapKey;
+	// Lazily computed
     private Key<Map<K, javax.inject.Provider<V>>> javaxProviderMapKey;
-    private Key<Map<K, Provider<V>>> providerMapKey;
-    private Key<Map<K, Set<V>>> multimapKey;
-    private Key<Map<K, Set<Provider<V>>>> providerSetMultimapKey;
-    private Key<Map<K, Set<javax.inject.Provider<V>>>> javaxProviderSetMultimapKey;
-    private Key<Map<K, Collection<Provider<V>>>> providerCollectionMultimapKey;
-    private Key<Map<K, Collection<javax.inject.Provider<V>>>> javaxProviderCollectionMultimapKey;
-    private Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> entrySetJavaxProviderKey;
-
-    private final RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder;
-
-    private InitializationState initializationState;
-
-    /**
+	private Key<Map<K, Provider<V>>> providerMapKey;
+	private Key<Map<K, Set<V>>> multimapKey;
+	private Key<Map<K, Set<Provider<V>>>> providerSetMultimapKey;
+	private Key<Map<K, Set<javax.inject.Provider<V>>>> javaxProviderSetMultimapKey;
+	private Key<Map<K, Collection<Provider<V>>>> providerCollectionMultimapKey;
+	private Key<Map<K, Collection<javax.inject.Provider<V>>>> javaxProviderCollectionMultimapKey;
+	private Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> entrySetJavaxProviderKey;
+	private final RealMultibinder<Map.Entry<K, Provider<V>>> entrySetBinder;
+	private InitializationState initializationState;
+	/**
      * These are built during initialization and used by all factories to actually provide the
      * relevant maps. These contain all of the necessary information about the map binder.
      */
     private ImmutableMap<K, Binding<V>> mapBindings;
-
-    private ImmutableMap<K, Set<Binding<V>>> multimapBindings;
-    private ImmutableList<Map.Entry<K, Binding<V>>> entries;
-
-    /**
+	private ImmutableMap<K, Set<Binding<V>>> multimapBindings;
+	private ImmutableList<Map.Entry<K, Binding<V>>> entries;
+	/**
      * Indicates if this Map permits duplicates. It is initialized during initialization by querying
      * the injector. This is done because multiple different modules can contribute to a MapBinder,
      * and any one could set permitDuplicates.
      */
     private boolean permitsDuplicates;
 
-    private BindingSelection(
+	private BindingSelection(
         TypeLiteral<K> keyType,
         TypeLiteral<V> valueType,
         Key<Map<K, V>> mapKey,
@@ -397,7 +393,7 @@ public final class RealMapBinder<K, V> implements Module {
       this.initializationState = InitializationState.UNINITIALIZED;
     }
 
-    /**
+	/**
      * Will initialize internal data structures.
      *
      * @return {@code true} if initialization was successful, {@code false} if there were errors
@@ -418,7 +414,7 @@ public final class RealMapBinder<K, V> implements Module {
       // The entrySetBinder contains all of the ProviderMapEntrys, and once
       // we have those, it's easy to iterate through them to organize them by K.
       Map<K, ImmutableSet.Builder<Binding<V>>> bindingMultimapMutable =
-          new LinkedHashMap<K, ImmutableSet.Builder<Binding<V>>>();
+          new LinkedHashMap<>();
       Map<K, Binding<V>> bindingMapMutable = new LinkedHashMap<>();
       Multimap<K, Indexer.IndexedBinding> index = HashMultimap.create();
       Indexer indexer = new Indexer(injector);
@@ -494,10 +490,7 @@ public final class RealMapBinder<K, V> implements Module {
       // transforming from Map<K, ImmutableSet.Builder<Binding<V>>> to
       // ImmutableMap<K, Set<Binding<V>>>
       ImmutableMap.Builder<K, Set<Binding<V>>> bindingsMultimapBuilder = ImmutableMap.builder();
-      for (Map.Entry<K, ImmutableSet.Builder<Binding<V>>> entry :
-          bindingMultimapMutable.entrySet()) {
-        bindingsMultimapBuilder.put(entry.getKey(), entry.getValue().build());
-      }
+      bindingMultimapMutable.entrySet().forEach(entry -> bindingsMultimapBuilder.put(entry.getKey(), entry.getValue().build()));
       mapBindings = ImmutableMap.copyOf(bindingMapMutable);
       multimapBindings = bindingsMultimapBuilder.build();
 
@@ -508,7 +501,7 @@ public final class RealMapBinder<K, V> implements Module {
       return true;
     }
 
-    private static <K, V> void reportDuplicateKeysError(
+	private static <K, V> void reportDuplicateKeysError(
         Multimap<K, Binding<V>> duplicates, Errors errors) {
       StringBuilder sb = new StringBuilder("Map injection failed due to duplicated key ");
       boolean first = true;
@@ -522,16 +515,14 @@ public final class RealMapBinder<K, V> implements Module {
           sb.append("\n and key: \"").append(dupKey).append("\", from bindings:\n");
         }
 
-        for (Binding<V> dup : entry.getValue()) {
-          sb.append("\t at ").append(Errors.convert(dup.getSource())).append("\n");
-        }
+        entry.getValue().forEach(dup -> sb.append("\t at ").append(Errors.convert(dup.getSource())).append("\n"));
       }
 
       // TODO(user): Add a different error for every duplicated key
       errors.addMessage(sb.toString());
     }
 
-    private boolean containsElement(Element element) {
+	private boolean containsElement(Element element) {
       if (entrySetBinder.containsElement(element)) {
         return true;
       }
@@ -556,7 +547,7 @@ public final class RealMapBinder<K, V> implements Module {
           || matchesValueKey(key);
     }
 
-    /** Returns true if the key indicates this is a value in the map. */
+	/** Returns true if the key indicates this is a value in the map. */
     private boolean matchesValueKey(Key<?> key) {
       return key.getAnnotation() instanceof RealElement
           && ((RealElement) key.getAnnotation()).setName().equals(entrySetBinder.getSetName())
@@ -565,7 +556,7 @@ public final class RealMapBinder<K, V> implements Module {
           && key.getTypeLiteral().equals(valueType);
     }
 
-    private Key<Map<K, Provider<V>>> getProviderMapKey() {
+	private Key<Map<K, Provider<V>>> getProviderMapKey() {
       Key<Map<K, Provider<V>>> local = providerMapKey;
       if (local == null) {
         local = providerMapKey = mapKey.ofType(mapOfProviderOf(keyType, valueType));
@@ -573,7 +564,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Map<K, javax.inject.Provider<V>>> getJavaxProviderMapKey() {
+	private Key<Map<K, javax.inject.Provider<V>>> getJavaxProviderMapKey() {
       Key<Map<K, javax.inject.Provider<V>>> local = javaxProviderMapKey;
       if (local == null) {
         local = javaxProviderMapKey = mapKey.ofType(mapOfJavaxProviderOf(keyType, valueType));
@@ -581,7 +572,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Map<K, Set<V>>> getMultimapKey() {
+	private Key<Map<K, Set<V>>> getMultimapKey() {
       Key<Map<K, Set<V>>> local = multimapKey;
       if (local == null) {
         local = multimapKey = mapKey.ofType(mapOf(keyType, setOf(valueType)));
@@ -589,7 +580,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Map<K, Set<Provider<V>>>> getProviderSetMultimapKey() {
+	private Key<Map<K, Set<Provider<V>>>> getProviderSetMultimapKey() {
       Key<Map<K, Set<Provider<V>>>> local = providerSetMultimapKey;
       if (local == null) {
         local = providerSetMultimapKey = mapKey.ofType(mapOfSetOfProviderOf(keyType, valueType));
@@ -597,7 +588,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Map<K, Set<javax.inject.Provider<V>>>> getJavaxProviderSetMultimapKey() {
+	private Key<Map<K, Set<javax.inject.Provider<V>>>> getJavaxProviderSetMultimapKey() {
       Key<Map<K, Set<javax.inject.Provider<V>>>> local = javaxProviderSetMultimapKey;
       if (local == null) {
         local =
@@ -607,7 +598,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Map<K, Collection<Provider<V>>>> getProviderCollectionMultimapKey() {
+	private Key<Map<K, Collection<Provider<V>>>> getProviderCollectionMultimapKey() {
       Key<Map<K, Collection<Provider<V>>>> local = providerCollectionMultimapKey;
       if (local == null) {
         local =
@@ -617,7 +608,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Map<K, Collection<javax.inject.Provider<V>>>>
+	private Key<Map<K, Collection<javax.inject.Provider<V>>>>
         getJavaxProviderCollectionMultimapKey() {
       Key<Map<K, Collection<javax.inject.Provider<V>>>> local = javaxProviderCollectionMultimapKey;
       if (local == null) {
@@ -628,7 +619,7 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> getEntrySetJavaxProviderKey() {
+	private Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> getEntrySetJavaxProviderKey() {
       Key<Set<Map.Entry<K, javax.inject.Provider<V>>>> local = entrySetJavaxProviderKey;
       if (local == null) {
         local =
@@ -638,42 +629,42 @@ public final class RealMapBinder<K, V> implements Module {
       return local;
     }
 
-    private ImmutableMap<K, Binding<V>> getMapBindings() {
+	private ImmutableMap<K, Binding<V>> getMapBindings() {
       checkConfiguration(isInitialized(), "MapBinder has not yet been initialized");
       return mapBindings;
     }
 
-    private ImmutableMap<K, Set<Binding<V>>> getMultimapBindings() {
+	private ImmutableMap<K, Set<Binding<V>>> getMultimapBindings() {
       checkConfiguration(isInitialized(), "MapBinder has not yet been initialized");
       return multimapBindings;
     }
 
-    private ImmutableList<Map.Entry<K, Binding<V>>> getEntries() {
+	private ImmutableList<Map.Entry<K, Binding<V>>> getEntries() {
       checkConfiguration(isInitialized(), "MapBinder has not yet been initialized");
       return entries;
     }
 
-    private boolean isInitialized() {
+	private boolean isInitialized() {
       return initializationState == InitializationState.INITIALIZED;
     }
 
-    private TypeLiteral<K> getKeyType() {
+	private TypeLiteral<K> getKeyType() {
       return keyType;
     }
 
-    private TypeLiteral<V> getValueType() {
+	private TypeLiteral<V> getValueType() {
       return valueType;
     }
 
-    private Key<Map<K, V>> getMapKey() {
+	private Key<Map<K, V>> getMapKey() {
       return mapKey;
     }
 
-    private RealMultibinder<Map.Entry<K, Provider<V>>> getEntrySetBinder() {
+	private RealMultibinder<Map.Entry<K, Provider<V>>> getEntrySetBinder() {
       return entrySetBinder;
     }
 
-    private boolean permitsDuplicates() {
+	private boolean permitsDuplicates() {
       if (isInitialized()) {
         return permitsDuplicates;
       } else {
@@ -682,14 +673,20 @@ public final class RealMapBinder<K, V> implements Module {
       }
     }
 
-    @Override
+	@Override
     public boolean equals(Object o) {
       return o instanceof BindingSelection && ((BindingSelection<?, ?>) o).mapKey.equals(mapKey);
     }
 
-    @Override
+	@Override
     public int hashCode() {
       return mapKey.hashCode();
+    }
+
+	private enum InitializationState {
+      UNINITIALIZED,
+      INITIALIZED,
+      HAS_ERRORS;
     }
   }
 
@@ -711,10 +708,10 @@ public final class RealMapBinder<K, V> implements Module {
     protected void doInitialize(InjectorImpl injector, Errors errors) {
       ImmutableMap.Builder<K, Provider<V>> mapOfProvidersBuilder = ImmutableMap.builder();
       ImmutableSet.Builder<Dependency<?>> dependenciesBuilder = ImmutableSet.builder();
-      for (Map.Entry<K, Binding<V>> entry : bindingSelection.getMapBindings().entrySet()) {
+      bindingSelection.getMapBindings().entrySet().forEach(entry -> {
         mapOfProvidersBuilder.put(entry.getKey(), entry.getValue().getProvider());
         dependenciesBuilder.add(Dependency.get(getKeyOfProvider(entry.getValue().getKey())));
-      }
+      });
 
       mapOfProviders = mapOfProvidersBuilder.build();
       dependencies = dependenciesBuilder.build();
@@ -926,20 +923,13 @@ public final class RealMapBinder<K, V> implements Module {
         if (!keysOnlyFromBindings.isEmpty()) {
           sb.append(
               Errors.format("%nFound these Bindings that were missing an associated entry:%n"));
-          for (Key<V> key : keysOnlyFromBindings) {
-            sb.append(
-                Errors.format("  %s bound at: %s%n", key, valueKeyToBinding.get(key).getSource()));
-          }
+          keysOnlyFromBindings.forEach(key -> sb.append(Errors.format("  %s bound at: %s%n", key, valueKeyToBinding.get(key).getSource())));
         }
 
         if (!keysOnlyFromProviderMapEntrys.isEmpty()) {
           sb.append(Errors.format("%nFound these map keys without a corresponding value:%n"));
-          for (Key<V> key : keysOnlyFromProviderMapEntrys) {
-            sb.append(
-                Errors.format(
-                    "  '%s' bound at: %s%n",
-                    valueKeyToKey.get(key), valueKeyToEntryBinding.get(key).getSource()));
-          }
+          keysOnlyFromProviderMapEntrys.forEach(key -> sb.append(Errors.format("  '%s' bound at: %s%n", valueKeyToKey.get(key),
+				valueKeyToEntryBinding.get(key).getSource())));
         }
 
         throw new IllegalArgumentException(sb.toString());
@@ -947,7 +937,7 @@ public final class RealMapBinder<K, V> implements Module {
 
       // Now that we have the two maps, generate the result map
       ImmutableList.Builder<Map.Entry<?, Binding<?>>> resultBuilder = ImmutableList.builder();
-      for (Map.Entry<K, Key<V>> entry : keyToValueKey.entries()) {
+      keyToValueKey.entries().forEach(entry -> {
         Binding<?> binding = valueKeyToBinding.get(entry.getValue());
         // No null check for binding needed because of the above check to make sure all the
         // values in keyToValueKey are present as keys in valueKeyToBinding
@@ -956,7 +946,7 @@ public final class RealMapBinder<K, V> implements Module {
         Map.Entry<?, Binding<?>> newEntry =
             (Map.Entry) Maps.immutableEntry(entry.getKey(), binding);
         resultBuilder.add(newEntry);
-      }
+      });
       return resultBuilder.build();
     }
 
@@ -1053,16 +1043,15 @@ public final class RealMapBinder<K, V> implements Module {
         ImmutableMap.Builder<K, Set<Provider<V>>> multimapOfProvidersBuilder =
             ImmutableMap.builder();
         ImmutableSet.Builder<Dependency<?>> dependenciesBuilder = ImmutableSet.builder();
-        for (Map.Entry<K, Set<Binding<V>>> entry :
-            bindingSelection.getMultimapBindings().entrySet()) {
-          ImmutableSet.Builder<Provider<V>> providersBuilder = ImmutableSet.builder();
-          for (Binding<V> binding : entry.getValue()) {
-            providersBuilder.add(binding.getProvider());
-            dependenciesBuilder.add(Dependency.get(getKeyOfProvider(binding.getKey())));
-          }
+        bindingSelection.getMultimapBindings().entrySet().forEach(entry -> {
+        ImmutableSet.Builder<Provider<V>> providersBuilder = ImmutableSet.builder();
+        entry.getValue().forEach(binding -> {
+		providersBuilder.add(binding.getProvider());
+		dependenciesBuilder.add(Dependency.get(getKeyOfProvider(binding.getKey())));
+        });
 
-          multimapOfProvidersBuilder.put(entry.getKey(), providersBuilder.build());
-        }
+        multimapOfProvidersBuilder.put(entry.getKey(), providersBuilder.build());
+      });
         multimapOfProviders = multimapOfProvidersBuilder.build();
         dependencies = dependenciesBuilder.build();
       }
@@ -1077,7 +1066,84 @@ public final class RealMapBinder<K, V> implements Module {
     private static final class RealMultimapProvider<K, V>
         extends RealMultimapBinderProviderWithDependencies<K, V, Map<K, Set<V>>> {
 
-      /**
+      private Set<Dependency<?>> dependencies = RealMapBinder.MODULE_DEPENDENCIES;
+
+		private PerKeyData<K, V>[] perKeyDatas;
+
+		private RealMultimapProvider(Key<Map<K, V>> mapKey) {
+		    super(mapKey);
+		  }
+
+		@Override
+		  public Set<Dependency<?>> getDependencies() {
+		    return dependencies;
+		  }
+
+		@Override
+		  protected void doInitialize(InjectorImpl injector, Errors errors) throws ErrorsException {
+		    @SuppressWarnings({"unchecked", "rawtypes"})
+		    PerKeyData<K, V>[] typedPerKeyData =
+		        new PerKeyData[bindingSelection.getMapBindings().size()];
+		    perKeyDatas = typedPerKeyData;
+		    ImmutableSet.Builder<Dependency<?>> dependenciesBuilder = ImmutableSet.builder();
+		    List<Dependency<?>> dependenciesForKey = Lists.newArrayList();
+		    int i = 0;
+		    for (Map.Entry<K, Set<Binding<V>>> entry :
+		        bindingSelection.getMultimapBindings().entrySet()) {
+		      // Clear the list of dependencies because we're reusing it for each different key
+		      dependenciesForKey.clear();
+
+		      Set<Binding<V>> bindings = entry.getValue();
+		      @SuppressWarnings({"unchecked", "rawtypes"})
+		      Binding<V>[] typedBindings = new Binding[bindings.size()];
+		      Binding<V>[] bindingsArray = typedBindings;
+		      int j = 0;
+		      for (Binding<V> binding : bindings) {
+		        Dependency<V> dependency = Dependency.get(binding.getKey());
+		        dependenciesBuilder.add(dependency);
+		        dependenciesForKey.add(dependency);
+		        bindingsArray[j] = binding;
+		        j++;
+		      }
+
+		      @SuppressWarnings("unchecked")
+		      SingleParameterInjector<V>[] injectors =
+		          (SingleParameterInjector<V>[])
+		              injector.getParametersInjectors(dependenciesForKey, errors);
+
+		      perKeyDatas[i] = new PerKeyData<>(entry.getKey(), bindingsArray, injectors);
+		      i++;
+		    }
+
+		    dependencies = dependenciesBuilder.build();
+		  }
+
+		@Override
+		  protected Map<K, Set<V>> doProvision(InternalContext context, Dependency<?> dependency)
+		      throws InternalProvisionException {
+		    ImmutableMap.Builder<K, Set<V>> resultBuilder = ImmutableMap.builder();
+
+		    for (PerKeyData<K, V> perKeyData : perKeyDatas) {
+		      ImmutableSet.Builder<V> bindingsBuilder = ImmutableSet.builder();
+		      SingleParameterInjector<V>[] injectors = perKeyData.injectors;
+		      for (int i = 0; i < injectors.length; i++) {
+		        SingleParameterInjector<V> injector = injectors[i];
+		        V value = injector.inject(context);
+
+		        if (value == null) {
+		          throw createNullValueException(perKeyData.key, perKeyData.bindings[i]);
+		        }
+
+		        bindingsBuilder.add(value);
+		      }
+
+		      resultBuilder.put(perKeyData.key, bindingsBuilder.build());
+		    }
+
+		    return resultBuilder.build();
+		  }
+
+	/**
        * A simple class to hold a key and the associated bindings as an array.
        *
        * <p>Arrays are used for performance.
@@ -1094,83 +1160,6 @@ public final class RealMapBinder<K, V> implements Module {
           this.bindings = bindings;
           this.injectors = injectors;
         }
-      }
-
-      private Set<Dependency<?>> dependencies = RealMapBinder.MODULE_DEPENDENCIES;
-
-      private PerKeyData<K, V>[] perKeyDatas;
-
-      private RealMultimapProvider(Key<Map<K, V>> mapKey) {
-        super(mapKey);
-      }
-
-      @Override
-      public Set<Dependency<?>> getDependencies() {
-        return dependencies;
-      }
-
-      @Override
-      protected void doInitialize(InjectorImpl injector, Errors errors) throws ErrorsException {
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        PerKeyData<K, V>[] typedPerKeyData =
-            new PerKeyData[bindingSelection.getMapBindings().size()];
-        perKeyDatas = typedPerKeyData;
-        ImmutableSet.Builder<Dependency<?>> dependenciesBuilder = ImmutableSet.builder();
-        List<Dependency<?>> dependenciesForKey = Lists.newArrayList();
-        int i = 0;
-        for (Map.Entry<K, Set<Binding<V>>> entry :
-            bindingSelection.getMultimapBindings().entrySet()) {
-          // Clear the list of dependencies because we're reusing it for each different key
-          dependenciesForKey.clear();
-
-          Set<Binding<V>> bindings = entry.getValue();
-          @SuppressWarnings({"unchecked", "rawtypes"})
-          Binding<V>[] typedBindings = new Binding[bindings.size()];
-          Binding<V>[] bindingsArray = typedBindings;
-          int j = 0;
-          for (Binding<V> binding : bindings) {
-            Dependency<V> dependency = Dependency.get(binding.getKey());
-            dependenciesBuilder.add(dependency);
-            dependenciesForKey.add(dependency);
-            bindingsArray[j] = binding;
-            j++;
-          }
-
-          @SuppressWarnings("unchecked")
-          SingleParameterInjector<V>[] injectors =
-              (SingleParameterInjector<V>[])
-                  injector.getParametersInjectors(dependenciesForKey, errors);
-
-          perKeyDatas[i] = new PerKeyData<>(entry.getKey(), bindingsArray, injectors);
-          i++;
-        }
-
-        dependencies = dependenciesBuilder.build();
-      }
-
-      @Override
-      protected Map<K, Set<V>> doProvision(InternalContext context, Dependency<?> dependency)
-          throws InternalProvisionException {
-        ImmutableMap.Builder<K, Set<V>> resultBuilder = ImmutableMap.builder();
-
-        for (PerKeyData<K, V> perKeyData : perKeyDatas) {
-          ImmutableSet.Builder<V> bindingsBuilder = ImmutableSet.builder();
-          SingleParameterInjector<V>[] injectors = perKeyData.injectors;
-          for (int i = 0; i < injectors.length; i++) {
-            SingleParameterInjector<V> injector = injectors[i];
-            V value = injector.inject(context);
-
-            if (value == null) {
-              throw createNullValueException(perKeyData.key, perKeyData.bindings[i]);
-            }
-
-            bindingsBuilder.add(value);
-          }
-
-          resultBuilder.put(perKeyData.key, bindingsBuilder.build());
-        }
-
-        return resultBuilder.build();
       }
     }
   }
@@ -1217,11 +1206,11 @@ public final class RealMapBinder<K, V> implements Module {
 
     @Override
     public boolean equals(Object obj) {
-      if (obj instanceof ProviderMapEntry) {
-        ProviderMapEntry<?, ?> o = (ProviderMapEntry<?, ?>) obj;
-        return key.equals(o.key) && valueKey.equals(o.valueKey);
-      }
-      return false;
+      if (!(obj instanceof ProviderMapEntry)) {
+		return false;
+	}
+	ProviderMapEntry<?, ?> o = (ProviderMapEntry<?, ?>) obj;
+	return key.equals(o.key) && valueKey.equals(o.valueKey);
     }
 
     @Override
@@ -1231,7 +1220,7 @@ public final class RealMapBinder<K, V> implements Module {
 
     @Override
     public String toString() {
-      return "ProviderMapEntry(" + key + ", " + valueKey + ")";
+      return new StringBuilder().append("ProviderMapEntry(").append(key).append(", ").append(valueKey).append(")").toString();
     }
   }
 
@@ -1341,12 +1330,5 @@ public final class RealMapBinder<K, V> implements Module {
     public int hashCode() {
       return mapKey.hashCode();
     }
-  }
-
-  private static <K, V> InternalProvisionException createNullValueException(
-      K key, Binding<V> binding) {
-    return InternalProvisionException.create(
-        "Map injection failed due to null value for key \"%s\", bound at: %s",
-        key, binding.getSource());
   }
 }

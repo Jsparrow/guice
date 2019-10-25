@@ -44,7 +44,7 @@ public class OSGiContainerTest extends TestCase {
   static final String BUILD_DIST_DIR = BUILD_DIR + "/dist";
   static final String BUILD_TEST_DIR = BUILD_DIR + "/test";
 
-  static final String GUICE_JAR = BUILD_DIST_DIR + "/guice-" + VERSION + ".jar";
+  static final String GUICE_JAR = new StringBuilder().append(BUILD_DIST_DIR).append("/guice-").append(VERSION).append(".jar").toString();
 
   /*if[AOP]*/
   static final String AOPALLIANCE_JAR =
@@ -88,14 +88,12 @@ public class OSGiContainerTest extends TestCase {
     buildBundle("guava", instructions, GUAVA_JAR);
     instructions.clear();
 
-    // strict imports to make sure test bundle only has access to these packages
+    /*if[AOP]*/
+	/*end[AOP]*/
+	// strict imports to make sure test bundle only has access to these packages
     instructions.setProperty(
         "Import-Package",
-        "org.osgi.framework,"
-            /*if[AOP]*/
-            + "org.aopalliance.intercept,"
-            /*end[AOP]*/
-            + "com.google.inject(|.binder|.matcher|.name)");
+        new StringBuilder().append("org.osgi.framework,").append("org.aopalliance.intercept,").append("com.google.inject(|.binder|.matcher|.name)").toString());
 
     // test bundle should only contain the local test classes, nothing else
     instructions.setProperty("Bundle-Activator", OSGiTestActivator.class.getName());
@@ -109,7 +107,7 @@ public class OSGiContainerTest extends TestCase {
       throws IOException {
 
     // write BND instructions to temporary test directory
-    String bndFileName = BUILD_TEST_DIR + '/' + name + ".bnd";
+    String bndFileName = new StringBuilder().append(BUILD_TEST_DIR).append('/').append(name).append(".bnd").toString();
     OutputStream os = new BufferedOutputStream(new FileOutputStream(bndFileName));
     instructions.store(os, "BND instructions");
     os.close();
@@ -119,9 +117,7 @@ public class OSGiContainerTest extends TestCase {
   }
 
   private String failMsg() {
-    return "This test may fail if it is not run from ant, or if it is not run after ant has "
-        + "compiled & built jars. This is because the test is validating that the Guice jar "
-        + "is properly setup to load in an OSGi container";
+    return new StringBuilder().append("This test may fail if it is not run from ant, or if it is not run after ant has ").append("compiled & built jars. This is because the test is validating that the Guice jar ").append("is properly setup to load in an OSGi container").toString();
   }
 
   //This test may fail if it is not run from ant, or if it is not run after ant has
@@ -143,12 +139,12 @@ public class OSGiContainerTest extends TestCase {
 
       // load all the necessary bundles and start the OSGi test bundle
       /*if[AOP]*/
-      systemContext.installBundle("reference:file:" + BUILD_TEST_DIR + "/aopalliance.jar");
+      systemContext.installBundle(new StringBuilder().append("reference:file:").append(BUILD_TEST_DIR).append("/aopalliance.jar").toString());
       /*end[AOP]*/
-      systemContext.installBundle("reference:file:" + BUILD_TEST_DIR + "/javax.inject.jar");
-      systemContext.installBundle("reference:file:" + BUILD_TEST_DIR + "/guava.jar");
+      systemContext.installBundle(new StringBuilder().append("reference:file:").append(BUILD_TEST_DIR).append("/javax.inject.jar").toString());
+      systemContext.installBundle(new StringBuilder().append("reference:file:").append(BUILD_TEST_DIR).append("/guava.jar").toString());
       systemContext.installBundle("reference:file:" + GUICE_JAR);
-      systemContext.installBundle("reference:file:" + BUILD_TEST_DIR + "/osgitests.jar").start();
+      systemContext.installBundle(new StringBuilder().append("reference:file:").append(BUILD_TEST_DIR).append("/osgitests.jar").toString()).start();
 
       framework.stop();
     }

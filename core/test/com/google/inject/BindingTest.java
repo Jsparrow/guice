@@ -47,22 +47,422 @@ import org.aopalliance.intercept.MethodInvocation;
  */
 public class BindingTest extends TestCase {
 
-  static class Dependent {
+  private static List<Butter> butters = new ArrayList<>();
+
+	public void testExplicitCyclicDependency() {
+	    Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(A.class);
+	                bind(B.class);
+	              }
+	            })
+	        .getInstance(A.class);
+	  }
+
+	public void testBindToUnboundLinkedBinding() {
+	    try {
+	      Guice.createInjector(
+	          new AbstractModule() {
+	            @Override
+	            protected void configure() {
+	              bind(Collection.class).to(List.class);
+	            }
+	          });
+	      fail();
+	    } catch (CreationException expected) {
+	      assertContains(expected.getMessage(), "No implementation for java.util.List was bound.");
+	    }
+	  }
+
+	/**
+	   * This test ensures that the asEagerSingleton() scoping applies to the key,
+	   * not to what the key is linked to.
+	   */
+	  public void testScopeIsAppliedToKeyNotTarget() {
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(Integer.class).toProvider(Counter.class).asEagerSingleton();
+	                bind(Number.class).toProvider(Counter.class).asEagerSingleton();
+	              }
+	            });
+	
+	    assertNotSame(injector.getInstance(Integer.class), injector.getInstance(Number.class));
+	  }
+
+	public void testAnnotatedNoArgConstructor() {
+	    assertBindingSucceeds(PublicNoArgAnnotated.class);
+	    assertBindingSucceeds(ProtectedNoArgAnnotated.class);
+	    assertBindingSucceeds(PackagePrivateNoArgAnnotated.class);
+	    assertBindingSucceeds(PrivateNoArgAnnotated.class);
+	  }
+
+	public void testUnannotatedNoArgConstructor() throws Exception{
+	    assertBindingSucceeds(PublicNoArg.class);
+	    assertBindingSucceeds(ProtectedNoArg.class);
+	    assertBindingSucceeds(PackagePrivateNoArg.class);
+	    assertBindingSucceeds(PrivateNoArgInPrivateClass.class);
+	    assertBindingFails(PrivateNoArg.class);
+	  }
+
+	private void assertBindingSucceeds(final Class<?> clazz) {
+	    assertNotNull(Guice.createInjector().getInstance(clazz));
+	  }
+
+	private void assertBindingFails(final Class<?> clazz) throws NoSuchMethodException {
+	    try {
+	      Guice.createInjector().getInstance(clazz);
+	      fail();
+	    } catch (ConfigurationException expected) {
+	      assertContains(
+	          expected.getMessage(),
+	          new StringBuilder().append("No implementation for ").append(PrivateNoArg.class.getName()).append(" (with no qualifier annotation) was bound, and could not find an injectable").append(" constructor").toString(),
+	          new StringBuilder().append("at ").append(PrivateNoArg.class.getName()).append(".class(BindingTest.java:").toString());
+	    }
+	  }
+
+	public void testTooManyConstructors() {
+	    try {
+	      Guice.createInjector().getInstance(TooManyConstructors.class);
+	      fail();
+	    } catch (ConfigurationException expected) {
+	      assertContains(
+	          expected.getMessage(),
+	          new StringBuilder().append(TooManyConstructors.class.getName()).append(" has more than one constructor annotated with ").append("@Inject. Injectable classes must have either one (and only one) constructor").toString(),
+	          new StringBuilder().append("at ").append(TooManyConstructors.class.getName()).append(".class(BindingTest.java:").toString());
+	    }
+	  }
+
+	public void testToConstructorBinding() throws NoSuchMethodException {
+	    final Constructor<D> constructor = D.class.getConstructor(Stage.class);
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(Object.class).toConstructor(constructor);
+	              }
+	            });
+	
+	    D d = (D) injector.getInstance(Object.class);
+	    assertEquals(Stage.DEVELOPMENT, d.stage);
+	  }
+
+	public void testToConstructorBindingsOnParameterizedTypes() throws NoSuchMethodException {
+	    final Constructor<C> constructor = C.class.getConstructor(Stage.class, Object.class);
+	    final Key<Object> s = new Key<Object>(named("s")) {};
+	    final Key<Object> i = new Key<Object>(named("i")) {};
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(s).toConstructor(constructor, new TypeLiteral<C<Stage>>() {});
+	                bind(i).toConstructor(constructor, new TypeLiteral<C<Injector>>() {});
+	              }
+	            });
+	
+	    C<Stage> one = (C<Stage>) injector.getInstance(s);
+	    assertEquals(Stage.DEVELOPMENT, one.stage);
+	    assertEquals(Stage.DEVELOPMENT, one.t);
+	    assertEquals(Stage.DEVELOPMENT, one.anotherT);
+	
+	    C<Injector> two = (C<Injector>) injector.getInstance(i);
+	    assertEquals(Stage.DEVELOPMENT, two.stage);
+	    assertEquals(injector, two.t);
+	    assertEquals(injector, two.anotherT);
+	  }
+
+	public void testToConstructorBindingsFailsOnRawTypes() throws NoSuchMethodException {
+	    final Constructor constructor = C.class.getConstructor(Stage.class, Object.class);
+	
+	    try {
+	      Guice.createInjector(
+	          new AbstractModule() {
+	            @Override
+	            protected void configure() {
+	              bind(Object.class).toConstructor(constructor);
+	            }
+	          });
+	      fail();
+	    } catch (CreationException expected) {
+	      assertContains(expected.getMessage(),
+	          "1) T cannot be used as a key; It is not fully specified.",
+	          new StringBuilder().append("at ").append(C.class.getName()).append(".<init>(BindingTest.java:").toString(),
+	          "2) T cannot be used as a key; It is not fully specified.",
+	          new StringBuilder().append("at ").append(C.class.getName()).append(".anotherT(BindingTest.java:").toString());
+	    }
+	  }
+
+	/*if[AOP]*/
+	  public void testToConstructorAndMethodInterceptors() throws NoSuchMethodException {
+	    final Constructor<D> constructor = D.class.getConstructor(Stage.class);
+	    final AtomicInteger count = new AtomicInteger();
+	    final MethodInterceptor countingInterceptor =
+	        (MethodInvocation methodInvocation) -> {
+		    count.incrementAndGet();
+		    return methodInvocation.proceed();
+		  };
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(Object.class).toConstructor(constructor);
+	                bindInterceptor(Matchers.any(), Matchers.any(), countingInterceptor);
+	              }
+	            });
+	
+	    D d = (D) injector.getInstance(Object.class);
+	    d.hashCode();
+	    d.hashCode();
+	    assertEquals(2, count.get());
+	  }
+
+	/*end[AOP]*/
+	
+	  public void testInaccessibleConstructor() throws NoSuchMethodException {
+	    final Constructor<E> constructor = E.class.getDeclaredConstructor(Stage.class);
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(E.class).toConstructor(constructor);
+	              }
+	            });
+	
+	    E e = injector.getInstance(E.class);
+	    assertEquals(Stage.DEVELOPMENT, e.stage);
+	  }
+
+	public void testToConstructorAndScopes() throws NoSuchMethodException {
+	    final Constructor<F> constructor = F.class.getConstructor(Stage.class);
+	
+	    final Key<Object> d = Key.get(Object.class, named("D")); // default scoping
+	    final Key<Object> s = Key.get(Object.class, named("S")); // singleton
+	    final Key<Object> n = Key.get(Object.class, named("N")); // "N" instances
+	    final Key<Object> r = Key.get(Object.class, named("R")); // a regular binding
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(d).toConstructor(constructor);
+	                bind(s).toConstructor(constructor).in(Singleton.class);
+	                bind(n).toConstructor(constructor).in(Scopes.NO_SCOPE);
+	                bind(r).to(F.class);
+	              }
+	            });
+	
+	    assertDistinct(injector, 1, d, d, d, d);
+	    assertDistinct(injector, 1, s, s, s, s);
+	    assertDistinct(injector, 4, n, n, n, n);
+	    assertDistinct(injector, 1, r, r, r, r);
+	    assertDistinct(injector, 4, d, d, r, r, s, s, n);
+	  }
+
+	public void assertDistinct(Injector injector, int expectedCount, Key<?>... keys) {
+	    ImmutableSet.Builder<Object> builder = ImmutableSet.builder();
+	    for (Key<?> k : keys) {
+	      builder.add(injector.getInstance(k));
+	    }
+	    assertEquals(expectedCount, builder.build().size());
+	  }
+
+	public void testToConstructorSpiData() throws NoSuchMethodException {
+	    final Set<TypeLiteral<?>> heardTypes = Sets.newHashSet();
+	
+	    final Constructor<D> constructor = D.class.getConstructor(Stage.class);
+	    final TypeListener listener =
+	        new TypeListener() {
+	          @Override
+	          public <I> void hear(TypeLiteral<I> type, TypeEncounter<I> encounter) {
+	            if (!heardTypes.add(type)) {
+	              fail(new StringBuilder().append("Heard ").append(type).append(" multiple times!").toString());
+	            }
+	          }
+	        };
+	
+	    Guice.createInjector(
+	        new AbstractModule() {
+	          @Override
+	          protected void configure() {
+	            bind(Object.class).toConstructor(constructor);
+	            bind(D.class).toConstructor(constructor);
+	            bindListener(Matchers.any(), listener);
+	          }
+	        });
+	    
+	    assertEquals(ImmutableSet.of(TypeLiteral.get(D.class)), heardTypes);
+	  }
+
+	public void testInterfaceToImplementationConstructor() throws NoSuchMethodException {
+	    final Constructor<CFoo> constructor = CFoo.class.getDeclaredConstructor();
+	
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(IFoo.class).toConstructor(constructor);
+	              }
+	            });
+	
+	    injector.getInstance(IFoo.class);
+	  }
+
+	public void testGetAllBindings() {
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(D.class).toInstance(new D(Stage.PRODUCTION));
+	                bind(Object.class).to(D.class);
+	                getProvider(new Key<C<Stage>>() {});
+	              }
+	            });
+	
+	    Map<Key<?>,Binding<?>> bindings = injector.getAllBindings();
+	    assertEquals(ImmutableSet.of(Key.get(Injector.class), Key.get(Stage.class), Key.get(D.class),
+	        Key.get(Logger.class), Key.get(Object.class), new Key<C<Stage>>() {}),
+	        bindings.keySet());
+	
+	    // add a JIT binding
+	    injector.getInstance(F.class);
+	
+	    Map<Key<?>,Binding<?>> bindings2 = injector.getAllBindings();
+	    assertEquals(ImmutableSet.of(Key.get(Injector.class), Key.get(Stage.class), Key.get(D.class),
+	        Key.get(Logger.class), Key.get(Object.class), new Key<C<Stage>>() {}, Key.get(F.class)),
+	        bindings2.keySet());
+	
+	    // the original map shouldn't have changed
+	    assertEquals(ImmutableSet.of(Key.get(Injector.class), Key.get(Stage.class), Key.get(D.class),
+	        Key.get(Logger.class), Key.get(Object.class), new Key<C<Stage>>() {}),
+	        bindings.keySet());
+	
+	    // check the bindings' values
+	    assertEquals(injector, bindings.get(Key.get(Injector.class)).getProvider().get());
+	  }
+
+	public void testGetAllServletBindings() throws Exception {
+	    Injector injector =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(F.class); // an explicit binding that uses a JIT binding for a constructor
+	              }
+	            });
+	    injector.getAllBindings();
+	  }
+
+	public void testTurkeyBaconProblemUsingToConstuctor() {
+	    Injector injector = Guice.createInjector(new AbstractModule() {
+	      @SuppressWarnings("unchecked")
+	      @Override
+	      public void configure() {
+	        bind(Bacon.class).to(UncookedBacon.class);
+	        bind(Bacon.class).annotatedWith(named("Turkey")).to(TurkeyBacon.class);
+	        bind(Bacon.class).annotatedWith(named("Tofu")).to(TofuBacon.class);
+	        bind(Bacon.class).annotatedWith(named("Cooked")).toConstructor(
+	            (Constructor)InjectionPoint.forConstructorOf(Bacon.class).getMember());
+	      }
+	    });
+	    Bacon bacon = injector.getInstance(Bacon.class);
+	    assertEquals(Food.PORK, bacon.getMaterial());
+	    assertFalse(bacon.isCooked());
+	    
+	    Bacon turkeyBacon = injector.getInstance(Key.get(Bacon.class, named("Turkey")));
+	    assertEquals(Food.TURKEY, turkeyBacon.getMaterial());
+	    assertTrue(turkeyBacon.isCooked());
+	    
+	    Bacon cookedBacon = injector.getInstance(Key.get(Bacon.class, named("Cooked")));
+	    assertEquals(Food.PORK, cookedBacon.getMaterial());
+	    assertTrue(cookedBacon.isCooked());
+	
+	    try {
+	      // Turkey typo, missing a letter...
+	      injector.getInstance(Key.get(Bacon.class, named("Turky")));
+	      fail();
+	    } catch (ConfigurationException e) {
+	      String msg = e.getMessage();
+	      assertContains(
+	          msg,
+	          "Guice configuration errors:",
+	          new StringBuilder().append("1) No implementation for").append(" com.google.inject.BindingTest$Bacon annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("Turky")).append(") was bound.").toString(),
+	          "Did you mean?",
+	          new StringBuilder().append("* com.google.inject.BindingTest$Bacon annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("Turkey")).append(")").toString(),
+	          new StringBuilder().append("* com.google.inject.BindingTest$Bacon annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("Tofu")).append(")").toString(),
+	          "1 more binding with other annotations.",
+	          new StringBuilder().append("while locating com.google.inject.BindingTest$Bacon annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("Turky")).append(")").toString());
+	    }
+	  }
+
+	public void testMissingAnnotationOneChoice() {
+	    Injector injector = Guice.createInjector(new AbstractModule() {
+	      @SuppressWarnings("unchecked")
+	      @Override
+	      public void configure() {
+	        bind(Bacon.class).annotatedWith(named("Turkey")).to(TurkeyBacon.class);
+	      }
+	    });
+	
+	    try {
+	      // turkey typo (should be Upper case)...
+	      injector.getInstance(Key.get(Bacon.class, named("turkey")));
+	      fail();
+	    } catch (ConfigurationException e) {
+	      String msg = e.getMessage();
+	      assertContains(msg, "Guice configuration errors:");
+	      assertContains(
+	          msg,
+	          new StringBuilder().append("1) No implementation for com.google.inject.BindingTest$Bacon").append(" annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("turkey")).append(") was bound.").toString(),
+	          "Did you mean?",
+	          new StringBuilder().append("* com.google.inject.BindingTest$Bacon annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("Turkey")).append(")").toString(),
+	          new StringBuilder().append("while locating com.google.inject.BindingTest$Bacon annotated with").append(" @com.google.inject.name.Named(value=").append(Annotations.memberValueString("turkey")).append(")").toString());
+	    }
+	  }
+
+	public void testMissingAnnotationRelated() {
+	    try {
+	      final TypeLiteral<List<Butter>> list = new TypeLiteral<List<Butter>>() {};
+	
+	      Guice.createInjector(new AbstractModule() {
+	        @SuppressWarnings("unchecked")
+	        @Override
+	        public void configure() {
+	          bind(list).toInstance(butters);
+	          bind(Sandwitch.class).to(ButterSandwitch.class);
+	        }
+	      });
+	
+	      fail();
+	    } catch (CreationException e) {
+	      final String msg = e.getMessage();
+	      assertContains(msg, "Unable to create injector, see the following errors:",
+	          "Did you mean?",
+	          "java.util.List<com.google.inject.BindingTest$Butter> bound"
+	          + "  at com.google.inject.BindingTest$24.configure");
+	    }
+	  }
+
+	enum Food { TURKEY, PORK, TOFU }
+
+static class Dependent {
     @Inject A a;
     @Inject Dependent(A a, B b) {}
     @Inject void injectBob(Bob bob) {}
-  }
-
-  public void testExplicitCyclicDependency() {
-    Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(A.class);
-                bind(B.class);
-              }
-            })
-        .getInstance(A.class);
   }
 
   static class A { @Inject B b; }
@@ -115,52 +515,12 @@ public class BindingTest extends TestCase {
 
   public static class Bar {}
 
-  public void testBindToUnboundLinkedBinding() {
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              bind(Collection.class).to(List.class);
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-      assertContains(expected.getMessage(), "No implementation for java.util.List was bound.");
-    }
-  }
-
-  /**
-   * This test ensures that the asEagerSingleton() scoping applies to the key,
-   * not to what the key is linked to.
-   */
-  public void testScopeIsAppliedToKeyNotTarget() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Integer.class).toProvider(Counter.class).asEagerSingleton();
-                bind(Number.class).toProvider(Counter.class).asEagerSingleton();
-              }
-            });
-
-    assertNotSame(injector.getInstance(Integer.class), injector.getInstance(Number.class));
-  }
-
   static class Counter implements Provider<Integer> {
     static AtomicInteger next = new AtomicInteger(1);
     @Override
     public Integer get() {
       return next.getAndIncrement();
     }
-  }
-
-  public void testAnnotatedNoArgConstructor() {
-    assertBindingSucceeds(PublicNoArgAnnotated.class);
-    assertBindingSucceeds(ProtectedNoArgAnnotated.class);
-    assertBindingSucceeds(PackagePrivateNoArgAnnotated.class);
-    assertBindingSucceeds(PrivateNoArgAnnotated.class);
   }
 
   static class PublicNoArgAnnotated {
@@ -177,14 +537,6 @@ public class BindingTest extends TestCase {
 
   static class PrivateNoArgAnnotated {
     @Inject private PrivateNoArgAnnotated() { }
-  }
-
-  public void testUnannotatedNoArgConstructor() throws Exception{
-    assertBindingSucceeds(PublicNoArg.class);
-    assertBindingSucceeds(ProtectedNoArg.class);
-    assertBindingSucceeds(PackagePrivateNoArg.class);
-    assertBindingSucceeds(PrivateNoArgInPrivateClass.class);
-    assertBindingFails(PrivateNoArg.class);
   }
 
   static class PublicNoArg {
@@ -207,39 +559,6 @@ public class BindingTest extends TestCase {
     private PrivateNoArg() { }
   }
 
-  private void assertBindingSucceeds(final Class<?> clazz) {
-    assertNotNull(Guice.createInjector().getInstance(clazz));
-  }
-
-  private void assertBindingFails(final Class<?> clazz) throws NoSuchMethodException {
-    try {
-      Guice.createInjector().getInstance(clazz);
-      fail();
-    } catch (ConfigurationException expected) {
-      assertContains(
-          expected.getMessage(),
-          "No implementation for "
-              + PrivateNoArg.class.getName()
-              + " (with no qualifier annotation) was bound, and could not find an injectable"
-              + " constructor",
-          "at " + PrivateNoArg.class.getName() + ".class(BindingTest.java:");
-    }
-  }
-
-  public void testTooManyConstructors() {
-    try {
-      Guice.createInjector().getInstance(TooManyConstructors.class);
-      fail();
-    } catch (ConfigurationException expected) {
-      assertContains(
-          expected.getMessage(),
-          TooManyConstructors.class.getName()
-              + " has more than one constructor annotated with "
-              + "@Inject. Injectable classes must have either one (and only one) constructor",
-          "at " + TooManyConstructors.class.getName() + ".class(BindingTest.java:");
-    }
-  }
-
   @SuppressWarnings("InjectMultipleAtInjectConstructors")
   static class TooManyConstructors {
     @Inject
@@ -249,240 +568,8 @@ public class BindingTest extends TestCase {
     TooManyConstructors() {}
   }
 
-  public void testToConstructorBinding() throws NoSuchMethodException {
-    final Constructor<D> constructor = D.class.getConstructor(Stage.class);
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Object.class).toConstructor(constructor);
-              }
-            });
-
-    D d = (D) injector.getInstance(Object.class);
-    assertEquals(Stage.DEVELOPMENT, d.stage);
-  }
-
-  public void testToConstructorBindingsOnParameterizedTypes() throws NoSuchMethodException {
-    final Constructor<C> constructor = C.class.getConstructor(Stage.class, Object.class);
-    final Key<Object> s = new Key<Object>(named("s")) {};
-    final Key<Object> i = new Key<Object>(named("i")) {};
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(s).toConstructor(constructor, new TypeLiteral<C<Stage>>() {});
-                bind(i).toConstructor(constructor, new TypeLiteral<C<Injector>>() {});
-              }
-            });
-
-    C<Stage> one = (C<Stage>) injector.getInstance(s);
-    assertEquals(Stage.DEVELOPMENT, one.stage);
-    assertEquals(Stage.DEVELOPMENT, one.t);
-    assertEquals(Stage.DEVELOPMENT, one.anotherT);
-
-    C<Injector> two = (C<Injector>) injector.getInstance(i);
-    assertEquals(Stage.DEVELOPMENT, two.stage);
-    assertEquals(injector, two.t);
-    assertEquals(injector, two.anotherT);
-  }
-
-  public void testToConstructorBindingsFailsOnRawTypes() throws NoSuchMethodException {
-    final Constructor constructor = C.class.getConstructor(Stage.class, Object.class);
-
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              bind(Object.class).toConstructor(constructor);
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-      assertContains(expected.getMessage(),
-          "1) T cannot be used as a key; It is not fully specified.",
-          "at " + C.class.getName() + ".<init>(BindingTest.java:",
-          "2) T cannot be used as a key; It is not fully specified.",
-          "at " + C.class.getName() + ".anotherT(BindingTest.java:");
-    }
-  }
-
-/*if[AOP]*/
-  public void testToConstructorAndMethodInterceptors() throws NoSuchMethodException {
-    final Constructor<D> constructor = D.class.getConstructor(Stage.class);
-    final AtomicInteger count = new AtomicInteger();
-    final MethodInterceptor countingInterceptor =
-        new MethodInterceptor() {
-          @Override
-          public Object invoke(MethodInvocation methodInvocation) throws Throwable {
-            count.incrementAndGet();
-            return methodInvocation.proceed();
-          }
-        };
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Object.class).toConstructor(constructor);
-                bindInterceptor(Matchers.any(), Matchers.any(), countingInterceptor);
-              }
-            });
-
-    D d = (D) injector.getInstance(Object.class);
-    d.hashCode();
-    d.hashCode();
-    assertEquals(2, count.get());
-  }
-/*end[AOP]*/
-
-  public void testInaccessibleConstructor() throws NoSuchMethodException {
-    final Constructor<E> constructor = E.class.getDeclaredConstructor(Stage.class);
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(E.class).toConstructor(constructor);
-              }
-            });
-
-    E e = injector.getInstance(E.class);
-    assertEquals(Stage.DEVELOPMENT, e.stage);
-  }
-
-  public void testToConstructorAndScopes() throws NoSuchMethodException {
-    final Constructor<F> constructor = F.class.getConstructor(Stage.class);
-
-    final Key<Object> d = Key.get(Object.class, named("D")); // default scoping
-    final Key<Object> s = Key.get(Object.class, named("S")); // singleton
-    final Key<Object> n = Key.get(Object.class, named("N")); // "N" instances
-    final Key<Object> r = Key.get(Object.class, named("R")); // a regular binding
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(d).toConstructor(constructor);
-                bind(s).toConstructor(constructor).in(Singleton.class);
-                bind(n).toConstructor(constructor).in(Scopes.NO_SCOPE);
-                bind(r).to(F.class);
-              }
-            });
-
-    assertDistinct(injector, 1, d, d, d, d);
-    assertDistinct(injector, 1, s, s, s, s);
-    assertDistinct(injector, 4, n, n, n, n);
-    assertDistinct(injector, 1, r, r, r, r);
-    assertDistinct(injector, 4, d, d, r, r, s, s, n);
-  }
-
-  public void assertDistinct(Injector injector, int expectedCount, Key<?>... keys) {
-    ImmutableSet.Builder<Object> builder = ImmutableSet.builder();
-    for (Key<?> k : keys) {
-      builder.add(injector.getInstance(k));
-    }
-    assertEquals(expectedCount, builder.build().size());
-  }
-
-  public void testToConstructorSpiData() throws NoSuchMethodException {
-    final Set<TypeLiteral<?>> heardTypes = Sets.newHashSet();
-
-    final Constructor<D> constructor = D.class.getConstructor(Stage.class);
-    final TypeListener listener =
-        new TypeListener() {
-          @Override
-          public <I> void hear(TypeLiteral<I> type, TypeEncounter<I> encounter) {
-            if (!heardTypes.add(type)) {
-              fail("Heard " + type + " multiple times!");
-            }
-          }
-        };
-
-    Guice.createInjector(
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            bind(Object.class).toConstructor(constructor);
-            bind(D.class).toConstructor(constructor);
-            bindListener(Matchers.any(), listener);
-          }
-        });
-    
-    assertEquals(ImmutableSet.of(TypeLiteral.get(D.class)), heardTypes);
-  }
-
-  public void testInterfaceToImplementationConstructor() throws NoSuchMethodException {
-    final Constructor<CFoo> constructor = CFoo.class.getDeclaredConstructor();
-
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(IFoo.class).toConstructor(constructor);
-              }
-            });
-
-    injector.getInstance(IFoo.class);
-  }
-
   public static interface IFoo {}
   public static class CFoo implements IFoo {}
-
-  public void testGetAllBindings() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(D.class).toInstance(new D(Stage.PRODUCTION));
-                bind(Object.class).to(D.class);
-                getProvider(new Key<C<Stage>>() {});
-              }
-            });
-
-    Map<Key<?>,Binding<?>> bindings = injector.getAllBindings();
-    assertEquals(ImmutableSet.of(Key.get(Injector.class), Key.get(Stage.class), Key.get(D.class),
-        Key.get(Logger.class), Key.get(Object.class), new Key<C<Stage>>() {}),
-        bindings.keySet());
-
-    // add a JIT binding
-    injector.getInstance(F.class);
-
-    Map<Key<?>,Binding<?>> bindings2 = injector.getAllBindings();
-    assertEquals(ImmutableSet.of(Key.get(Injector.class), Key.get(Stage.class), Key.get(D.class),
-        Key.get(Logger.class), Key.get(Object.class), new Key<C<Stage>>() {}, Key.get(F.class)),
-        bindings2.keySet());
-
-    // the original map shouldn't have changed
-    assertEquals(ImmutableSet.of(Key.get(Injector.class), Key.get(Stage.class), Key.get(D.class),
-        Key.get(Logger.class), Key.get(Object.class), new Key<C<Stage>>() {}),
-        bindings.keySet());
-
-    // check the bindings' values
-    assertEquals(injector, bindings.get(Key.get(Injector.class)).getProvider().get());
-  }
-
-  public void testGetAllServletBindings() throws Exception {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(F.class); // an explicit binding that uses a JIT binding for a constructor
-              }
-            });
-    injector.getAllBindings();
-  }
 
   public static class C<T> {
     private Stage stage;
@@ -519,98 +606,6 @@ public class BindingTest extends TestCase {
     }
   }
   
-  public void testTurkeyBaconProblemUsingToConstuctor() {
-    Injector injector = Guice.createInjector(new AbstractModule() {
-      @SuppressWarnings("unchecked")
-      @Override
-      public void configure() {
-        bind(Bacon.class).to(UncookedBacon.class);
-        bind(Bacon.class).annotatedWith(named("Turkey")).to(TurkeyBacon.class);
-        bind(Bacon.class).annotatedWith(named("Tofu")).to(TofuBacon.class);
-        bind(Bacon.class).annotatedWith(named("Cooked")).toConstructor(
-            (Constructor)InjectionPoint.forConstructorOf(Bacon.class).getMember());
-      }
-    });
-    Bacon bacon = injector.getInstance(Bacon.class);
-    assertEquals(Food.PORK, bacon.getMaterial());
-    assertFalse(bacon.isCooked());
-    
-    Bacon turkeyBacon = injector.getInstance(Key.get(Bacon.class, named("Turkey")));
-    assertEquals(Food.TURKEY, turkeyBacon.getMaterial());
-    assertTrue(turkeyBacon.isCooked());
-    
-    Bacon cookedBacon = injector.getInstance(Key.get(Bacon.class, named("Cooked")));
-    assertEquals(Food.PORK, cookedBacon.getMaterial());
-    assertTrue(cookedBacon.isCooked());
-
-    try {
-      // Turkey typo, missing a letter...
-      injector.getInstance(Key.get(Bacon.class, named("Turky")));
-      fail();
-    } catch (ConfigurationException e) {
-      String msg = e.getMessage();
-      assertContains(
-          msg,
-          "Guice configuration errors:",
-          "1) No implementation for"
-              + " com.google.inject.BindingTest$Bacon annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("Turky")
-              + ") was bound.",
-          "Did you mean?",
-          "* com.google.inject.BindingTest$Bacon annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("Turkey")
-              + ")",
-          "* com.google.inject.BindingTest$Bacon annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("Tofu")
-              + ")",
-          "1 more binding with other annotations.",
-          "while locating com.google.inject.BindingTest$Bacon annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("Turky")
-              + ")");
-    }
-  }
-
-  public void testMissingAnnotationOneChoice() {
-    Injector injector = Guice.createInjector(new AbstractModule() {
-      @SuppressWarnings("unchecked")
-      @Override
-      public void configure() {
-        bind(Bacon.class).annotatedWith(named("Turkey")).to(TurkeyBacon.class);
-      }
-    });
-
-    try {
-      // turkey typo (should be Upper case)...
-      injector.getInstance(Key.get(Bacon.class, named("turkey")));
-      fail();
-    } catch (ConfigurationException e) {
-      String msg = e.getMessage();
-      assertContains(msg, "Guice configuration errors:");
-      assertContains(
-          msg,
-          "1) No implementation for com.google.inject.BindingTest$Bacon"
-              + " annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("turkey")
-              + ") was bound.",
-          "Did you mean?",
-          "* com.google.inject.BindingTest$Bacon annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("Turkey")
-              + ")",
-          "while locating com.google.inject.BindingTest$Bacon annotated with"
-              + " @com.google.inject.name.Named(value="
-              + Annotations.memberValueString("turkey")
-              + ")");
-    }
-  }
-
-  enum Food { TURKEY, PORK, TOFU }
-
   private static class Bacon {
     public Food getMaterial() { return Food.PORK; }
     public boolean isCooked() { return true; }
@@ -631,39 +626,14 @@ public class BindingTest extends TestCase {
     public boolean isCooked() { return false; }
   }
 
-  public void testMissingAnnotationRelated() {
-    try {
-      final TypeLiteral<List<Butter>> list = new TypeLiteral<List<Butter>>() {};
-
-      Guice.createInjector(new AbstractModule() {
-        @SuppressWarnings("unchecked")
-        @Override
-        public void configure() {
-          bind(list).toInstance(butters);
-          bind(Sandwitch.class).to(ButterSandwitch.class);
-        }
-      });
-
-      fail();
-    } catch (CreationException e) {
-      final String msg = e.getMessage();
-      assertContains(msg, "Unable to create injector, see the following errors:",
-          "Did you mean?",
-          "java.util.List<com.google.inject.BindingTest$Butter> bound"
-          + "  at com.google.inject.BindingTest$24.configure");
-    }
-  }
-
-  private static List<Butter> butters = new ArrayList<>();
-
   private static interface Sandwitch {};
 
   private static interface Butter {};
 
   private static class ButterSandwitch implements Sandwitch {
-    private ButterSandwitch() {};
-
     @Inject
-    ButterSandwitch(@Named("unsalted") Butter butter) {};
+    ButterSandwitch(@Named("unsalted") Butter butter) {}
+
+	private ButterSandwitch() {};
   }
 }

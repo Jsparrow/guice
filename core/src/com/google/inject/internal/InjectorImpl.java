@@ -71,69 +71,40 @@ import java.util.Set;
  */
 final class InjectorImpl implements Injector, Lookups {
   public static final TypeLiteral<String> STRING_TYPE = TypeLiteral.get(String.class);
-
-  /** Options that control how the injector behaves. */
-  static class InjectorOptions {
-    final Stage stage;
-    final boolean jitDisabled;
-    final boolean disableCircularProxies;
-    final boolean atInjectRequired;
-    final boolean exactBindingAnnotationsRequired;
-
-    InjectorOptions(
-        Stage stage,
-        boolean jitDisabled,
-        boolean disableCircularProxies,
-        boolean atInjectRequired,
-        boolean exactBindingAnnotationsRequired) {
-      this.stage = stage;
-      this.jitDisabled = jitDisabled;
-      this.disableCircularProxies = disableCircularProxies;
-      this.atInjectRequired = atInjectRequired;
-      this.exactBindingAnnotationsRequired = exactBindingAnnotationsRequired;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(getClass())
-          .add("stage", stage)
-          .add("jitDisabled", jitDisabled)
-          .add("disableCircularProxies", disableCircularProxies)
-          .add("atInjectRequired", atInjectRequired)
-          .add("exactBindingAnnotationsRequired", exactBindingAnnotationsRequired)
-          .toString();
-    }
-  }
-
-  /** some limitations on what just in time bindings are allowed. */
-  enum JitLimitation {
-    /** does not allow just in time bindings */
-    NO_JIT,
-    /** allows existing just in time bindings, but does not allow new ones */
-    EXISTING_JIT,
-    /** allows existing just in time bindings & allows new ones to be created */
-    NEW_OR_EXISTING_JIT,
-  }
-
-  final State state;
-  final InjectorImpl parent;
-  final ListMultimap<TypeLiteral<?>, Binding<?>> bindingsMultimap = ArrayListMultimap.create();
-  final InjectorOptions options;
-
-  /** Just-in-time binding cache. Guarded by state.lock() */
+final State state;
+final InjectorImpl parent;
+final ListMultimap<TypeLiteral<?>, Binding<?>> bindingsMultimap = ArrayListMultimap.create();
+final InjectorOptions options;
+/** Just-in-time binding cache. Guarded by state.lock() */
   final Map<Key<?>, BindingImpl<?>> jitBindings = Maps.newHashMap();
-  /**
+/**
    * Cache of Keys that we were unable to create JIT bindings for, so we don't keep trying. Also
    * guarded by state.lock().
    */
   final Set<Key<?>> failedJitBindings = Sets.newHashSet();
-
-  Lookups lookups = new DeferredLookups(this);
-
-  /** The set of types passed to {@link #getMembersInjector} and {@link #injectMembers}. */
+Lookups lookups = new DeferredLookups(this);
+/** The set of types passed to {@link #getMembersInjector} and {@link #injectMembers}. */
   final Set<TypeLiteral<?>> userRequestedMembersInjectorTypes = Sets.newConcurrentHashSet();
+/** Cached constructor injectors for each type */
+  final ConstructorInjectorStore constructors = new ConstructorInjectorStore(this);
+/** Cached field and method injectors for each type. */
+  MembersInjectorStore membersInjectorStore;
+/** Cached provision listener callbacks for each key. */
+  ProvisionListenerCallbackStore provisionListenerStore;
+/**
+   * Holds Object[] as a mutable wrapper, rather than InternalContext, since array operations are
+   * faster than ThreadLocal.set() / .get() operations.
+   *
+   * <p>Holds Object[] rather than InternalContext[], since localContext never gets cleaned up at
+   * any point. This could lead to problems when, for example, an OSGI application is reloaded, the
+   * InjectorImpl is destroyed, but the thread that the injector runs on is kept alive. In such a
+   * case, ThreadLocal itself would hold on to a reference to localContext, which would hold on to
+   * the old InternalContext.class object, which would hold on to the old classloader that loaded
+   * that class, and so on.
+   */
+  private final ThreadLocal<Object[]> localContext;
 
-  InjectorImpl(InjectorImpl parent, State state, InjectorOptions injectorOptions) {
+InjectorImpl(InjectorImpl parent, State state, InjectorOptions injectorOptions) {
     this.parent = parent;
     this.state = state;
     this.options = injectorOptions;
@@ -148,14 +119,14 @@ final class InjectorImpl implements Injector, Lookups {
     }
   }
 
-  /** Indexes bindings by type. */
+/** Indexes bindings by type. */
   void index() {
     for (Binding<?> binding : state.getExplicitBindingsThisLevel().values()) {
       bindingsMultimap.put(binding.getKey().getTypeLiteral(), binding);
     }
   }
 
-  @Override
+@Override
   public <T> List<Binding<T>> findBindingsByType(TypeLiteral<T> type) {
     @SuppressWarnings("unchecked") // safe because we only put matching entries into the map
     List<Binding<T>> list =
@@ -163,7 +134,7 @@ final class InjectorImpl implements Injector, Lookups {
     return Collections.unmodifiableList(list);
   }
 
-  /** Returns the binding for {@code key} */
+/** Returns the binding for {@code key} */
   @Override
   public <T> BindingImpl<T> getBinding(Key<T> key) {
     Errors errors = new Errors(checkNotNull(key, "key"));
@@ -176,7 +147,7 @@ final class InjectorImpl implements Injector, Lookups {
     }
   }
 
-  @Override
+@Override
   public <T> BindingImpl<T> getExistingBinding(Key<T> key) {
     // Check explicit bindings, i.e. bindings created by modules.
     BindingImpl<T> explicitBinding = state.getExplicitBinding(checkNotNull(key, "key"));
@@ -213,7 +184,7 @@ final class InjectorImpl implements Injector, Lookups {
     return null;
   }
 
-  /**
+/**
    * Gets a binding implementation. First, it check to see if the parent has a binding. If the
    * parent has a binding and the binding is scoped, it will use that binding. Otherwise, this
    * checks for an explicit binding. If no explicit binding is found, it looks for a just-in-time
@@ -231,27 +202,27 @@ final class InjectorImpl implements Injector, Lookups {
     return getJustInTimeBinding(key, errors, jitType);
   }
 
-  @Override
+@Override
   public <T> Binding<T> getBinding(Class<T> type) {
     return getBinding(Key.get(checkNotNull(type, "type")));
   }
 
-  @Override
+@Override
   public Injector getParent() {
     return parent;
   }
 
-  @Override
+@Override
   public Injector createChildInjector(Iterable<? extends Module> modules) {
     return new InternalInjectorCreator().parentInjector(this).addModules(modules).build();
   }
 
-  @Override
+@Override
   public Injector createChildInjector(Module... modules) {
     return createChildInjector(ImmutableList.copyOf(modules));
   }
 
-  /**
+/**
    * Returns a just-in-time binding for {@code key}, creating it if necessary.
    *
    * @throws ErrorsException if the binding could not be created.
@@ -301,16 +272,16 @@ final class InjectorImpl implements Injector, Lookups {
     } // end synchronized(state.lock())
   }
 
-  /** Returns true if the key type is Provider (but not a subclass of Provider). */
+/** Returns true if the key type is Provider (but not a subclass of Provider). */
   private static boolean isProvider(Key<?> key) {
     return key.getTypeLiteral().getRawType().equals(Provider.class);
   }
 
-  private static boolean isTypeLiteral(Key<?> key) {
+private static boolean isTypeLiteral(Key<?> key) {
     return key.getTypeLiteral().getRawType().equals(TypeLiteral.class);
   }
 
-  private static <T> Key<T> getProvidedKey(Key<Provider<T>> key, Errors errors)
+private static <T> Key<T> getProvidedKey(Key<Provider<T>> key, Errors errors)
       throws ErrorsException {
     Type providerType = key.getTypeLiteral().getType();
 
@@ -326,13 +297,13 @@ final class InjectorImpl implements Injector, Lookups {
     return providedKey;
   }
 
-  /** Returns true if the key type is MembersInjector (but not a subclass of MembersInjector). */
+/** Returns true if the key type is MembersInjector (but not a subclass of MembersInjector). */
   private static boolean isMembersInjector(Key<?> key) {
     return key.getTypeLiteral().getRawType().equals(MembersInjector.class)
         && key.getAnnotationType() == null;
   }
 
-  private <T> BindingImpl<MembersInjector<T>> createMembersInjectorBinding(
+private <T> BindingImpl<MembersInjector<T>> createMembersInjectorBinding(
       Key<MembersInjector<T>> key, Errors errors) throws ErrorsException {
     Type membersInjectorType = key.getTypeLiteral().getType();
     if (!(membersInjectorType instanceof ParameterizedType)) {
@@ -346,9 +317,9 @@ final class InjectorImpl implements Injector, Lookups {
     MembersInjector<T> membersInjector = membersInjectorStore.get(instanceType, errors);
 
     InternalFactory<MembersInjector<T>> factory =
-        new ConstantFactory<MembersInjector<T>>(Initializables.of(membersInjector));
+        new ConstantFactory<>(Initializables.of(membersInjector));
 
-    return new InstanceBindingImpl<MembersInjector<T>>(
+    return new InstanceBindingImpl<>(
         this,
         key,
         SourceProvider.UNKNOWN_SOURCE,
@@ -357,7 +328,7 @@ final class InjectorImpl implements Injector, Lookups {
         membersInjector);
   }
 
-  /**
+/**
    * Creates a synthetic binding to {@code Provider<T>}, i.e. a binding to the provider from {@code
    * Binding<T>}.
    */
@@ -368,77 +339,7 @@ final class InjectorImpl implements Injector, Lookups {
     return new ProviderBindingImpl<T>(this, key, delegate);
   }
 
-  private static class ProviderBindingImpl<T> extends BindingImpl<Provider<T>>
-      implements ProviderBinding<Provider<T>>, HasDependencies {
-    final BindingImpl<T> providedBinding;
-
-    ProviderBindingImpl(InjectorImpl injector, Key<Provider<T>> key, Binding<T> providedBinding) {
-      super(
-          injector,
-          key,
-          providedBinding.getSource(),
-          createInternalFactory(providedBinding),
-          Scoping.UNSCOPED);
-      this.providedBinding = (BindingImpl<T>) providedBinding;
-    }
-
-    static <T> InternalFactory<Provider<T>> createInternalFactory(Binding<T> providedBinding) {
-      final Provider<T> provider = providedBinding.getProvider();
-      return new InternalFactory<Provider<T>>() {
-        @Override
-        public Provider<T> get(InternalContext context, Dependency<?> dependency, boolean linked) {
-          return provider;
-        }
-      };
-    }
-
-    @Override
-    public Key<? extends T> getProvidedKey() {
-      return providedBinding.getKey();
-    }
-
-    @Override
-    public <V> V acceptTargetVisitor(BindingTargetVisitor<? super Provider<T>, V> visitor) {
-      return visitor.visit(this);
-    }
-
-    @Override
-    public void applyTo(Binder binder) {
-      throw new UnsupportedOperationException("This element represents a synthetic binding.");
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(ProviderBinding.class)
-          .add("key", getKey())
-          .add("providedKey", getProvidedKey())
-          .toString();
-    }
-
-    @Override
-    public Set<Dependency<?>> getDependencies() {
-      return ImmutableSet.<Dependency<?>>of(Dependency.get(getProvidedKey()));
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (obj instanceof ProviderBindingImpl) {
-        ProviderBindingImpl<?> o = (ProviderBindingImpl<?>) obj;
-        return getKey().equals(o.getKey())
-            && getScoping().equals(o.getScoping())
-            && Objects.equal(providedBinding, o.providedBinding);
-      } else {
-        return false;
-      }
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(getKey(), getScoping(), providedBinding);
-    }
-  }
-
-  /**
+/**
    * Converts a constant string binding to the required type.
    *
    * @return the binding if it could be resolved, or null if the binding doesn't exist
@@ -487,7 +388,7 @@ final class InjectorImpl implements Injector, Lookups {
             .toException();
       }
 
-      return new ConvertedConstantBindingImpl<T>(
+      return new ConvertedConstantBindingImpl<>(
           this, key, converted, stringBinding, typeConverterBinding);
     } catch (ErrorsException e) {
       throw e;
@@ -495,6 +396,686 @@ final class InjectorImpl implements Injector, Lookups {
       throw errors
           .conversionError(stringValue, source, type, typeConverterBinding, e)
           .toException();
+    }
+  }
+
+<T> void initializeBinding(BindingImpl<T> binding, Errors errors) throws ErrorsException {
+    if (binding instanceof DelayedInitialize) {
+      ((DelayedInitialize) binding).initialize(this, errors);
+    }
+  }
+
+<T> void initializeJitBinding(BindingImpl<T> binding, Errors errors) throws ErrorsException {
+    // Put the partially constructed binding in the map a little early. This enables us to handle
+	// circular dependencies. Example: FooImpl -> BarImpl -> FooImpl.
+	// Note: We don't need to synchronize on state.lock() during injector creation.
+	if (!(binding instanceof DelayedInitialize)) {
+		return;
+	}
+	Key<T> key = binding.getKey();
+	jitBindings.put(key, binding);
+	boolean successful = false;
+	DelayedInitialize delayed = (DelayedInitialize) binding;
+	try {
+        delayed.initialize(this, errors);
+        successful = true;
+      } finally {
+        if (!successful) {
+          // We do not pass cb.getInternalConstructor as the second parameter
+          // so that cached exceptions while constructing it get stored.
+          // See TypeListenerTest#testTypeListenerThrows
+          removeFailedJitBinding(binding, null);
+          cleanup(binding, new HashSet<>());
+        }
+      }
+  }
+
+/**
+   * Iterates through the binding's dependencies to clean up any stray bindings that were leftover
+   * from a failed JIT binding. This is required because the bindings are eagerly & optimistically
+   * added to allow circular dependency support, so dependencies may pass where they should have
+   * failed.
+   */
+  private boolean cleanup(BindingImpl<?> binding, Set<Key> encountered) {
+    boolean bindingFailed = false;
+    Set<Dependency<?>> deps = getInternalDependencies(binding);
+    for (Dependency dep : deps) {
+      Key<?> depKey = dep.getKey();
+      InjectionPoint ip = dep.getInjectionPoint();
+      if (encountered.add(depKey)) { // only check if we haven't looked at this key yet
+        BindingImpl depBinding = jitBindings.get(depKey);
+        if (depBinding != null) { // if the binding still exists, validate
+          boolean failed = cleanup(depBinding, encountered); // if children fail, we fail
+          if (depBinding instanceof ConstructorBindingImpl) {
+            ConstructorBindingImpl ctorBinding = (ConstructorBindingImpl) depBinding;
+            ip = ctorBinding.getInternalConstructor();
+            if (!ctorBinding.isInitialized()) {
+              failed = true;
+            }
+          }
+          if (failed) {
+            removeFailedJitBinding(depBinding, ip);
+            bindingFailed = true;
+          }
+        } else if (state.getExplicitBinding(depKey) == null) {
+          // ignore keys if they were explicitly bound, but if neither JIT
+          // nor explicit, it's also invalid & should let parent know.
+          bindingFailed = true;
+        }
+      }
+    }
+    return bindingFailed;
+  }
+
+/** Cleans up any state that may have been cached when constructing the JIT binding. */
+  private void removeFailedJitBinding(Binding<?> binding, InjectionPoint ip) {
+    failedJitBindings.add(binding.getKey());
+    jitBindings.remove(binding.getKey());
+    membersInjectorStore.remove(binding.getKey().getTypeLiteral());
+    provisionListenerStore.remove(binding);
+    if (ip != null) {
+      constructors.remove(ip);
+    }
+  }
+
+/** Safely gets the dependencies of possibly not initialized bindings. */
+  @SuppressWarnings("unchecked")
+  private Set<Dependency<?>> getInternalDependencies(BindingImpl<?> binding) {
+    if (binding instanceof ConstructorBindingImpl) {
+      return ((ConstructorBindingImpl) binding).getInternalDependencies();
+    } else if (binding instanceof HasDependencies) {
+      return ((HasDependencies) binding).getDependencies();
+    } else {
+      return ImmutableSet.of();
+    }
+  }
+
+/**
+   * Creates a binding for an injectable type with the given scope. Looks for a scope on the type if
+   * none is specified.
+   */
+  <T> BindingImpl<T> createUninitializedBinding(
+      Key<T> key, Scoping scoping, Object source, Errors errors, boolean jitBinding)
+      throws ErrorsException {
+    Class<?> rawType = key.getTypeLiteral().getRawType();
+
+    ImplementedBy implementedBy = rawType.getAnnotation(ImplementedBy.class);
+
+    // Don't try to inject arrays or enums annotated with @ImplementedBy.
+    if (rawType.isArray() || (rawType.isEnum() && implementedBy != null)) {
+      throw errors.missingImplementationWithHint(key, this).toException();
+    }
+
+    // Handle TypeLiteral<T> by binding the inner type
+    if (rawType == TypeLiteral.class) {
+      @SuppressWarnings("unchecked") // we have to fudge the inner type as Object
+      BindingImpl<T> binding =
+          (BindingImpl<T>) createTypeLiteralBinding((Key<TypeLiteral<Object>>) key, errors);
+      return binding;
+    }
+
+    // Handle @ImplementedBy
+    if (implementedBy != null) {
+      Annotations.checkForMisplacedScopeAnnotations(rawType, source, errors);
+      return createImplementedByBinding(key, scoping, implementedBy, errors);
+    }
+
+    // Handle @ProvidedBy.
+    ProvidedBy providedBy = rawType.getAnnotation(ProvidedBy.class);
+    if (providedBy == null) {
+		return ConstructorBindingImpl.create(
+		    this,
+		    key,
+		    null, /* use default constructor */
+		    source,
+		    scoping,
+		    errors,
+		    jitBinding && options.jitDisabled,
+		    options.atInjectRequired);
+	}
+	Annotations.checkForMisplacedScopeAnnotations(rawType, source, errors);
+	return createProvidedByBinding(key, scoping, providedBy, errors);
+  }
+
+/**
+   * Converts a binding for a {@code Key<TypeLiteral<T>>} to the value {@code TypeLiteral<T>}. It's
+   * a bit awkward because we have to pull out the inner type in the type literal.
+   */
+  private <T> BindingImpl<TypeLiteral<T>> createTypeLiteralBinding(
+      Key<TypeLiteral<T>> key, Errors errors) throws ErrorsException {
+    Type typeLiteralType = key.getTypeLiteral().getType();
+    if (!(typeLiteralType instanceof ParameterizedType)) {
+      throw errors.cannotInjectRawTypeLiteral().toException();
+    }
+
+    ParameterizedType parameterizedType = (ParameterizedType) typeLiteralType;
+    Type innerType = parameterizedType.getActualTypeArguments()[0];
+
+    // this is unforunate. We don't support building TypeLiterals for type variable like 'T'. If
+    // this proves problematic, we can probably fix TypeLiteral to support type variables
+    if (!(innerType instanceof Class)
+        && !(innerType instanceof GenericArrayType)
+        && !(innerType instanceof ParameterizedType)) {
+      throw errors.cannotInjectTypeLiteralOf(innerType).toException();
+    }
+
+    @SuppressWarnings("unchecked") // by definition, innerType == T, so this is safe
+    TypeLiteral<T> value = (TypeLiteral<T>) TypeLiteral.get(innerType);
+    InternalFactory<TypeLiteral<T>> factory =
+        new ConstantFactory<>(Initializables.of(value));
+    return new InstanceBindingImpl<>(
+        this,
+        key,
+        SourceProvider.UNKNOWN_SOURCE,
+        factory,
+        ImmutableSet.<InjectionPoint>of(),
+        value);
+  }
+
+/** Creates a binding for a type annotated with @ProvidedBy. */
+  <T> BindingImpl<T> createProvidedByBinding(
+      Key<T> key, Scoping scoping, ProvidedBy providedBy, Errors errors) throws ErrorsException {
+    Class<?> rawType = key.getTypeLiteral().getRawType();
+    Class<? extends javax.inject.Provider<?>> providerType = providedBy.value();
+
+    // Make sure it's not the same type. TODO: Can we check for deeper loops?
+    if (providerType == rawType) {
+      throw errors.recursiveProviderType().toException();
+    }
+
+    // Assume the provider provides an appropriate type. We double check at runtime.
+    @SuppressWarnings("unchecked")
+    Key<? extends Provider<T>> providerKey = (Key<? extends Provider<T>>) Key.get(providerType);
+    ProvidedByInternalFactory<T> internalFactory =
+        new ProvidedByInternalFactory<>(rawType, providerType, providerKey);
+    Object source = rawType;
+    BindingImpl<T> binding =
+        LinkedProviderBindingImpl.createWithInitializer(
+            this,
+            key,
+            source,
+            Scoping.<T>scope(key, this, internalFactory, source, scoping),
+            scoping,
+            providerKey,
+            internalFactory);
+    internalFactory.setProvisionListenerCallback(provisionListenerStore.get(binding));
+    return binding;
+  }
+
+/** Creates a binding for a type annotated with @ImplementedBy. */
+  private <T> BindingImpl<T> createImplementedByBinding(
+      Key<T> key, Scoping scoping, ImplementedBy implementedBy, Errors errors)
+      throws ErrorsException {
+    Class<?> rawType = key.getTypeLiteral().getRawType();
+    Class<?> implementationType = implementedBy.value();
+
+    // Make sure it's not the same type. TODO: Can we check for deeper cycles?
+    if (implementationType == rawType) {
+      throw errors.recursiveImplementationType().toException();
+    }
+
+    // Make sure implementationType extends type.
+    if (!rawType.isAssignableFrom(implementationType)) {
+      throw errors.notASubtype(implementationType, rawType).toException();
+    }
+
+    @SuppressWarnings("unchecked") // After the preceding check, this cast is safe.
+    Class<? extends T> subclass = (Class<? extends T>) implementationType;
+
+    // Look up the target binding.
+    final Key<? extends T> targetKey = Key.get(subclass);
+    Object source = rawType;
+    FactoryProxy<T> factory = new FactoryProxy<>(this, key, targetKey, source);
+    factory.notify(errors); // causes the factory to initialize itself internally
+    return new LinkedBindingImpl<>(
+        this,
+        key,
+        source,
+        Scoping.<T>scope(key, this, factory, source, scoping),
+        scoping,
+        targetKey);
+  }
+
+/**
+   * Attempts to create a just-in-time binding for {@code key} in the root injector, falling back to
+   * other ancestor injectors until this injector is tried.
+   */
+  private <T> BindingImpl<T> createJustInTimeBindingRecursive(
+      Key<T> key, Errors errors, boolean jitDisabled, JitLimitation jitType)
+      throws ErrorsException {
+    // ask the parent to create the JIT binding
+    if (parent != null) {
+      if (jitType == JitLimitation.NEW_OR_EXISTING_JIT
+          && jitDisabled
+          && !parent.options.jitDisabled) {
+        // If the binding would be forbidden here but allowed in a parent, report an error instead
+        throw errors.jitDisabledInParent(key).toException();
+      }
+
+      try {
+        return parent.createJustInTimeBindingRecursive(
+            key,
+            new Errors(),
+            jitDisabled,
+            parent.options.jitDisabled ? JitLimitation.NO_JIT : jitType);
+      } catch (ErrorsException ignored) {
+      }
+    }
+
+    // Retrieve the sources before checking for blacklisting to guard against sources becoming null
+    // due to a full GC happening after calling state.isBlacklisted and
+    // state.getSourcesForBlacklistedKey.
+    // TODO(user): Consolidate these two APIs.
+    Set<Object> sources = state.getSourcesForBlacklistedKey(key);
+    if (state.isBlacklisted(key)) {
+      throw errors.childBindingAlreadySet(key, sources).toException();
+    }
+
+    key = MoreTypes.canonicalizeKey(key); // before storing the key long-term, canonicalize it.
+    BindingImpl<T> binding = createJustInTimeBinding(key, errors, jitDisabled, jitType);
+    state.parent().blacklist(key, state, binding.getSource());
+    jitBindings.put(key, binding);
+    return binding;
+  }
+
+/**
+   * Returns a new just-in-time binding created by resolving {@code key}. The strategies used to
+   * create just-in-time bindings are:
+   *
+   * <ol>
+   *   <li>Internalizing Providers. If the requested binding is for {@code Provider<T>}, we delegate
+   *       to the binding for {@code T}.
+   *   <li>Converting constants.
+   *   <li>ImplementedBy and ProvidedBy annotations. Only for unannotated keys.
+   *   <li>The constructor of the raw type. Only for unannotated keys.
+   * </ol>
+   *
+   * @throws com.google.inject.internal.ErrorsException if the binding cannot be created.
+   */
+  private <T> BindingImpl<T> createJustInTimeBinding(
+      Key<T> key, Errors errors, boolean jitDisabled, JitLimitation jitType)
+      throws ErrorsException {
+    int numErrorsBefore = errors.size();
+
+    // Retrieve the sources before checking for blacklisting to guard against sources becoming null
+    // due to a full GC happening after calling state.isBlacklisted and
+    // state.getSourcesForBlacklistedKey.
+    // TODO(user): Consolidate these two APIs.
+    Set<Object> sources = state.getSourcesForBlacklistedKey(key);
+    if (state.isBlacklisted(key)) {
+      throw errors.childBindingAlreadySet(key, sources).toException();
+    }
+
+    // Handle cases where T is a Provider<?>.
+    if (isProvider(key)) {
+      // These casts are safe. We know T extends Provider<X> and that given Key<Provider<X>>,
+      // createProviderBinding() will return BindingImpl<Provider<X>>.
+      @SuppressWarnings({"unchecked", "cast"})
+      BindingImpl<T> binding = (BindingImpl<T>) createProviderBinding((Key) key, errors);
+      return binding;
+    }
+
+    // Handle cases where T is a MembersInjector<?>
+    if (isMembersInjector(key)) {
+      // These casts are safe. T extends MembersInjector<X> and that given Key<MembersInjector<X>>,
+      // createMembersInjectorBinding() will return BindingImpl<MembersInjector<X>>.
+      @SuppressWarnings({"unchecked", "cast"})
+      BindingImpl<T> binding = (BindingImpl<T>) createMembersInjectorBinding((Key) key, errors);
+      return binding;
+    }
+
+    // Try to convert a constant string binding to the requested type.
+    BindingImpl<T> convertedBinding = convertConstantStringBinding(key, errors);
+    if (convertedBinding != null) {
+      return convertedBinding;
+    }
+
+    if (!isTypeLiteral(key) && jitDisabled && jitType != JitLimitation.NEW_OR_EXISTING_JIT) {
+      throw errors.jitDisabled(key).toException();
+    }
+
+    // If the key has an annotation...
+    if (key.getAnnotationType() != null) {
+      // Look for a binding without annotation attributes or return null.
+      if (key.hasAttributes() && !options.exactBindingAnnotationsRequired) {
+        try {
+          Errors ignored = new Errors();
+          return getBindingOrThrow(key.withoutAttributes(), ignored, JitLimitation.NO_JIT);
+        } catch (ErrorsException ignored) {
+          // throw with a more appropriate message below
+        }
+      }
+      throw errors.missingImplementationWithHint(key, this).toException();
+    }
+
+    Object source = key.getTypeLiteral().getRawType();
+    BindingImpl<T> binding =
+        createUninitializedBinding(key, Scoping.UNSCOPED, source, errors, true);
+    errors.throwIfNewErrors(numErrorsBefore);
+    initializeJitBinding(binding, errors);
+    return binding;
+  }
+
+<T> InternalFactory<? extends T> getInternalFactory(
+      Key<T> key, Errors errors, JitLimitation jitType) throws ErrorsException {
+    return getBindingOrThrow(key, errors, jitType).getInternalFactory();
+  }
+
+@Override
+  public Map<Key<?>, Binding<?>> getBindings() {
+    return state.getExplicitBindingsThisLevel();
+  }
+
+@Override
+  public Map<Key<?>, Binding<?>> getAllBindings() {
+    synchronized (state.lock()) {
+      return new ImmutableMap.Builder<Key<?>, Binding<?>>()
+          .putAll(state.getExplicitBindingsThisLevel())
+          .putAll(jitBindings)
+          .build();
+    }
+  }
+
+@Override
+  public Map<Class<? extends Annotation>, Scope> getScopeBindings() {
+    return ImmutableMap.copyOf(state.getScopes());
+  }
+
+@Override
+  public Set<TypeConverterBinding> getTypeConverterBindings() {
+    return ImmutableSet.copyOf(state.getConvertersThisLevel());
+  }
+
+@Override
+  public List<Element> getElements() {
+    ImmutableList.Builder<Element> elements = ImmutableList.builder();
+    elements.addAll(getAllBindings().values());
+    elements.addAll(state.getProviderLookupsThisLevel());
+    elements.addAll(state.getConvertersThisLevel());
+    elements.addAll(state.getScopeBindingsThisLevel());
+    elements.addAll(state.getTypeListenerBindingsThisLevel());
+    elements.addAll(state.getProvisionListenerBindingsThisLevel());
+    elements.addAll(state.getScannerBindingsThisLevel());
+    elements.addAll(state.getStaticInjectionRequestsThisLevel());
+    elements.addAll(state.getMembersInjectorLookupsThisLevel());
+    elements.addAll(state.getInjectionRequestsThisLevel());
+
+    return elements.build();
+  }
+
+@Override
+  public Map<TypeLiteral<?>, List<InjectionPoint>> getAllMembersInjectorInjectionPoints() {
+    // Note, this is a safe cast per the ListMultimap javadocs.
+    // We could use Multimaps.asMap to avoid the cast, but unfortunately it's a @Beta method.
+    return (Map<TypeLiteral<?>, List<InjectionPoint>>)
+        (Map<TypeLiteral<?>, ?>)
+            ImmutableListMultimap.copyOf(
+                    Multimaps.filterKeys(
+                        membersInjectorStore.getAllInjectionPoints(),
+                        userRequestedMembersInjectorTypes::contains))
+                .asMap();
+  }
+
+/** Returns parameter injectors, or {@code null} if there are no parameters. */
+  SingleParameterInjector<?>[] getParametersInjectors(List<Dependency<?>> parameters, Errors errors)
+      throws ErrorsException {
+    if (parameters.isEmpty()) {
+      return null;
+    }
+
+    int numErrorsBefore = errors.size();
+    SingleParameterInjector<?>[] result = new SingleParameterInjector<?>[parameters.size()];
+    int i = 0;
+    for (Dependency<?> parameter : parameters) {
+      try {
+        result[i++] = createParameterInjector(parameter, errors.withSource(parameter));
+      } catch (ErrorsException rethrownBelow) {
+        // rethrown below
+      }
+    }
+
+    errors.throwIfNewErrors(numErrorsBefore);
+    return result;
+  }
+
+<T> SingleParameterInjector<T> createParameterInjector(
+      final Dependency<T> dependency, final Errors errors) throws ErrorsException {
+    BindingImpl<? extends T> binding =
+        getBindingOrThrow(dependency.getKey(), errors, JitLimitation.NO_JIT);
+    return new SingleParameterInjector<>(dependency, binding);
+  }
+
+@Override
+  @SuppressWarnings("unchecked") // the members injector type is consistent with instance's type
+  public void injectMembers(Object instance) {
+    MembersInjector membersInjector = getMembersInjector(instance.getClass());
+    membersInjector.injectMembers(instance);
+  }
+
+@Override
+  public <T> MembersInjector<T> getMembersInjector(TypeLiteral<T> typeLiteral) {
+    checkNotNull(typeLiteral, "typeLiteral");
+    userRequestedMembersInjectorTypes.add(typeLiteral);
+
+    Errors errors = new Errors(typeLiteral);
+    try {
+      return membersInjectorStore.get(typeLiteral, errors);
+    } catch (ErrorsException e) {
+      throw new ConfigurationException(errors.merge(e.getErrors()).getMessages());
+    }
+  }
+
+@Override
+  public <T> MembersInjector<T> getMembersInjector(Class<T> type) {
+    return getMembersInjector(TypeLiteral.get(type));
+  }
+
+@Override
+  public <T> Provider<T> getProvider(Class<T> type) {
+    return getProvider(Key.get(checkNotNull(type, "type")));
+  }
+
+<T> Provider<T> getProviderOrThrow(final Dependency<T> dependency, Errors errors)
+      throws ErrorsException {
+    Key<T> key = dependency.getKey();
+    BindingImpl<? extends T> binding = getBindingOrThrow(key, errors, JitLimitation.NO_JIT);
+    final InternalFactory<? extends T> internalFactory = binding.getInternalFactory();
+    final Object source = binding.getSource();
+
+    return new Provider<T>() {
+      @Override
+      public T get() {
+        InternalContext currentContext = enterContext();
+        Dependency previous = currentContext.pushDependency(dependency, source);
+        try {
+          T t = internalFactory.get(currentContext, dependency, false);
+          return t;
+        } catch (InternalProvisionException e) {
+          throw e.addSource(dependency).toProvisionException();
+        } finally {
+          currentContext.popStateAndSetDependency(previous);
+          currentContext.close();
+        }
+      }
+
+      @Override
+      public String toString() {
+        return internalFactory.toString();
+      }
+    };
+  }
+
+@Override
+  public <T> Provider<T> getProvider(final Key<T> key) {
+    checkNotNull(key, "key");
+    Errors errors = new Errors(key);
+    try {
+      Provider<T> result = getProviderOrThrow(Dependency.get(key), errors);
+      errors.throwIfNewErrors(0);
+      return result;
+    } catch (ErrorsException e) {
+      throw new ConfigurationException(errors.merge(e.getErrors()).getMessages());
+    }
+  }
+
+@Override
+  public <T> T getInstance(Key<T> key) {
+    return getProvider(key).get();
+  }
+
+@Override
+  public <T> T getInstance(Class<T> type) {
+    return getProvider(type).get();
+  }
+
+/** Only to be called by the {@link SingletonScope} provider. */
+  InternalContext getLocalContext() {
+    return (InternalContext) localContext.get()[0];
+  }
+
+/**
+   * Looks up thread local context and {@link InternalContext#enter() enters} it or creates a new
+   * context if necessary.
+   *
+   * <p>All callers of this are responsible for calling {@link InternalContext#close()}. Typical
+   * usage should look like:
+   *
+   * <pre>{@code
+   * InternalContext ctx = injector.enterContext();
+   * try {
+   *   ... use ctx ...
+   * } finally {
+   *   ctx.close();
+   * }
+   * }</pre>
+   */
+  InternalContext enterContext() {
+    Object[] reference = localContext.get();
+    if (reference == null) {
+      reference = new Object[1];
+      localContext.set(reference);
+    }
+    InternalContext ctx = (InternalContext) reference[0];
+    if (ctx == null) {
+      reference[0] = ctx = new InternalContext(options, reference);
+    } else {
+      ctx.enter();
+    }
+    return ctx;
+  }
+
+@Override
+  public String toString() {
+    return MoreObjects.toStringHelper(Injector.class)
+        .add("bindings", state.getExplicitBindingsThisLevel().values())
+        .toString();
+  }
+
+/** some limitations on what just in time bindings are allowed. */
+  enum JitLimitation {
+    /** does not allow just in time bindings */
+    NO_JIT,
+    /** allows existing just in time bindings, but does not allow new ones */
+    EXISTING_JIT,
+    /** allows existing just in time bindings & allows new ones to be created */
+    NEW_OR_EXISTING_JIT,
+  }
+
+  /** Options that control how the injector behaves. */
+  static class InjectorOptions {
+    final Stage stage;
+    final boolean jitDisabled;
+    final boolean disableCircularProxies;
+    final boolean atInjectRequired;
+    final boolean exactBindingAnnotationsRequired;
+
+    InjectorOptions(
+        Stage stage,
+        boolean jitDisabled,
+        boolean disableCircularProxies,
+        boolean atInjectRequired,
+        boolean exactBindingAnnotationsRequired) {
+      this.stage = stage;
+      this.jitDisabled = jitDisabled;
+      this.disableCircularProxies = disableCircularProxies;
+      this.atInjectRequired = atInjectRequired;
+      this.exactBindingAnnotationsRequired = exactBindingAnnotationsRequired;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(getClass())
+          .add("stage", stage)
+          .add("jitDisabled", jitDisabled)
+          .add("disableCircularProxies", disableCircularProxies)
+          .add("atInjectRequired", atInjectRequired)
+          .add("exactBindingAnnotationsRequired", exactBindingAnnotationsRequired)
+          .toString();
+    }
+  }
+
+  private static class ProviderBindingImpl<T> extends BindingImpl<Provider<T>>
+      implements ProviderBinding<Provider<T>>, HasDependencies {
+    final BindingImpl<T> providedBinding;
+
+    ProviderBindingImpl(InjectorImpl injector, Key<Provider<T>> key, Binding<T> providedBinding) {
+      super(
+          injector,
+          key,
+          providedBinding.getSource(),
+          createInternalFactory(providedBinding),
+          Scoping.UNSCOPED);
+      this.providedBinding = (BindingImpl<T>) providedBinding;
+    }
+
+    static <T> InternalFactory<Provider<T>> createInternalFactory(Binding<T> providedBinding) {
+      final Provider<T> provider = providedBinding.getProvider();
+      return (InternalContext context, Dependency<?> dependency, boolean linked) -> provider;
+    }
+
+    @Override
+    public Key<? extends T> getProvidedKey() {
+      return providedBinding.getKey();
+    }
+
+    @Override
+    public <V> V acceptTargetVisitor(BindingTargetVisitor<? super Provider<T>, V> visitor) {
+      return visitor.visit(this);
+    }
+
+    @Override
+    public void applyTo(Binder binder) {
+      throw new UnsupportedOperationException("This element represents a synthetic binding.");
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(ProviderBinding.class)
+          .add("key", getKey())
+          .add("providedKey", getProvidedKey())
+          .toString();
+    }
+
+    @Override
+    public Set<Dependency<?>> getDependencies() {
+      return ImmutableSet.<Dependency<?>>of(Dependency.get(getProvidedKey()));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof ProviderBindingImpl) {
+        ProviderBindingImpl<?> o = (ProviderBindingImpl<?>) obj;
+        return getKey().equals(o.getKey())
+            && getScoping().equals(o.getScoping())
+            && Objects.equal(providedBinding, o.providedBinding);
+      } else {
+        return false;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(getKey(), getScoping(), providedBinding);
     }
   }
 
@@ -585,603 +1166,9 @@ final class InjectorImpl implements Injector, Lookups {
     }
   }
 
-  <T> void initializeBinding(BindingImpl<T> binding, Errors errors) throws ErrorsException {
-    if (binding instanceof DelayedInitialize) {
-      ((DelayedInitialize) binding).initialize(this, errors);
-    }
-  }
-
-  <T> void initializeJitBinding(BindingImpl<T> binding, Errors errors) throws ErrorsException {
-    // Put the partially constructed binding in the map a little early. This enables us to handle
-    // circular dependencies. Example: FooImpl -> BarImpl -> FooImpl.
-    // Note: We don't need to synchronize on state.lock() during injector creation.
-    if (binding instanceof DelayedInitialize) {
-      Key<T> key = binding.getKey();
-      jitBindings.put(key, binding);
-      boolean successful = false;
-      DelayedInitialize delayed = (DelayedInitialize) binding;
-      try {
-        delayed.initialize(this, errors);
-        successful = true;
-      } finally {
-        if (!successful) {
-          // We do not pass cb.getInternalConstructor as the second parameter
-          // so that cached exceptions while constructing it get stored.
-          // See TypeListenerTest#testTypeListenerThrows
-          removeFailedJitBinding(binding, null);
-          cleanup(binding, new HashSet<Key>());
-        }
-      }
-    }
-  }
-
-  /**
-   * Iterates through the binding's dependencies to clean up any stray bindings that were leftover
-   * from a failed JIT binding. This is required because the bindings are eagerly & optimistically
-   * added to allow circular dependency support, so dependencies may pass where they should have
-   * failed.
-   */
-  private boolean cleanup(BindingImpl<?> binding, Set<Key> encountered) {
-    boolean bindingFailed = false;
-    Set<Dependency<?>> deps = getInternalDependencies(binding);
-    for (Dependency dep : deps) {
-      Key<?> depKey = dep.getKey();
-      InjectionPoint ip = dep.getInjectionPoint();
-      if (encountered.add(depKey)) { // only check if we haven't looked at this key yet
-        BindingImpl depBinding = jitBindings.get(depKey);
-        if (depBinding != null) { // if the binding still exists, validate
-          boolean failed = cleanup(depBinding, encountered); // if children fail, we fail
-          if (depBinding instanceof ConstructorBindingImpl) {
-            ConstructorBindingImpl ctorBinding = (ConstructorBindingImpl) depBinding;
-            ip = ctorBinding.getInternalConstructor();
-            if (!ctorBinding.isInitialized()) {
-              failed = true;
-            }
-          }
-          if (failed) {
-            removeFailedJitBinding(depBinding, ip);
-            bindingFailed = true;
-          }
-        } else if (state.getExplicitBinding(depKey) == null) {
-          // ignore keys if they were explicitly bound, but if neither JIT
-          // nor explicit, it's also invalid & should let parent know.
-          bindingFailed = true;
-        }
-      }
-    }
-    return bindingFailed;
-  }
-
-  /** Cleans up any state that may have been cached when constructing the JIT binding. */
-  private void removeFailedJitBinding(Binding<?> binding, InjectionPoint ip) {
-    failedJitBindings.add(binding.getKey());
-    jitBindings.remove(binding.getKey());
-    membersInjectorStore.remove(binding.getKey().getTypeLiteral());
-    provisionListenerStore.remove(binding);
-    if (ip != null) {
-      constructors.remove(ip);
-    }
-  }
-
-  /** Safely gets the dependencies of possibly not initialized bindings. */
-  @SuppressWarnings("unchecked")
-  private Set<Dependency<?>> getInternalDependencies(BindingImpl<?> binding) {
-    if (binding instanceof ConstructorBindingImpl) {
-      return ((ConstructorBindingImpl) binding).getInternalDependencies();
-    } else if (binding instanceof HasDependencies) {
-      return ((HasDependencies) binding).getDependencies();
-    } else {
-      return ImmutableSet.of();
-    }
-  }
-
-  /**
-   * Creates a binding for an injectable type with the given scope. Looks for a scope on the type if
-   * none is specified.
-   */
-  <T> BindingImpl<T> createUninitializedBinding(
-      Key<T> key, Scoping scoping, Object source, Errors errors, boolean jitBinding)
-      throws ErrorsException {
-    Class<?> rawType = key.getTypeLiteral().getRawType();
-
-    ImplementedBy implementedBy = rawType.getAnnotation(ImplementedBy.class);
-
-    // Don't try to inject arrays or enums annotated with @ImplementedBy.
-    if (rawType.isArray() || (rawType.isEnum() && implementedBy != null)) {
-      throw errors.missingImplementationWithHint(key, this).toException();
-    }
-
-    // Handle TypeLiteral<T> by binding the inner type
-    if (rawType == TypeLiteral.class) {
-      @SuppressWarnings("unchecked") // we have to fudge the inner type as Object
-      BindingImpl<T> binding =
-          (BindingImpl<T>) createTypeLiteralBinding((Key<TypeLiteral<Object>>) key, errors);
-      return binding;
-    }
-
-    // Handle @ImplementedBy
-    if (implementedBy != null) {
-      Annotations.checkForMisplacedScopeAnnotations(rawType, source, errors);
-      return createImplementedByBinding(key, scoping, implementedBy, errors);
-    }
-
-    // Handle @ProvidedBy.
-    ProvidedBy providedBy = rawType.getAnnotation(ProvidedBy.class);
-    if (providedBy != null) {
-      Annotations.checkForMisplacedScopeAnnotations(rawType, source, errors);
-      return createProvidedByBinding(key, scoping, providedBy, errors);
-    }
-
-    return ConstructorBindingImpl.create(
-        this,
-        key,
-        null, /* use default constructor */
-        source,
-        scoping,
-        errors,
-        jitBinding && options.jitDisabled,
-        options.atInjectRequired);
-  }
-
-  /**
-   * Converts a binding for a {@code Key<TypeLiteral<T>>} to the value {@code TypeLiteral<T>}. It's
-   * a bit awkward because we have to pull out the inner type in the type literal.
-   */
-  private <T> BindingImpl<TypeLiteral<T>> createTypeLiteralBinding(
-      Key<TypeLiteral<T>> key, Errors errors) throws ErrorsException {
-    Type typeLiteralType = key.getTypeLiteral().getType();
-    if (!(typeLiteralType instanceof ParameterizedType)) {
-      throw errors.cannotInjectRawTypeLiteral().toException();
-    }
-
-    ParameterizedType parameterizedType = (ParameterizedType) typeLiteralType;
-    Type innerType = parameterizedType.getActualTypeArguments()[0];
-
-    // this is unforunate. We don't support building TypeLiterals for type variable like 'T'. If
-    // this proves problematic, we can probably fix TypeLiteral to support type variables
-    if (!(innerType instanceof Class)
-        && !(innerType instanceof GenericArrayType)
-        && !(innerType instanceof ParameterizedType)) {
-      throw errors.cannotInjectTypeLiteralOf(innerType).toException();
-    }
-
-    @SuppressWarnings("unchecked") // by definition, innerType == T, so this is safe
-    TypeLiteral<T> value = (TypeLiteral<T>) TypeLiteral.get(innerType);
-    InternalFactory<TypeLiteral<T>> factory =
-        new ConstantFactory<TypeLiteral<T>>(Initializables.of(value));
-    return new InstanceBindingImpl<TypeLiteral<T>>(
-        this,
-        key,
-        SourceProvider.UNKNOWN_SOURCE,
-        factory,
-        ImmutableSet.<InjectionPoint>of(),
-        value);
-  }
-
-  /** Creates a binding for a type annotated with @ProvidedBy. */
-  <T> BindingImpl<T> createProvidedByBinding(
-      Key<T> key, Scoping scoping, ProvidedBy providedBy, Errors errors) throws ErrorsException {
-    Class<?> rawType = key.getTypeLiteral().getRawType();
-    Class<? extends javax.inject.Provider<?>> providerType = providedBy.value();
-
-    // Make sure it's not the same type. TODO: Can we check for deeper loops?
-    if (providerType == rawType) {
-      throw errors.recursiveProviderType().toException();
-    }
-
-    // Assume the provider provides an appropriate type. We double check at runtime.
-    @SuppressWarnings("unchecked")
-    Key<? extends Provider<T>> providerKey = (Key<? extends Provider<T>>) Key.get(providerType);
-    ProvidedByInternalFactory<T> internalFactory =
-        new ProvidedByInternalFactory<T>(rawType, providerType, providerKey);
-    Object source = rawType;
-    BindingImpl<T> binding =
-        LinkedProviderBindingImpl.createWithInitializer(
-            this,
-            key,
-            source,
-            Scoping.<T>scope(key, this, internalFactory, source, scoping),
-            scoping,
-            providerKey,
-            internalFactory);
-    internalFactory.setProvisionListenerCallback(provisionListenerStore.get(binding));
-    return binding;
-  }
-
-  /** Creates a binding for a type annotated with @ImplementedBy. */
-  private <T> BindingImpl<T> createImplementedByBinding(
-      Key<T> key, Scoping scoping, ImplementedBy implementedBy, Errors errors)
-      throws ErrorsException {
-    Class<?> rawType = key.getTypeLiteral().getRawType();
-    Class<?> implementationType = implementedBy.value();
-
-    // Make sure it's not the same type. TODO: Can we check for deeper cycles?
-    if (implementationType == rawType) {
-      throw errors.recursiveImplementationType().toException();
-    }
-
-    // Make sure implementationType extends type.
-    if (!rawType.isAssignableFrom(implementationType)) {
-      throw errors.notASubtype(implementationType, rawType).toException();
-    }
-
-    @SuppressWarnings("unchecked") // After the preceding check, this cast is safe.
-    Class<? extends T> subclass = (Class<? extends T>) implementationType;
-
-    // Look up the target binding.
-    final Key<? extends T> targetKey = Key.get(subclass);
-    Object source = rawType;
-    FactoryProxy<T> factory = new FactoryProxy<>(this, key, targetKey, source);
-    factory.notify(errors); // causes the factory to initialize itself internally
-    return new LinkedBindingImpl<T>(
-        this,
-        key,
-        source,
-        Scoping.<T>scope(key, this, factory, source, scoping),
-        scoping,
-        targetKey);
-  }
-
-  /**
-   * Attempts to create a just-in-time binding for {@code key} in the root injector, falling back to
-   * other ancestor injectors until this injector is tried.
-   */
-  private <T> BindingImpl<T> createJustInTimeBindingRecursive(
-      Key<T> key, Errors errors, boolean jitDisabled, JitLimitation jitType)
-      throws ErrorsException {
-    // ask the parent to create the JIT binding
-    if (parent != null) {
-      if (jitType == JitLimitation.NEW_OR_EXISTING_JIT
-          && jitDisabled
-          && !parent.options.jitDisabled) {
-        // If the binding would be forbidden here but allowed in a parent, report an error instead
-        throw errors.jitDisabledInParent(key).toException();
-      }
-
-      try {
-        return parent.createJustInTimeBindingRecursive(
-            key,
-            new Errors(),
-            jitDisabled,
-            parent.options.jitDisabled ? JitLimitation.NO_JIT : jitType);
-      } catch (ErrorsException ignored) {
-      }
-    }
-
-    // Retrieve the sources before checking for blacklisting to guard against sources becoming null
-    // due to a full GC happening after calling state.isBlacklisted and
-    // state.getSourcesForBlacklistedKey.
-    // TODO(user): Consolidate these two APIs.
-    Set<Object> sources = state.getSourcesForBlacklistedKey(key);
-    if (state.isBlacklisted(key)) {
-      throw errors.childBindingAlreadySet(key, sources).toException();
-    }
-
-    key = MoreTypes.canonicalizeKey(key); // before storing the key long-term, canonicalize it.
-    BindingImpl<T> binding = createJustInTimeBinding(key, errors, jitDisabled, jitType);
-    state.parent().blacklist(key, state, binding.getSource());
-    jitBindings.put(key, binding);
-    return binding;
-  }
-
-  /**
-   * Returns a new just-in-time binding created by resolving {@code key}. The strategies used to
-   * create just-in-time bindings are:
-   *
-   * <ol>
-   *   <li>Internalizing Providers. If the requested binding is for {@code Provider<T>}, we delegate
-   *       to the binding for {@code T}.
-   *   <li>Converting constants.
-   *   <li>ImplementedBy and ProvidedBy annotations. Only for unannotated keys.
-   *   <li>The constructor of the raw type. Only for unannotated keys.
-   * </ol>
-   *
-   * @throws com.google.inject.internal.ErrorsException if the binding cannot be created.
-   */
-  private <T> BindingImpl<T> createJustInTimeBinding(
-      Key<T> key, Errors errors, boolean jitDisabled, JitLimitation jitType)
-      throws ErrorsException {
-    int numErrorsBefore = errors.size();
-
-    // Retrieve the sources before checking for blacklisting to guard against sources becoming null
-    // due to a full GC happening after calling state.isBlacklisted and
-    // state.getSourcesForBlacklistedKey.
-    // TODO(user): Consolidate these two APIs.
-    Set<Object> sources = state.getSourcesForBlacklistedKey(key);
-    if (state.isBlacklisted(key)) {
-      throw errors.childBindingAlreadySet(key, sources).toException();
-    }
-
-    // Handle cases where T is a Provider<?>.
-    if (isProvider(key)) {
-      // These casts are safe. We know T extends Provider<X> and that given Key<Provider<X>>,
-      // createProviderBinding() will return BindingImpl<Provider<X>>.
-      @SuppressWarnings({"unchecked", "cast"})
-      BindingImpl<T> binding = (BindingImpl<T>) createProviderBinding((Key) key, errors);
-      return binding;
-    }
-
-    // Handle cases where T is a MembersInjector<?>
-    if (isMembersInjector(key)) {
-      // These casts are safe. T extends MembersInjector<X> and that given Key<MembersInjector<X>>,
-      // createMembersInjectorBinding() will return BindingImpl<MembersInjector<X>>.
-      @SuppressWarnings({"unchecked", "cast"})
-      BindingImpl<T> binding = (BindingImpl<T>) createMembersInjectorBinding((Key) key, errors);
-      return binding;
-    }
-
-    // Try to convert a constant string binding to the requested type.
-    BindingImpl<T> convertedBinding = convertConstantStringBinding(key, errors);
-    if (convertedBinding != null) {
-      return convertedBinding;
-    }
-
-    if (!isTypeLiteral(key) && jitDisabled && jitType != JitLimitation.NEW_OR_EXISTING_JIT) {
-      throw errors.jitDisabled(key).toException();
-    }
-
-    // If the key has an annotation...
-    if (key.getAnnotationType() != null) {
-      // Look for a binding without annotation attributes or return null.
-      if (key.hasAttributes() && !options.exactBindingAnnotationsRequired) {
-        try {
-          Errors ignored = new Errors();
-          return getBindingOrThrow(key.withoutAttributes(), ignored, JitLimitation.NO_JIT);
-        } catch (ErrorsException ignored) {
-          // throw with a more appropriate message below
-        }
-      }
-      throw errors.missingImplementationWithHint(key, this).toException();
-    }
-
-    Object source = key.getTypeLiteral().getRawType();
-    BindingImpl<T> binding =
-        createUninitializedBinding(key, Scoping.UNSCOPED, source, errors, true);
-    errors.throwIfNewErrors(numErrorsBefore);
-    initializeJitBinding(binding, errors);
-    return binding;
-  }
-
-  <T> InternalFactory<? extends T> getInternalFactory(
-      Key<T> key, Errors errors, JitLimitation jitType) throws ErrorsException {
-    return getBindingOrThrow(key, errors, jitType).getInternalFactory();
-  }
-
-  @Override
-  public Map<Key<?>, Binding<?>> getBindings() {
-    return state.getExplicitBindingsThisLevel();
-  }
-
-  @Override
-  public Map<Key<?>, Binding<?>> getAllBindings() {
-    synchronized (state.lock()) {
-      return new ImmutableMap.Builder<Key<?>, Binding<?>>()
-          .putAll(state.getExplicitBindingsThisLevel())
-          .putAll(jitBindings)
-          .build();
-    }
-  }
-
-  @Override
-  public Map<Class<? extends Annotation>, Scope> getScopeBindings() {
-    return ImmutableMap.copyOf(state.getScopes());
-  }
-
-  @Override
-  public Set<TypeConverterBinding> getTypeConverterBindings() {
-    return ImmutableSet.copyOf(state.getConvertersThisLevel());
-  }
-
-  @Override
-  public List<Element> getElements() {
-    ImmutableList.Builder<Element> elements = ImmutableList.builder();
-    elements.addAll(getAllBindings().values());
-    elements.addAll(state.getProviderLookupsThisLevel());
-    elements.addAll(state.getConvertersThisLevel());
-    elements.addAll(state.getScopeBindingsThisLevel());
-    elements.addAll(state.getTypeListenerBindingsThisLevel());
-    elements.addAll(state.getProvisionListenerBindingsThisLevel());
-    elements.addAll(state.getScannerBindingsThisLevel());
-    elements.addAll(state.getStaticInjectionRequestsThisLevel());
-    elements.addAll(state.getMembersInjectorLookupsThisLevel());
-    elements.addAll(state.getInjectionRequestsThisLevel());
-
-    return elements.build();
-  }
-
-  @Override
-  public Map<TypeLiteral<?>, List<InjectionPoint>> getAllMembersInjectorInjectionPoints() {
-    // Note, this is a safe cast per the ListMultimap javadocs.
-    // We could use Multimaps.asMap to avoid the cast, but unfortunately it's a @Beta method.
-    return (Map<TypeLiteral<?>, List<InjectionPoint>>)
-        (Map<TypeLiteral<?>, ?>)
-            ImmutableListMultimap.copyOf(
-                    Multimaps.filterKeys(
-                        membersInjectorStore.getAllInjectionPoints(),
-                        userRequestedMembersInjectorTypes::contains))
-                .asMap();
-  }
-
-  /** Returns parameter injectors, or {@code null} if there are no parameters. */
-  SingleParameterInjector<?>[] getParametersInjectors(List<Dependency<?>> parameters, Errors errors)
-      throws ErrorsException {
-    if (parameters.isEmpty()) {
-      return null;
-    }
-
-    int numErrorsBefore = errors.size();
-    SingleParameterInjector<?>[] result = new SingleParameterInjector<?>[parameters.size()];
-    int i = 0;
-    for (Dependency<?> parameter : parameters) {
-      try {
-        result[i++] = createParameterInjector(parameter, errors.withSource(parameter));
-      } catch (ErrorsException rethrownBelow) {
-        // rethrown below
-      }
-    }
-
-    errors.throwIfNewErrors(numErrorsBefore);
-    return result;
-  }
-
-  <T> SingleParameterInjector<T> createParameterInjector(
-      final Dependency<T> dependency, final Errors errors) throws ErrorsException {
-    BindingImpl<? extends T> binding =
-        getBindingOrThrow(dependency.getKey(), errors, JitLimitation.NO_JIT);
-    return new SingleParameterInjector<T>(dependency, binding);
-  }
-
   /** Invokes a method. */
   interface MethodInvoker {
     Object invoke(Object target, Object... parameters)
         throws IllegalAccessException, InvocationTargetException;
-  }
-
-  /** Cached constructor injectors for each type */
-  final ConstructorInjectorStore constructors = new ConstructorInjectorStore(this);
-
-  /** Cached field and method injectors for each type. */
-  MembersInjectorStore membersInjectorStore;
-
-  /** Cached provision listener callbacks for each key. */
-  ProvisionListenerCallbackStore provisionListenerStore;
-
-  @Override
-  @SuppressWarnings("unchecked") // the members injector type is consistent with instance's type
-  public void injectMembers(Object instance) {
-    MembersInjector membersInjector = getMembersInjector(instance.getClass());
-    membersInjector.injectMembers(instance);
-  }
-
-  @Override
-  public <T> MembersInjector<T> getMembersInjector(TypeLiteral<T> typeLiteral) {
-    checkNotNull(typeLiteral, "typeLiteral");
-    userRequestedMembersInjectorTypes.add(typeLiteral);
-
-    Errors errors = new Errors(typeLiteral);
-    try {
-      return membersInjectorStore.get(typeLiteral, errors);
-    } catch (ErrorsException e) {
-      throw new ConfigurationException(errors.merge(e.getErrors()).getMessages());
-    }
-  }
-
-  @Override
-  public <T> MembersInjector<T> getMembersInjector(Class<T> type) {
-    return getMembersInjector(TypeLiteral.get(type));
-  }
-
-  @Override
-  public <T> Provider<T> getProvider(Class<T> type) {
-    return getProvider(Key.get(checkNotNull(type, "type")));
-  }
-
-  <T> Provider<T> getProviderOrThrow(final Dependency<T> dependency, Errors errors)
-      throws ErrorsException {
-    Key<T> key = dependency.getKey();
-    BindingImpl<? extends T> binding = getBindingOrThrow(key, errors, JitLimitation.NO_JIT);
-    final InternalFactory<? extends T> internalFactory = binding.getInternalFactory();
-    final Object source = binding.getSource();
-
-    return new Provider<T>() {
-      @Override
-      public T get() {
-        InternalContext currentContext = enterContext();
-        Dependency previous = currentContext.pushDependency(dependency, source);
-        try {
-          T t = internalFactory.get(currentContext, dependency, false);
-          return t;
-        } catch (InternalProvisionException e) {
-          throw e.addSource(dependency).toProvisionException();
-        } finally {
-          currentContext.popStateAndSetDependency(previous);
-          currentContext.close();
-        }
-      }
-
-      @Override
-      public String toString() {
-        return internalFactory.toString();
-      }
-    };
-  }
-
-  @Override
-  public <T> Provider<T> getProvider(final Key<T> key) {
-    checkNotNull(key, "key");
-    Errors errors = new Errors(key);
-    try {
-      Provider<T> result = getProviderOrThrow(Dependency.get(key), errors);
-      errors.throwIfNewErrors(0);
-      return result;
-    } catch (ErrorsException e) {
-      throw new ConfigurationException(errors.merge(e.getErrors()).getMessages());
-    }
-  }
-
-  @Override
-  public <T> T getInstance(Key<T> key) {
-    return getProvider(key).get();
-  }
-
-  @Override
-  public <T> T getInstance(Class<T> type) {
-    return getProvider(type).get();
-  }
-
-  /**
-   * Holds Object[] as a mutable wrapper, rather than InternalContext, since array operations are
-   * faster than ThreadLocal.set() / .get() operations.
-   *
-   * <p>Holds Object[] rather than InternalContext[], since localContext never gets cleaned up at
-   * any point. This could lead to problems when, for example, an OSGI application is reloaded, the
-   * InjectorImpl is destroyed, but the thread that the injector runs on is kept alive. In such a
-   * case, ThreadLocal itself would hold on to a reference to localContext, which would hold on to
-   * the old InternalContext.class object, which would hold on to the old classloader that loaded
-   * that class, and so on.
-   */
-  private final ThreadLocal<Object[]> localContext;
-
-  /** Only to be called by the {@link SingletonScope} provider. */
-  InternalContext getLocalContext() {
-    return (InternalContext) localContext.get()[0];
-  }
-
-  /**
-   * Looks up thread local context and {@link InternalContext#enter() enters} it or creates a new
-   * context if necessary.
-   *
-   * <p>All callers of this are responsible for calling {@link InternalContext#close()}. Typical
-   * usage should look like:
-   *
-   * <pre>{@code
-   * InternalContext ctx = injector.enterContext();
-   * try {
-   *   ... use ctx ...
-   * } finally {
-   *   ctx.close();
-   * }
-   * }</pre>
-   */
-  InternalContext enterContext() {
-    Object[] reference = localContext.get();
-    if (reference == null) {
-      reference = new Object[1];
-      localContext.set(reference);
-    }
-    InternalContext ctx = (InternalContext) reference[0];
-    if (ctx == null) {
-      reference[0] = ctx = new InternalContext(options, reference);
-    } else {
-      ctx.enter();
-    }
-    return ctx;
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(Injector.class)
-        .add("bindings", state.getExplicitBindingsThisLevel().values())
-        .toString();
   }
 }

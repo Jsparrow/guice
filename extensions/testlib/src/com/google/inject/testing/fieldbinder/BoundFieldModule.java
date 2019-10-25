@@ -121,7 +121,197 @@ public final class BoundFieldModule implements Module {
     return new BoundFieldModule(instance);
   }
 
-  private static class BoundFieldException extends Exception {
+  /** Returns the the object originally passed to {@link BoundFieldModule#of}). */
+  public Object getInstance() {
+    return instance;
+  }
+
+/**
+   * Returns information about the fields bound by this module.
+   *
+   * <p>Note this is available immediately after construction, fields with errors won't be included
+   * but their error messages will be deferred to configuration time.
+   *
+   * <p>Fields with invalid null values <em>are</em> included but still cause errors at
+   * configuration time.
+   */
+  public ImmutableSet<BoundFieldInfo> getBoundFields() {
+    return boundFields;
+  }
+
+private ImmutableSet<BoundFieldInfo> findBindableFields(
+      ImmutableList.Builder<Message> deferredErrors) {
+    ImmutableSet.Builder<BoundFieldInfo> fieldInfos = ImmutableSet.builder();
+    TypeLiteral<?> currentClassType = TypeLiteral.get(instance.getClass());
+    while (currentClassType.getRawType() != Object.class) {
+      for (Field field : currentClassType.getRawType().getDeclaredFields()) {
+        Optional<BoundFieldInfo> fieldInfoOpt =
+            getBoundFieldInfo(currentClassType, field, deferredErrors);
+        if (fieldInfoOpt.isPresent()) {
+          fieldInfos.add(fieldInfoOpt.get());
+        }
+      }
+      currentClassType =
+          currentClassType.getSupertype(currentClassType.getRawType().getSuperclass());
+    }
+    return fieldInfos.build();
+  }
+
+/**
+   * Retrieve a {@link BoundFieldInfo}.
+   *
+   * <p>This returns a {@link BoundFieldInfo} if the field has a {@link Bind} annotation. Otherwise
+   * it returns {@link Optional#absent()}.
+   */
+  private Optional<BoundFieldInfo> getBoundFieldInfo(
+      TypeLiteral<?> containingClassType,
+      Field field,
+      ImmutableList.Builder<Message> deferredErrors) {
+    Bind bindAnnotation = field.getAnnotation(Bind.class);
+    if (bindAnnotation == null) {
+      return Optional.absent();
+    }
+    if (hasInject(field)) {
+      deferredErrors.add(
+          new Message(field, "Fields annotated with both @Bind and @Inject are illegal."));
+      return Optional.absent();
+    }
+    try {
+      return Optional.of(
+          new BoundFieldInfo(
+              instance, field, bindAnnotation, containingClassType.getFieldType(field)));
+    } catch (ConfigurationException e) { // thrown from Key.get, MoreTypes.canonicalizeForKey
+      deferredErrors.addAll(e.getErrorMessages());
+      return Optional.absent();
+    } catch (BoundFieldException e) {
+      deferredErrors.add(e.message);
+      return Optional.absent();
+    }
+  }
+
+private static boolean hasInject(Field field) {
+    return field.isAnnotationPresent(javax.inject.Inject.class)
+        || field.isAnnotationPresent(com.google.inject.Inject.class);
+  }
+
+/**
+   * Determines if {@code clazz} is a "transparent provider".
+   *
+   * <p>If you have traced through the code and found that what you want to do is failing because of
+   * this check, try using {@code @Bind(lazy=true) MyType myField} and lazily assign myField
+   * instead.
+   *
+   * <p>A transparent provider is a {@link com.google.inject.Provider} or {@link
+   * javax.inject.Provider} which binds to it's parameterized type when used as the argument to
+   * {@link Binder#bind}.
+   *
+   * <p>A {@link Provider} is transparent if the base class of that object is {@link Provider}. In
+   * other words, subclasses of {@link Provider} are not transparent. As a special case, if a {@link
+   * Provider} has no parameterized type but is otherwise transparent, then it is considered
+   * transparent.
+   *
+   * <p>Subclasses of {@link Provider} are not considered transparent in order to allow users to
+   * bind those subclasses directly, enabling them to inject the providers themselves.
+   */
+  private static boolean isTransparentProvider(Class<?> clazz) {
+    return com.google.inject.Provider.class == clazz || javax.inject.Provider.class == clazz;
+  }
+
+private static void bindField(Binder binder, final BoundFieldInfo fieldInfo) {
+    LinkedBindingBuilder<?> linkedBinder = binder.bind(fieldInfo.boundKey);
+
+    // It's unfortunate that Field.get() just returns Object rather than the actual type (although
+    // that would be impossible) because as a result calling binder.toInstance or binder.toProvider
+    // is impossible to do without an unchecked cast. This is safe if fieldInfo.naturalType is
+    // present because compatibility is checked explicitly above, but is _unsafe_ if
+    // fieldInfo.naturalType is absent which occurrs when a non-parameterized Provider is used with
+    // @Bind(to = ...)
+    @SuppressWarnings("unchecked")
+    AnnotatedBindingBuilder<Object> binderUnsafe = (AnnotatedBindingBuilder<Object>) linkedBinder;
+
+    if (isTransparentProvider(fieldInfo.fieldType.getRawType())) {
+      if (fieldInfo.bindAnnotation.lazy()) {
+        binderUnsafe.toProvider(
+            new Provider<Object>() {
+              @Override
+              // @Nullable
+              public Object get() {
+                // This is safe because we checked that the field's type is Provider above.
+                @SuppressWarnings("unchecked")
+                javax.inject.Provider<?> provider =
+                    (javax.inject.Provider<?>) getFieldValue(fieldInfo);
+                return provider.get();
+              }
+            });
+      } else {
+        // This is safe because we checked that the field's type is Provider above.
+        @SuppressWarnings("unchecked")
+        javax.inject.Provider<?> fieldValueUnsafe =
+            (javax.inject.Provider<?>) getFieldValue(fieldInfo);
+        binderUnsafe.toProvider(fieldValueUnsafe);
+      }
+    } else if (fieldInfo.bindAnnotation.lazy()) {
+      binderUnsafe.toProvider(
+          new Provider<Object>() {
+            @Override
+            // @Nullable
+            public Object get() {
+              return getFieldValue(fieldInfo);
+            }
+          });
+    } else {
+      Object fieldValue = getFieldValue(fieldInfo);
+      if (fieldValue == null) {
+        binderUnsafe.toProvider(Providers.of(null));
+      } else {
+        binderUnsafe.toInstance(fieldValue);
+      }
+    }
+  }
+
+// @Nullable
+  /**
+   * Returns the field value to bind, throwing for non-{@code @Nullable} fields with null values,
+   * and for null "transparent providers".
+   */
+  private static Object getFieldValue(final BoundFieldInfo fieldInfo) {
+    Object fieldValue = fieldInfo.getValue();
+    if (fieldValue == null && !fieldInfo.allowsNull()) {
+      if (isTransparentProvider(fieldInfo.fieldType.getRawType())) {
+        throw new NullBoundFieldValueException(
+            new Message(
+                fieldInfo.field,
+                "Binding to null is not allowed. Use Providers.of(null) if this is your intended "
+                    + "behavior."));
+      } else {
+        throw new NullBoundFieldValueException(
+            new Message(
+                fieldInfo.field,
+                "Binding to null values is only allowed for fields that are annotated @Nullable."));
+      }
+    }
+    return fieldValue;
+  }
+
+@Override
+  public void configure(Binder binder) {
+    binder = binder.skipSources(BoundFieldModule.class);
+
+    for (Message message : deferredBindingErrors) {
+      binder.addError(message);
+    }
+
+    for (BoundFieldInfo fieldInfo : boundFields) {
+      try {
+        bindField(binder, fieldInfo);
+      } catch (NullBoundFieldValueException e) {
+        // Defer errors for all eagerly bound null values
+        binder.addError(e.message);
+      }
+    }
+  }
+
+private static class BoundFieldException extends Exception {
     private final Message message;
 
     BoundFieldException(Message message) {
@@ -166,19 +356,20 @@ public final class BoundFieldModule implements Module {
 
     private void checkBindingIsAssignable(Field field, Optional<TypeLiteral<?>> naturalType)
         throws BoundFieldException {
-      if (naturalType.isPresent()) {
-        Class<?> boundRawType = boundKey.getTypeLiteral().getRawType();
-        Class<?> naturalRawType = MoreTypes.canonicalizeForKey(naturalType.get()).getRawType();
-        if (!boundRawType.isAssignableFrom(naturalRawType)) {
-          throw new BoundFieldException(
-              new Message(
-                  field,
-                  String.format(
-                      "Requested binding type \"%s\" is not assignable "
-                          + "from field binding type \"%s\"",
-                      boundRawType.getName(), naturalRawType.getName())));
-        }
-      }
+      if (!naturalType.isPresent()) {
+		return;
+	}
+	Class<?> boundRawType = boundKey.getTypeLiteral().getRawType();
+	Class<?> naturalRawType = MoreTypes.canonicalizeForKey(naturalType.get()).getRawType();
+	if (!boundRawType.isAssignableFrom(naturalRawType)) {
+	  throw new BoundFieldException(
+	      new Message(
+	          field,
+	          String.format(
+	              "Requested binding type \"%s\" is not assignable "
+	                  + "from field binding type \"%s\"",
+	              boundRawType.getName(), naturalRawType.getName())));
+	}
     }
 
     /** The field itself. */
@@ -262,20 +453,19 @@ public final class BoundFieldModule implements Module {
         throws BoundFieldException {
       Class<?> bindClass = bindAnnotation.to();
       // Bind#to's default value is Bind.class which is used to represent that no explicit binding
-      // type is requested.
-      if (bindClass == Bind.class) {
-        Preconditions.checkState(naturalType != null);
-        if (!naturalType.isPresent()) {
-          throw new BoundFieldException(
-              new Message(
-                  field,
-                  "Non parameterized Provider fields must have an explicit "
-                      + "binding class via @Bind(to = Foo.class)"));
-        }
-        return naturalType.get();
-      } else {
-        return TypeLiteral.get(bindClass);
-      }
+	// type is requested.
+	if (bindClass != Bind.class) {
+		return TypeLiteral.get(bindClass);
+	}
+	Preconditions.checkState(naturalType != null);
+	if (!naturalType.isPresent()) {
+	  throw new BoundFieldException(
+	      new Message(
+	          field,
+	          "Non parameterized Provider fields must have an explicit "
+	              + "binding class via @Bind(to = Foo.class)"));
+	}
+	return naturalType.get();
     }
 
     /**
@@ -290,214 +480,23 @@ public final class BoundFieldModule implements Module {
      *     a non-parameterized {@link Provider}.
      */
     private Optional<TypeLiteral<?>> computeNaturalFieldType() {
-      if (isTransparentProvider(fieldType.getRawType())) {
-        Type providerType = fieldType.getType();
-        if (providerType instanceof Class) {
-          return Optional.absent();
-        }
-        Preconditions.checkState(providerType instanceof ParameterizedType);
-        Type[] providerTypeArguments = ((ParameterizedType) providerType).getActualTypeArguments();
-        Preconditions.checkState(providerTypeArguments.length == 1);
-        return Optional.<TypeLiteral<?>>of(TypeLiteral.get(providerTypeArguments[0]));
-      } else {
-        return Optional.<TypeLiteral<?>>of(fieldType);
-      }
+      if (!isTransparentProvider(fieldType.getRawType())) {
+		return Optional.<TypeLiteral<?>>of(fieldType);
+	}
+	Type providerType = fieldType.getType();
+	if (providerType instanceof Class) {
+	  return Optional.absent();
+	}
+	Preconditions.checkState(providerType instanceof ParameterizedType);
+	Type[] providerTypeArguments = ((ParameterizedType) providerType).getActualTypeArguments();
+	Preconditions.checkState(providerTypeArguments.length == 1);
+	return Optional.<TypeLiteral<?>>of(TypeLiteral.get(providerTypeArguments[0]));
     }
 
     /** Returns whether a binding supports null values. */
     private boolean allowsNull() {
       return !isTransparentProvider(fieldType.getRawType())
           && Nullability.allowsNull(field.getAnnotations());
-    }
-  }
-
-  /** Returns the the object originally passed to {@link BoundFieldModule#of}). */
-  public Object getInstance() {
-    return instance;
-  }
-
-  /**
-   * Returns information about the fields bound by this module.
-   *
-   * <p>Note this is available immediately after construction, fields with errors won't be included
-   * but their error messages will be deferred to configuration time.
-   *
-   * <p>Fields with invalid null values <em>are</em> included but still cause errors at
-   * configuration time.
-   */
-  public ImmutableSet<BoundFieldInfo> getBoundFields() {
-    return boundFields;
-  }
-
-  private ImmutableSet<BoundFieldInfo> findBindableFields(
-      ImmutableList.Builder<Message> deferredErrors) {
-    ImmutableSet.Builder<BoundFieldInfo> fieldInfos = ImmutableSet.builder();
-    TypeLiteral<?> currentClassType = TypeLiteral.get(instance.getClass());
-    while (currentClassType.getRawType() != Object.class) {
-      for (Field field : currentClassType.getRawType().getDeclaredFields()) {
-        Optional<BoundFieldInfo> fieldInfoOpt =
-            getBoundFieldInfo(currentClassType, field, deferredErrors);
-        if (fieldInfoOpt.isPresent()) {
-          fieldInfos.add(fieldInfoOpt.get());
-        }
-      }
-      currentClassType =
-          currentClassType.getSupertype(currentClassType.getRawType().getSuperclass());
-    }
-    return fieldInfos.build();
-  }
-
-  /**
-   * Retrieve a {@link BoundFieldInfo}.
-   *
-   * <p>This returns a {@link BoundFieldInfo} if the field has a {@link Bind} annotation. Otherwise
-   * it returns {@link Optional#absent()}.
-   */
-  private Optional<BoundFieldInfo> getBoundFieldInfo(
-      TypeLiteral<?> containingClassType,
-      Field field,
-      ImmutableList.Builder<Message> deferredErrors) {
-    Bind bindAnnotation = field.getAnnotation(Bind.class);
-    if (bindAnnotation == null) {
-      return Optional.absent();
-    }
-    if (hasInject(field)) {
-      deferredErrors.add(
-          new Message(field, "Fields annotated with both @Bind and @Inject are illegal."));
-      return Optional.absent();
-    }
-    try {
-      return Optional.of(
-          new BoundFieldInfo(
-              instance, field, bindAnnotation, containingClassType.getFieldType(field)));
-    } catch (ConfigurationException e) { // thrown from Key.get, MoreTypes.canonicalizeForKey
-      deferredErrors.addAll(e.getErrorMessages());
-      return Optional.absent();
-    } catch (BoundFieldException e) {
-      deferredErrors.add(e.message);
-      return Optional.absent();
-    }
-  }
-
-  private static boolean hasInject(Field field) {
-    return field.isAnnotationPresent(javax.inject.Inject.class)
-        || field.isAnnotationPresent(com.google.inject.Inject.class);
-  }
-
-  /**
-   * Determines if {@code clazz} is a "transparent provider".
-   *
-   * <p>If you have traced through the code and found that what you want to do is failing because of
-   * this check, try using {@code @Bind(lazy=true) MyType myField} and lazily assign myField
-   * instead.
-   *
-   * <p>A transparent provider is a {@link com.google.inject.Provider} or {@link
-   * javax.inject.Provider} which binds to it's parameterized type when used as the argument to
-   * {@link Binder#bind}.
-   *
-   * <p>A {@link Provider} is transparent if the base class of that object is {@link Provider}. In
-   * other words, subclasses of {@link Provider} are not transparent. As a special case, if a {@link
-   * Provider} has no parameterized type but is otherwise transparent, then it is considered
-   * transparent.
-   *
-   * <p>Subclasses of {@link Provider} are not considered transparent in order to allow users to
-   * bind those subclasses directly, enabling them to inject the providers themselves.
-   */
-  private static boolean isTransparentProvider(Class<?> clazz) {
-    return com.google.inject.Provider.class == clazz || javax.inject.Provider.class == clazz;
-  }
-
-  private static void bindField(Binder binder, final BoundFieldInfo fieldInfo) {
-    LinkedBindingBuilder<?> linkedBinder = binder.bind(fieldInfo.boundKey);
-
-    // It's unfortunate that Field.get() just returns Object rather than the actual type (although
-    // that would be impossible) because as a result calling binder.toInstance or binder.toProvider
-    // is impossible to do without an unchecked cast. This is safe if fieldInfo.naturalType is
-    // present because compatibility is checked explicitly above, but is _unsafe_ if
-    // fieldInfo.naturalType is absent which occurrs when a non-parameterized Provider is used with
-    // @Bind(to = ...)
-    @SuppressWarnings("unchecked")
-    AnnotatedBindingBuilder<Object> binderUnsafe = (AnnotatedBindingBuilder<Object>) linkedBinder;
-
-    if (isTransparentProvider(fieldInfo.fieldType.getRawType())) {
-      if (fieldInfo.bindAnnotation.lazy()) {
-        binderUnsafe.toProvider(
-            new Provider<Object>() {
-              @Override
-              // @Nullable
-              public Object get() {
-                // This is safe because we checked that the field's type is Provider above.
-                @SuppressWarnings("unchecked")
-                javax.inject.Provider<?> provider =
-                    (javax.inject.Provider<?>) getFieldValue(fieldInfo);
-                return provider.get();
-              }
-            });
-      } else {
-        // This is safe because we checked that the field's type is Provider above.
-        @SuppressWarnings("unchecked")
-        javax.inject.Provider<?> fieldValueUnsafe =
-            (javax.inject.Provider<?>) getFieldValue(fieldInfo);
-        binderUnsafe.toProvider(fieldValueUnsafe);
-      }
-    } else if (fieldInfo.bindAnnotation.lazy()) {
-      binderUnsafe.toProvider(
-          new Provider<Object>() {
-            @Override
-            // @Nullable
-            public Object get() {
-              return getFieldValue(fieldInfo);
-            }
-          });
-    } else {
-      Object fieldValue = getFieldValue(fieldInfo);
-      if (fieldValue == null) {
-        binderUnsafe.toProvider(Providers.of(null));
-      } else {
-        binderUnsafe.toInstance(fieldValue);
-      }
-    }
-  }
-
-  // @Nullable
-  /**
-   * Returns the field value to bind, throwing for non-{@code @Nullable} fields with null values,
-   * and for null "transparent providers".
-   */
-  private static Object getFieldValue(final BoundFieldInfo fieldInfo) {
-    Object fieldValue = fieldInfo.getValue();
-    if (fieldValue == null && !fieldInfo.allowsNull()) {
-      if (isTransparentProvider(fieldInfo.fieldType.getRawType())) {
-        throw new NullBoundFieldValueException(
-            new Message(
-                fieldInfo.field,
-                "Binding to null is not allowed. Use Providers.of(null) if this is your intended "
-                    + "behavior."));
-      } else {
-        throw new NullBoundFieldValueException(
-            new Message(
-                fieldInfo.field,
-                "Binding to null values is only allowed for fields that are annotated @Nullable."));
-      }
-    }
-    return fieldValue;
-  }
-
-  @Override
-  public void configure(Binder binder) {
-    binder = binder.skipSources(BoundFieldModule.class);
-
-    for (Message message : deferredBindingErrors) {
-      binder.addError(message);
-    }
-
-    for (BoundFieldInfo fieldInfo : boundFields) {
-      try {
-        bindField(binder, fieldInfo);
-      } catch (NullBoundFieldValueException e) {
-        // Defer errors for all eagerly bound null values
-        binder.addError(e.message);
-      }
     }
   }
 }

@@ -26,7 +26,7 @@ public class NullableInjectionPointTest extends TestCase {
       assertContains(
           expected.getMessage(),
           "null returned by binding at " + getClass().getName(),
-          "the 1st parameter of " + FooConstructor.class.getName() + ".<init>(",
+          new StringBuilder().append("the 1st parameter of ").append(FooConstructor.class.getName()).append(".<init>(").toString(),
           "is not @Nullable");
     }
   }
@@ -39,7 +39,7 @@ public class NullableInjectionPointTest extends TestCase {
       assertContains(
           expected.getMessage(),
           "null returned by binding at " + getClass().getName(),
-          "the 1st parameter of " + FooMethod.class.getName() + ".setFoo(",
+          new StringBuilder().append("the 1st parameter of ").append(FooMethod.class.getName()).append(".setFoo(").toString(),
           "is not @Nullable");
     }
   }
@@ -52,7 +52,7 @@ public class NullableInjectionPointTest extends TestCase {
       assertContains(
           expected.getMessage(),
           "null returned by binding at " + getClass().getName(),
-          " but " + FooField.class.getName() + ".foo",
+          new StringBuilder().append(" but ").append(FooField.class.getName()).append(".foo").toString(),
           " is not @Nullable");
     }
   }
@@ -208,7 +208,12 @@ public class NullableInjectionPointTest extends TestCase {
     assertNull(injector.getInstance(Key.get(Foo.class, Names.named("throughProvidesMethod"))));
   }
 
-  static class Foo {}
+  @Documented
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.PARAMETER, ElementType.FIELD})
+  @interface Nullable {}
+
+static class Foo {}
 
   static class FooConstructor {
     @Inject
@@ -267,11 +272,6 @@ public class NullableInjectionPointTest extends TestCase {
       this.foo = foo;
     }
   }
-
-  @Documented
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target({ElementType.PARAMETER, ElementType.FIELD})
-  @interface Nullable {}
 
   static interface Namespace {
     @Documented

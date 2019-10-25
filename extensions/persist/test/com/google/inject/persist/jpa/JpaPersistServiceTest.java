@@ -27,10 +27,13 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.spi.PersistenceProvider;
 import junit.framework.TestCase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JpaPersistServiceTest extends TestCase {
 
-  private static final String PERSISTENCE_UNIT_NAME = "test_persistence_unit_name";
+  private static final Logger logger = LoggerFactory.getLogger(JpaPersistServiceTest.class);
+private static final String PERSISTENCE_UNIT_NAME = "test_persistence_unit_name";
   private static final Properties PERSISTENCE_PROPERTIES = new Properties();
 
   private final JpaPersistService sut =
@@ -56,7 +59,8 @@ public class JpaPersistServiceTest extends TestCase {
       sut.end();
       fail("Exception expected");
     } catch (SimulatedException expected) {
-      assertThat(sut.isWorking(), is(false));
+      logger.error(expected.getMessage(), expected);
+	assertThat(sut.isWorking(), is(false));
     }
   }
 

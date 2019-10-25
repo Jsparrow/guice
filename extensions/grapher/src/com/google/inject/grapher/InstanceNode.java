@@ -61,15 +61,8 @@ public class InstanceNode extends Node {
 
   @Override
   public String toString() {
-    return "InstanceNode{id="
-        + getId()
-        + " source="
-        + getSource()
-        + " instance="
-        + instance
-        + " members="
-        + members
-        + "}";
+    return new StringBuilder().append("InstanceNode{id=").append(getId()).append(" source=").append(getSource()).append(" instance=").append(instance).append(" members=")
+			.append(members).append("}").toString();
   }
 
   @Override

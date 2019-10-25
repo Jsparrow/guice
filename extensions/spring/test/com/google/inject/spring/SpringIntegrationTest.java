@@ -32,7 +32,7 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 /** @author crazybob@google.com (Bob Lee) */
 public class SpringIntegrationTest extends TestCase {
 
-  public void testBindFromSpring() throws CreationException {
+  public void testBindFromSpring() {
     final DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
 
     RootBeanDefinition singleton = new RootBeanDefinition(Singleton.class);
@@ -59,7 +59,7 @@ public class SpringIntegrationTest extends TestCase {
     assertNotSame(injector.getInstance(Prototype.class), injector.getInstance(Prototype.class));
   }
 
-  public void testBindAll() throws CreationException {
+  public void testBindAll() {
     final DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
 
     RootBeanDefinition singleton = new RootBeanDefinition(Singleton.class);

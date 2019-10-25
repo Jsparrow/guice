@@ -45,6 +45,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
 
 /**
  * Static utility methods for creating and working with instances of {@link Module}.
@@ -53,95 +54,146 @@ import java.util.Set;
  * @since 2.0
  */
 public final class Modules {
-  private Modules() {}
-
   public static final Module EMPTY_MODULE = new EmptyModule();
 
-  private static class EmptyModule implements Module {
+	private Modules() {}
+
+	/**
+	   * Returns a builder that creates a module that overlays override modules over the given modules.
+	   * If a key is bound in both sets of modules, only the binding from the override modules is kept.
+	   * If a single {@link PrivateModule} is supplied or all elements are from a single {@link
+	   * PrivateBinder}, then this will overwrite the private bindings. Otherwise, private bindings will
+	   * not be overwritten unless they are exposed. This can be used to replace the bindings of a
+	   * production module with test bindings:
+	   *
+	   * <pre>
+	   * Module functionalTestModule
+	   *     = Modules.override(new ProductionModule()).with(new TestModule());
+	   * </pre>
+	   *
+	   * <p>Prefer to write smaller modules that can be reused and tested without overrides.
+	   *
+	   * @param modules the modules whose bindings are open to be overridden
+	   */
+	  public static OverriddenModuleBuilder override(Module... modules) {
+	    return override(Arrays.asList(modules));
+	  }
+
+	/** @deprecated there's no reason to use {@code Modules.override()} without any arguments. */
+	  @Deprecated
+	  public static OverriddenModuleBuilder override() {
+	    return override(Collections.emptyList());
+	  }
+
+	/**
+	   * Returns a builder that creates a module that overlays override modules over the given modules.
+	   * If a key is bound in both sets of modules, only the binding from the override modules is kept.
+	   * If a single {@link PrivateModule} is supplied or all elements are from a single {@link
+	   * PrivateBinder}, then this will overwrite the private bindings. Otherwise, private bindings will
+	   * not be overwritten unless they are exposed. This can be used to replace the bindings of a
+	   * production module with test bindings:
+	   *
+	   * <pre>
+	   * Module functionalTestModule
+	   *     = Modules.override(getProductionModules()).with(getTestModules());
+	   * </pre>
+	   *
+	   * <p>Prefer to write smaller modules that can be reused and tested without overrides.
+	   *
+	   * @param modules the modules whose bindings are open to be overridden
+	   */
+	  public static OverriddenModuleBuilder override(Iterable<? extends Module> modules) {
+	    return new RealOverriddenModuleBuilder(modules);
+	  }
+
+	/**
+	   * Returns a new module that installs all of {@code modules}.
+	   *
+	   * <p>Although sometimes helpful, this method is rarely necessary. Most Guice APIs accept multiple
+	   * arguments or (like {@code install()}) can be called repeatedly. Where possible, external APIs
+	   * that require a single module should similarly be adapted to permit multiple modules.
+	   */
+	  public static Module combine(Module... modules) {
+	    return combine(ImmutableSet.copyOf(modules));
+	  }
+
+	/** @deprecated there's no need to "combine" one module; just install it directly. */
+	  @Deprecated
+	  public static Module combine(Module module) {
+	    return module;
+	  }
+
+	/** @deprecated this method call is effectively a no-op, just remove it. */
+	  @Deprecated
+	  public static Module combine() {
+	    return EMPTY_MODULE;
+	  }
+
+	/**
+	   * Returns a new module that installs all of {@code modules}.
+	   *
+	   * <p>Although sometimes helpful, this method is rarely necessary. Most Guice APIs accept multiple
+	   * arguments or (like {@code install()}) can be called repeatedly. Where possible, external APIs
+	   * that require a single module should similarly be adapted to permit multiple modules.
+	   */
+	  public static Module combine(Iterable<? extends Module> modules) {
+	    return new CombinedModule(modules);
+	  }
+
+	private static Module extractScanners(Iterable<Element> elements) {
+	    final List<ModuleAnnotatedMethodScannerBinding> scanners = Lists.newArrayList();
+	    ElementVisitor<Void> visitor =
+	        new DefaultElementVisitor<Void>() {
+	          @Override
+	          public Void visit(ModuleAnnotatedMethodScannerBinding binding) {
+	            scanners.add(binding);
+	            return null;
+	          }
+	        };
+	    for (Element element : elements) {
+	      element.acceptVisitor(visitor);
+	    }
+	    return new AbstractModule() {
+	      @Override
+	      protected void configure() {
+	        scanners.forEach(scanner -> scanner.applyTo(binder()));
+	      }
+	    };
+	  }
+
+	/** Returns a module that will configure the injector to require explicit bindings. */
+	  public static Module requireExplicitBindingsModule() {
+	    return new RequireExplicitBindingsModule();
+	  }
+
+	/**
+	   * Returns a module that will configure the injector to require {@literal @}{@link Inject} on
+	   * constructors.
+	   *
+	   * @see Binder#requireAtInjectOnConstructors
+	   */
+	  public static Module requireAtInjectOnConstructorsModule() {
+	    return new RequireAtInjectOnConstructorsModule();
+	  }
+
+	/**
+	   * Returns a module that will configure the injector to require an exactly matching binding
+	   * annotation.
+	   *
+	   * @see Binder#requireExactBindingAnnotations
+	   */
+	  public static Module requireExactBindingAnnotationsModule() {
+	    return new RequireExactBindingAnnotationsModule();
+	  }
+
+	/** Returns a module that will configure the injector to disable circular proxies. */
+	  public static Module disableCircularProxiesModule() {
+	    return new DisableCircularProxiesModule();
+	  }
+
+private static class EmptyModule implements Module {
     @Override
     public void configure(Binder binder) {}
-  }
-
-  /**
-   * Returns a builder that creates a module that overlays override modules over the given modules.
-   * If a key is bound in both sets of modules, only the binding from the override modules is kept.
-   * If a single {@link PrivateModule} is supplied or all elements are from a single {@link
-   * PrivateBinder}, then this will overwrite the private bindings. Otherwise, private bindings will
-   * not be overwritten unless they are exposed. This can be used to replace the bindings of a
-   * production module with test bindings:
-   *
-   * <pre>
-   * Module functionalTestModule
-   *     = Modules.override(new ProductionModule()).with(new TestModule());
-   * </pre>
-   *
-   * <p>Prefer to write smaller modules that can be reused and tested without overrides.
-   *
-   * @param modules the modules whose bindings are open to be overridden
-   */
-  public static OverriddenModuleBuilder override(Module... modules) {
-    return override(Arrays.asList(modules));
-  }
-
-  /** @deprecated there's no reason to use {@code Modules.override()} without any arguments. */
-  @Deprecated
-  public static OverriddenModuleBuilder override() {
-    return override(Arrays.asList());
-  }
-
-  /**
-   * Returns a builder that creates a module that overlays override modules over the given modules.
-   * If a key is bound in both sets of modules, only the binding from the override modules is kept.
-   * If a single {@link PrivateModule} is supplied or all elements are from a single {@link
-   * PrivateBinder}, then this will overwrite the private bindings. Otherwise, private bindings will
-   * not be overwritten unless they are exposed. This can be used to replace the bindings of a
-   * production module with test bindings:
-   *
-   * <pre>
-   * Module functionalTestModule
-   *     = Modules.override(getProductionModules()).with(getTestModules());
-   * </pre>
-   *
-   * <p>Prefer to write smaller modules that can be reused and tested without overrides.
-   *
-   * @param modules the modules whose bindings are open to be overridden
-   */
-  public static OverriddenModuleBuilder override(Iterable<? extends Module> modules) {
-    return new RealOverriddenModuleBuilder(modules);
-  }
-
-  /**
-   * Returns a new module that installs all of {@code modules}.
-   *
-   * <p>Although sometimes helpful, this method is rarely necessary. Most Guice APIs accept multiple
-   * arguments or (like {@code install()}) can be called repeatedly. Where possible, external APIs
-   * that require a single module should similarly be adapted to permit multiple modules.
-   */
-  public static Module combine(Module... modules) {
-    return combine(ImmutableSet.copyOf(modules));
-  }
-
-  /** @deprecated there's no need to "combine" one module; just install it directly. */
-  @Deprecated
-  public static Module combine(Module module) {
-    return module;
-  }
-
-  /** @deprecated this method call is effectively a no-op, just remove it. */
-  @Deprecated
-  public static Module combine() {
-    return EMPTY_MODULE;
-  }
-
-  /**
-   * Returns a new module that installs all of {@code modules}.
-   *
-   * <p>Although sometimes helpful, this method is rarely necessary. Most Guice APIs accept multiple
-   * arguments or (like {@code install()}) can be called repeatedly. Where possible, external APIs
-   * that require a single module should similarly be adapted to permit multiple modules.
-   */
-  public static Module combine(Iterable<? extends Module> modules) {
-    return new CombinedModule(modules);
   }
 
   private static class CombinedModule implements Module {
@@ -167,8 +219,7 @@ public final class Modules {
     Module with(Module... overrides);
 
     /** @deprecated there's no reason to use {@code .with()} without any arguments. */
-    @Deprecated
-    public Module with();
+    @Deprecated Module with();
 
     /** See the EDSL example at {@link Modules#override(Module[]) override()}. */
     Module with(Iterable<? extends Module> overrides);
@@ -189,7 +240,7 @@ public final class Modules {
 
     @Override
     public Module with() {
-      return with(Arrays.asList());
+      return with(Collections.emptyList());
     }
 
     @Override
@@ -341,9 +392,7 @@ public final class Modules {
                   new StringBuilder(
                       "The scope for @%s is bound directly and cannot be overridden.");
               sb.append("%n     original binding at " + Errors.convert(scopeBinding.getSource()));
-              for (Object usedSource : usedSources) {
-                sb.append("%n     bound directly at " + Errors.convert(usedSource) + "");
-              }
+              usedSources.forEach(usedSource -> sb.append(new StringBuilder().append("%n     bound directly at ").append(Errors.convert(usedSource)).append("").toString()));
               binder
                   .withSource(overideBinding.getSource())
                   .addError(sb.toString(), scopeBinding.getAnnotationType().getSimpleName());
@@ -385,49 +434,11 @@ public final class Modules {
     }
   }
 
-  private static Module extractScanners(Iterable<Element> elements) {
-    final List<ModuleAnnotatedMethodScannerBinding> scanners = Lists.newArrayList();
-    ElementVisitor<Void> visitor =
-        new DefaultElementVisitor<Void>() {
-          @Override
-          public Void visit(ModuleAnnotatedMethodScannerBinding binding) {
-            scanners.add(binding);
-            return null;
-          }
-        };
-    for (Element element : elements) {
-      element.acceptVisitor(visitor);
-    }
-    return new AbstractModule() {
-      @Override
-      protected void configure() {
-        for (ModuleAnnotatedMethodScannerBinding scanner : scanners) {
-          scanner.applyTo(binder());
-        }
-      }
-    };
-  }
-
-  /** Returns a module that will configure the injector to require explicit bindings. */
-  public static Module requireExplicitBindingsModule() {
-    return new RequireExplicitBindingsModule();
-  }
-
   private static final class RequireExplicitBindingsModule implements Module {
     @Override
     public void configure(Binder binder) {
       binder.requireExplicitBindings();
     }
-  }
-
-  /**
-   * Returns a module that will configure the injector to require {@literal @}{@link Inject} on
-   * constructors.
-   *
-   * @see Binder#requireAtInjectOnConstructors
-   */
-  public static Module requireAtInjectOnConstructorsModule() {
-    return new RequireAtInjectOnConstructorsModule();
   }
 
   private static final class RequireAtInjectOnConstructorsModule implements Module {
@@ -437,26 +448,11 @@ public final class Modules {
     }
   }
 
-  /**
-   * Returns a module that will configure the injector to require an exactly matching binding
-   * annotation.
-   *
-   * @see Binder#requireExactBindingAnnotations
-   */
-  public static Module requireExactBindingAnnotationsModule() {
-    return new RequireExactBindingAnnotationsModule();
-  }
-
   private static final class RequireExactBindingAnnotationsModule implements Module {
     @Override
     public void configure(Binder binder) {
       binder.requireExactBindingAnnotations();
     }
-  }
-
-  /** Returns a module that will configure the injector to disable circular proxies. */
-  public static Module disableCircularProxiesModule() {
-    return new DisableCircularProxiesModule();
   }
 
   private static final class DisableCircularProxiesModule implements Module {

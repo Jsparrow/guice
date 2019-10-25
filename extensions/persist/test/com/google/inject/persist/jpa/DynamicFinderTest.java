@@ -58,7 +58,7 @@ public class DynamicFinderTest extends TestCase {
 
     //obtain same em again (bound to txn)
     JpaTestEntity te = new JpaTestEntity();
-    te.setText("HIAjsOKAOSD" + new Date() + UUID.randomUUID());
+    te.setText(new StringBuilder().append("HIAjsOKAOSD").append(new Date()).append(UUID.randomUUID()).toString());
 
     dao.persist(te);
 
@@ -75,8 +75,7 @@ public class DynamicFinderTest extends TestCase {
   }
 
   public static interface JpaFinder {
-    @Finder(query = "from JpaTestEntity", returnAs = ArrayList.class)
-    public List<JpaTestEntity> listAll();
+    @Finder(query = "from JpaTestEntity", returnAs = ArrayList.class) List<JpaTestEntity> listAll();
   }
 
   public static class JpaDao {

@@ -53,25 +53,6 @@ public class ProxyFactoryTest extends TestCase {
     assertTrue(interceptor.invoked);
   }
 
-  static class Simple {
-    boolean invoked = false;
-
-    public void invoke() {
-      invoked = true;
-    }
-  }
-
-  static class SimpleInterceptor implements MethodInterceptor {
-
-    boolean invoked = false;
-
-    @Override
-    public Object invoke(MethodInvocation methodInvocation) throws Throwable {
-      invoked = true;
-      return methodInvocation.proceed();
-    }
-  }
-
   public void testInterceptOneMethod()
       throws NoSuchMethodException, InvocationTargetException, ErrorsException {
     SimpleInterceptor interceptor = new SimpleInterceptor();
@@ -99,6 +80,74 @@ public class ProxyFactoryTest extends TestCase {
     assertTrue(interceptor.invoked);
   }
 
+public void testWithConstructorArguments()
+      throws InvocationTargetException, NoSuchMethodException, ErrorsException {
+    SimpleInterceptor interceptor = new SimpleInterceptor();
+
+    aspects.add(new MethodAspect(any(), any(), interceptor));
+    ProxyFactory<A> factory =
+        new ProxyFactory<>(InjectionPoint.forConstructorOf(A.class), aspects);
+
+    ConstructionProxy<A> constructor = factory.create();
+
+    A a = constructor.newInstance(5);
+    a.a();
+    assertEquals(5, a.i);
+  }
+
+public void testNotProxied()
+      throws NoSuchMethodException, InvocationTargetException, ErrorsException {
+    SimpleInterceptor interceptor = new SimpleInterceptor();
+
+    aspects.add(new MethodAspect(not(any()), not(any()), interceptor));
+    ProxyFactory<A> factory =
+        new ProxyFactory<>(InjectionPoint.forConstructorOf(A.class), aspects);
+
+    ConstructionProxy<A> constructor = factory.create();
+
+    A a = constructor.newInstance(5);
+    assertEquals(A.class, a.getClass());
+  }
+
+public void testMultipleInterceptors()
+      throws NoSuchMethodException, InvocationTargetException, ErrorsException {
+    DoubleInterceptor doubleInterceptor = new DoubleInterceptor();
+    CountingInterceptor countingInterceptor = new CountingInterceptor();
+
+    aspects.add(new MethodAspect(any(), any(), doubleInterceptor, countingInterceptor));
+    ProxyFactory<Counter> factory =
+        new ProxyFactory<>(InjectionPoint.forConstructorOf(Counter.class), aspects);
+
+    ConstructionProxy<Counter> constructor = factory.create();
+
+    Counter counter = constructor.newInstance();
+    counter.inc();
+    assertEquals(2, counter.count);
+    assertEquals(2, countingInterceptor.count);
+  }
+
+@Retention(RetentionPolicy.RUNTIME)
+  @interface Intercept {}
+
+static class Simple {
+    boolean invoked = false;
+
+    public void invoke() {
+      invoked = true;
+    }
+  }
+
+  static class SimpleInterceptor implements MethodInterceptor {
+
+    boolean invoked = false;
+
+    @Override
+    public Object invoke(MethodInvocation methodInvocation) throws Throwable {
+      invoked = true;
+      return methodInvocation.proceed();
+    }
+  }
+
   static class Foo {
     boolean fooCalled;
 
@@ -111,49 +160,16 @@ public class ProxyFactoryTest extends TestCase {
   static class Bar {
 
     boolean barCalled;
+	boolean interceptedCalled;
 
-    void bar() {
+	void bar() {
       barCalled = true;
     }
 
-    boolean interceptedCalled;
-
-    @Intercept
+	@Intercept
     void intercepted() {
       interceptedCalled = true;
     }
-  }
-
-  @Retention(RetentionPolicy.RUNTIME)
-  @interface Intercept {}
-
-  public void testWithConstructorArguments()
-      throws InvocationTargetException, NoSuchMethodException, ErrorsException {
-    SimpleInterceptor interceptor = new SimpleInterceptor();
-
-    aspects.add(new MethodAspect(any(), any(), interceptor));
-    ProxyFactory<A> factory =
-        new ProxyFactory<A>(InjectionPoint.forConstructorOf(A.class), aspects);
-
-    ConstructionProxy<A> constructor = factory.create();
-
-    A a = constructor.newInstance(5);
-    a.a();
-    assertEquals(5, a.i);
-  }
-
-  public void testNotProxied()
-      throws NoSuchMethodException, InvocationTargetException, ErrorsException {
-    SimpleInterceptor interceptor = new SimpleInterceptor();
-
-    aspects.add(new MethodAspect(not(any()), not(any()), interceptor));
-    ProxyFactory<A> factory =
-        new ProxyFactory<A>(InjectionPoint.forConstructorOf(A.class), aspects);
-
-    ConstructionProxy<A> constructor = factory.create();
-
-    A a = constructor.newInstance(5);
-    assertEquals(A.class, a.getClass());
   }
 
   static class A {
@@ -165,23 +181,6 @@ public class ProxyFactoryTest extends TestCase {
     }
 
     public void a() {}
-  }
-
-  public void testMultipleInterceptors()
-      throws NoSuchMethodException, InvocationTargetException, ErrorsException {
-    DoubleInterceptor doubleInterceptor = new DoubleInterceptor();
-    CountingInterceptor countingInterceptor = new CountingInterceptor();
-
-    aspects.add(new MethodAspect(any(), any(), doubleInterceptor, countingInterceptor));
-    ProxyFactory<Counter> factory =
-        new ProxyFactory<Counter>(InjectionPoint.forConstructorOf(Counter.class), aspects);
-
-    ConstructionProxy<Counter> constructor = factory.create();
-
-    Counter counter = constructor.newInstance();
-    counter.inc();
-    assertEquals(2, counter.count);
-    assertEquals(2, countingInterceptor.count);
   }
 
   static class CountingInterceptor implements MethodInterceptor {

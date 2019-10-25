@@ -73,11 +73,6 @@ public final class TypeConverterBinding implements Element {
 
   @Override
   public String toString() {
-    return typeConverter
-        + " which matches "
-        + typeMatcher
-        + " (bound at "
-        + Errors.convert(source)
-        + ")";
+    return new StringBuilder().append(typeConverter).append(" which matches ").append(typeMatcher).append(" (bound at ").append(Errors.convert(source)).append(")").toString();
   }
 }

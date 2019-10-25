@@ -84,11 +84,7 @@ public class DuplicateBindingsTest extends TestCase {
     } catch (CreationException ce) {
       assertContains(
           ce.getMessage(),
-          "A binding to "
-              + Foo.class.getName()
-              + " was already configured "
-              + "at "
-              + FailingProviderModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" was already configured ").append("at ").append(FailingProviderModule.class.getName()).toString(),
           "at " + FailingProviderModule.class.getName());
     }
   }
@@ -129,31 +125,16 @@ public class DuplicateBindingsTest extends TestCase {
       fail("expected exception");
     } catch (CreationException ce) {
       String segment1 =
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("pInstance")
-              + " was already configured at "
-              + SimpleModule.class.getName();
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("pInstance")).append(" was already configured at ").append(SimpleModule.class.getName())
+			.toString();
       String segment2 =
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("pKey")
-              + " was already configured at "
-              + SimpleModule.class.getName();
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("pKey")).append(" was already configured at ").append(SimpleModule.class.getName())
+			.toString();
       String segment3 =
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("constructor")
-              + " was already configured at "
-              + SimpleModule.class.getName();
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("constructor")).append(" was already configured at ").append(SimpleModule.class.getName())
+			.toString();
       String segment4 =
-          "A binding to "
-              + FooImpl.class.getName()
-              + " was already configured at "
-              + SimpleModule.class.getName();
+          new StringBuilder().append("A binding to ").append(FooImpl.class.getName()).append(" was already configured at ").append(SimpleModule.class.getName()).toString();
       String atSegment = "at " + ScopedModule.class.getName();
       if (isIncludeStackTraceOff()) {
         assertContains(
@@ -196,33 +177,17 @@ public class DuplicateBindingsTest extends TestCase {
     } catch (CreationException ce) {
       assertContains(
           ce.getMessage(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("pInstance")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("pInstance")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("pKey")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("pKey")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("linkedKey")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("linkedKey")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("constructor")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("constructor")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName());
     }
   }
@@ -234,10 +199,7 @@ public class DuplicateBindingsTest extends TestCase {
     } catch (CreationException ce) {
       assertContains(
           ce.getMessage(),
-          "A binding to "
-              + Foo.class.getName()
-              + " was already configured at "
-              + ThrowingModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" was already configured at ").append(ThrowingModule.class.getName()).toString(),
           "and an error was thrown while checking duplicate bindings.  Error: java.lang.RuntimeException: Boo!",
           "at " + ThrowingModule.class.getName());
     }
@@ -252,40 +214,20 @@ public class DuplicateBindingsTest extends TestCase {
     } catch (CreationException ce) {
       assertContains(
           ce.getMessage(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("pInstance")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("pInstance")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("pKey")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("pKey")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("linkedKey")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("linkedKey")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("constructor")
-              + " was already configured at "
-              + SimpleModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("constructor")).append(" was already configured at ").append(SimpleModule.class.getName())
+				.toString(),
           "at " + SimpleModule.class.getName(),
-          "A binding to "
-              + Foo.class.getName()
-              + " annotated with "
-              + named("providerMethod")
-              + " was already configured at "
-              + SimpleProviderModule.class.getName(),
+          new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" annotated with ").append(named("providerMethod")).append(" was already configured at ").append(SimpleProviderModule.class.getName())
+				.toString(),
           "at " + SimpleProviderModule.class.getName());
     }
   }
@@ -314,10 +256,7 @@ public class DuplicateBindingsTest extends TestCase {
           if (e1 != e2) {
             assertContains(
                 expected.getMessage(),
-                "A binding to "
-                    + Foo.class.getName()
-                    + " was already configured at "
-                    + FailedModule.class.getName(),
+                new StringBuilder().append("A binding to ").append(Foo.class.getName()).append(" was already configured at ").append(FailedModule.class.getName()).toString(),
                 "at " + FailedModule.class.getName());
           } else {
             throw expected;
@@ -402,16 +341,16 @@ public class DuplicateBindingsTest extends TestCase {
         });
   }
 
-  private static class RealA extends A {}
-
-  @ImplementedBy(RealA.class)
-  private static class A {}
-
   private void removeBasicBindings(Collection<Key<?>> bindings) {
     bindings.remove(Key.get(Injector.class));
     bindings.remove(Key.get(Logger.class));
     bindings.remove(Key.get(Stage.class));
   }
+
+private static class RealA extends A {}
+
+  @ImplementedBy(RealA.class)
+  private static class A {}
 
   private static class ThrowingModule extends AbstractModule {
     @Override
@@ -622,9 +561,7 @@ public class DuplicateBindingsTest extends TestCase {
     private static Constructor<FooImpl> cxtor() {
       try {
         return FooImpl.class.getConstructor();
-      } catch (SecurityException e) {
-        throw new RuntimeException(e);
-      } catch (NoSuchMethodException e) {
+      } catch (NoSuchMethodException | SecurityException e) {
         throw new RuntimeException(e);
       }
     }
@@ -644,9 +581,7 @@ public class DuplicateBindingsTest extends TestCase {
     private static Constructor<Bar> cxtor() {
       try {
         return Bar.class.getConstructor();
-      } catch (SecurityException e) {
-        throw new RuntimeException(e);
-      } catch (NoSuchMethodException e) {
+      } catch (NoSuchMethodException | SecurityException e) {
         throw new RuntimeException(e);
       }
     }

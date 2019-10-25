@@ -104,15 +104,23 @@ public final class Elements {
       binder.install(module);
     }
     binder.scanForAnnotatedMethods();
-    for (RecordingBinder child : binder.privateBinders) {
-      child.scanForAnnotatedMethods();
-    }
+    binder.privateBinders.forEach(RecordingBinder::scanForAnnotatedMethods);
     // Free the memory consumed by the stack trace elements cache
     StackTraceElements.clearCache();
     return Collections.unmodifiableList(binder.elements);
   }
 
-  private static class ElementsAsModule implements Module {
+  /** Returns the module composed of {@code elements}. */
+  public static Module getModule(final Iterable<? extends Element> elements) {
+    return new ElementsAsModule(elements);
+  }
+
+@SuppressWarnings("unchecked")
+  static <T> BindingTargetVisitor<T, T> getInstanceVisitor() {
+    return (BindingTargetVisitor<T, T>) GET_INSTANCE_VISITOR;
+  }
+
+private static class ElementsAsModule implements Module {
     private final Iterable<? extends Element> elements;
 
     ElementsAsModule(Iterable<? extends Element> elements) {
@@ -125,16 +133,6 @@ public final class Elements {
         element.applyTo(binder);
       }
     }
-  }
-
-  /** Returns the module composed of {@code elements}. */
-  public static Module getModule(final Iterable<? extends Element> elements) {
-    return new ElementsAsModule(elements);
-  }
-
-  @SuppressWarnings("unchecked")
-  static <T> BindingTargetVisitor<T, T> getInstanceVisitor() {
-    return (BindingTargetVisitor<T, T>) GET_INSTANCE_VISITOR;
   }
 
   private static class ModuleInfo {
@@ -252,7 +250,7 @@ public final class Elements {
     @Override
     public <T> MembersInjector<T> getMembersInjector(final TypeLiteral<T> typeLiteral) {
       final MembersInjectorLookup<T> element =
-          new MembersInjectorLookup<T>(
+          new MembersInjectorLookup<>(
               getElementSource(), MoreTypes.canonicalizeForKey(typeLiteral));
       elements.add(element);
       return element.getMembersInjector();
@@ -314,51 +312,52 @@ public final class Elements {
 
     @Override
     public void install(Module module) {
-      if (!modules.containsKey(module)) {
-        RecordingBinder binder = this;
-        boolean unwrapModuleSource = false;
-        // Update the module source for the new module
-        if (module instanceof ProviderMethodsModule) {
-          // There are two reason's we'd want to get the module source in a ProviderMethodsModule.
-          // ModuleAnnotatedMethodScanner lets users scan their own modules for @Provides-like
-          // bindings.  If they install the module at a top-level, then moduleSource can be null.
-          // Also, if they pass something other than 'this' to it, we'd have the wrong source.
-          Class<?> delegateClass = ((ProviderMethodsModule) module).getDelegateModuleClass();
-          if (moduleSource == null
-              || !moduleSource.getModuleClassName().equals(delegateClass.getName())) {
-            moduleSource = getModuleSource(delegateClass);
-            unwrapModuleSource = true;
-          }
-        } else {
-          moduleSource = getModuleSource(module.getClass());
-          unwrapModuleSource = true;
-        }
-        boolean skipScanning = false;
-        if (module instanceof PrivateModule) {
-          binder = (RecordingBinder) binder.newPrivateBinder();
-          // Store the module in the private binder too so we scan for it.
-          binder.modules.put(module, new ModuleInfo(binder, moduleSource, false));
-          skipScanning = true; // don't scan this module in the parent's module set.
-        }
-        // Always store this in the parent binder (even if it was a private module)
-        // so that we know not to process it again, and so that scanners inherit down.
-        modules.put(module, new ModuleInfo(binder, moduleSource, skipScanning));
-        try {
-          module.configure(binder);
-        } catch (RuntimeException e) {
-          Collection<Message> messages = Errors.getMessagesFromThrowable(e);
-          if (!messages.isEmpty()) {
-            elements.addAll(messages);
-          } else {
-            addError(e);
-          }
-        }
-        binder.install(ProviderMethodsModule.forModule(module));
-        // We are done with this module, so undo module source change
-        if (unwrapModuleSource) {
-          moduleSource = moduleSource.getParent();
-        }
-      }
+      if (modules.containsKey(module)) {
+		return;
+	}
+	RecordingBinder binder = this;
+	boolean unwrapModuleSource = false;
+	// Update the module source for the new module
+	if (module instanceof ProviderMethodsModule) {
+	  // There are two reason's we'd want to get the module source in a ProviderMethodsModule.
+	  // ModuleAnnotatedMethodScanner lets users scan their own modules for @Provides-like
+	  // bindings.  If they install the module at a top-level, then moduleSource can be null.
+	  // Also, if they pass something other than 'this' to it, we'd have the wrong source.
+	  Class<?> delegateClass = ((ProviderMethodsModule) module).getDelegateModuleClass();
+	  if (moduleSource == null
+	      || !moduleSource.getModuleClassName().equals(delegateClass.getName())) {
+	    moduleSource = getModuleSource(delegateClass);
+	    unwrapModuleSource = true;
+	  }
+	} else {
+	  moduleSource = getModuleSource(module.getClass());
+	  unwrapModuleSource = true;
+	}
+	boolean skipScanning = false;
+	if (module instanceof PrivateModule) {
+	  binder = (RecordingBinder) binder.newPrivateBinder();
+	  // Store the module in the private binder too so we scan for it.
+	  binder.modules.put(module, new ModuleInfo(binder, moduleSource, false));
+	  skipScanning = true; // don't scan this module in the parent's module set.
+	}
+	// Always store this in the parent binder (even if it was a private module)
+	// so that we know not to process it again, and so that scanners inherit down.
+	modules.put(module, new ModuleInfo(binder, moduleSource, skipScanning));
+	try {
+	  module.configure(binder);
+	} catch (RuntimeException e) {
+	  Collection<Message> messages = Errors.getMessagesFromThrowable(e);
+	  if (!messages.isEmpty()) {
+	    elements.addAll(messages);
+	  } else {
+	    addError(e);
+	  }
+	}
+	binder.install(ProviderMethodsModule.forModule(module));
+	// We are done with this module, so undo module source change
+	if (unwrapModuleSource) {
+	  moduleSource = moduleSource.getParent();
+	}
     }
 
     @Override
@@ -385,7 +384,7 @@ public final class Elements {
     @Override
     public <T> AnnotatedBindingBuilder<T> bind(Key<T> key) {
       BindingBuilder<T> builder =
-          new BindingBuilder<T>(this, elements, getElementSource(), MoreTypes.canonicalizeKey(key));
+          new BindingBuilder<>(this, elements, getElementSource(), MoreTypes.canonicalizeKey(key));
       return builder;
     }
 
@@ -509,7 +508,7 @@ public final class Elements {
       }
 
       ExposureBuilder<T> builder =
-          new ExposureBuilder<T>(this, getElementSource(), MoreTypes.canonicalizeKey(key));
+          new ExposureBuilder<>(this, getElementSource(), MoreTypes.canonicalizeKey(key));
       privateElements.addExposureBuilder(builder);
       return builder;
     }

@@ -84,9 +84,7 @@ public class Manager {
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
       System.err.println(
-          "Usage: java -Dcom.sun.management.jmxremote "
-              + Manager.class.getName()
-              + " [module class name]");
+          new StringBuilder().append("Usage: java -Dcom.sun.management.jmxremote ").append(Manager.class.getName()).append(" [module class name]").toString());
       System.err.println("Then run 'jconsole' to connect.");
       System.exit(1);
     }

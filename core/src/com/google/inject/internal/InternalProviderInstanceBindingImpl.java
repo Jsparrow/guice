@@ -17,54 +17,54 @@ import com.google.inject.spi.ProviderWithExtensionVisitor;
  */
 final class InternalProviderInstanceBindingImpl<T> extends ProviderInstanceBindingImpl<T>
     implements DelayedInitialize {
-  enum InitializationTiming {
-    /** This factory can be initialized eagerly. This should be the case for most things. */
-    EAGER,
-
-    /**
-     * Initialization of this factory should be delayed until after all other static initialization
-     * completes. This will be useful for factories that need to call {@link
-     * InjectorImpl#getExistingBinding(Key)} to not create jit bindings, but also want to be able to
-     * conditionally consume jit bindings created by other other bindings.
-     */
-    DELAYED;
-  }
-
   private final Factory<T> originalFactory;
 
-  InternalProviderInstanceBindingImpl(
-      InjectorImpl injector,
-      Key<T> key,
-      Object source,
-      Factory<T> originalFactory,
-      InternalFactory<? extends T> scopedFactory,
-      Scoping scoping) {
-    super(
-        injector,
-        key,
-        source,
-        scopedFactory,
-        scoping,
-        originalFactory,
-        ImmutableSet.<InjectionPoint>of());
-    this.originalFactory = originalFactory;
-  }
+	InternalProviderInstanceBindingImpl(
+	      InjectorImpl injector,
+	      Key<T> key,
+	      Object source,
+	      Factory<T> originalFactory,
+	      InternalFactory<? extends T> scopedFactory,
+	      Scoping scoping) {
+	    super(
+	        injector,
+	        key,
+	        source,
+	        scopedFactory,
+	        scoping,
+	        originalFactory,
+	        ImmutableSet.<InjectionPoint>of());
+	    this.originalFactory = originalFactory;
+	  }
 
-  InitializationTiming getInitializationTiming() {
-    return originalFactory.initializationTiming;
-  }
+	InitializationTiming getInitializationTiming() {
+	    return originalFactory.initializationTiming;
+	  }
 
-  @Override
-  public void initialize(final InjectorImpl injector, final Errors errors) throws ErrorsException {
-    originalFactory.source = getSource();
-    originalFactory.provisionCallback = injector.provisionListenerStore.get(this);
-    // For these kinds of providers, the 'user supplied provider' is really 'guice supplied'
-    // So make our user supplied provider just delegate to the guice supplied one.
-    originalFactory.delegateProvider = getProvider();
-    originalFactory.initialize(injector, errors);
-  }
+	@Override
+	  public void initialize(final InjectorImpl injector, final Errors errors) throws ErrorsException {
+	    originalFactory.source = getSource();
+	    originalFactory.provisionCallback = injector.provisionListenerStore.get(this);
+	    // For these kinds of providers, the 'user supplied provider' is really 'guice supplied'
+	    // So make our user supplied provider just delegate to the guice supplied one.
+	    originalFactory.delegateProvider = getProvider();
+	    originalFactory.initialize(injector, errors);
+	  }
 
-  /**
+	enum InitializationTiming {
+	    /** This factory can be initialized eagerly. This should be the case for most things. */
+	    EAGER,
+	
+	    /**
+	     * Initialization of this factory should be delayed until after all other static initialization
+	     * completes. This will be useful for factories that need to call {@link
+	     * InjectorImpl#getExistingBinding(Key)} to not create jit bindings, but also want to be able to
+	     * conditionally consume jit bindings created by other other bindings.
+	     */
+	    DELAYED;
+	  }
+
+/**
    * A base factory implementation. Any Factories that delegate to other bindings should use the
    * {@code CyclicFactory} subclass, but trivial factories can use this one.
    */
@@ -114,12 +114,7 @@ final class InternalProviderInstanceBindingImpl<T> extends ProviderInstanceBindi
       } else {
         return provisionCallback.provision(
             context,
-            new ProvisionCallback<T>() {
-              @Override
-              public T call() throws InternalProvisionException {
-                return doProvision(context, dependency);
-              }
-            });
+            () -> doProvision(context, dependency));
       }
     }
     /**
@@ -163,12 +158,7 @@ final class InternalProviderInstanceBindingImpl<T> extends ProviderInstanceBindi
         } else {
           return provisionCallback.provision(
               context,
-              new ProvisionCallback<T>() {
-                @Override
-                public T call() throws InternalProvisionException {
-                  return provision(dependency, context, constructionContext);
-                }
-              });
+              () -> provision(dependency, context, constructionContext));
         }
       } finally {
         constructionContext.removeCurrentReference();

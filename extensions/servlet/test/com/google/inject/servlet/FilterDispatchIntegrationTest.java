@@ -51,7 +51,11 @@ import org.easymock.IMocksControl;
  * @author dhanji@gmail.com (Dhanji R. Prasanna)
  */
 public class FilterDispatchIntegrationTest extends TestCase {
-  private static int inits, doFilters, destroys;
+  private static int inits;
+
+private static int doFilters;
+
+private static int destroys;
 
   private IMocksControl control;
 
@@ -115,13 +119,8 @@ public class FilterDispatchIntegrationTest extends TestCase {
     assertTrue(servlet.processedUris.contains(TestServlet.FORWARD_TO));
 
     assertTrue(
-        "lifecycle states did not"
-            + " fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + doFilters
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not").append(" fire correct number of times-- inits: ").append(inits).append("; dos: ").append(doFilters).append("; destroys: ").append(destroys)
+				.toString(),
         inits == 1 && doFilters == 3 && destroys == 1);
   }
 
@@ -160,13 +159,8 @@ public class FilterDispatchIntegrationTest extends TestCase {
     control.verify();
 
     assertTrue(
-        "lifecycle states did not "
-            + "fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + doFilters
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not ").append("fire correct number of times-- inits: ").append(inits).append("; dos: ").append(doFilters).append("; destroys: ").append(destroys)
+				.toString(),
         inits == 1 && doFilters == 0 && destroys == 1);
   }
 
@@ -204,35 +198,9 @@ public class FilterDispatchIntegrationTest extends TestCase {
     control.verify();
 
     assertTrue(
-        "lifecycle states did not fire "
-            + "correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + doFilters
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not fire ").append("correct number of times-- inits: ").append(inits).append("; dos: ").append(doFilters).append("; destroys: ").append(destroys)
+				.toString(),
         inits == 1 && doFilters == 2 && destroys == 1);
-  }
-
-  @Singleton
-  public static class TestFilter implements Filter {
-    @Override
-    public void init(FilterConfig filterConfig) {
-      inits++;
-    }
-
-    @Override
-    public void doFilter(
-        ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
-        throws IOException, ServletException {
-      doFilters++;
-      filterChain.doFilter(servletRequest, servletResponse);
-    }
-
-    @Override
-    public void destroy() {
-      destroys++;
-    }
   }
 
   public final void testFilterBypass() throws ServletException, IOException {
@@ -259,7 +227,7 @@ public class FilterDispatchIntegrationTest extends TestCase {
     assertEquals(1, destroys);
   }
 
-  private void runRequestForPath(FilterPipeline pipeline, String value, boolean matches)
+private void runRequestForPath(FilterPipeline pipeline, String value, boolean matches)
       throws IOException, ServletException {
     assertEquals(0, doFilters);
     //create ourselves a mock request with test URI
@@ -278,6 +246,114 @@ public class FilterDispatchIntegrationTest extends TestCase {
       doFilters = 0;
     } else {
       assertEquals("filter was run", 0, doFilters);
+    }
+  }
+
+public void testFilterOrder() throws Exception {
+    AtomicInteger counter = new AtomicInteger();
+    final CountFilter f1 = new CountFilter(counter);
+    final CountFilter f2 = new CountFilter(counter);
+
+    Injector injector =
+        Guice.createInjector(
+            new ServletModule() {
+              @Override
+              protected void configureServlets() {
+                filter("/").through(f1);
+                install(
+                    new ServletModule() {
+                      @Override
+                      protected void configureServlets() {
+                        filter("/").through(f2);
+                      }
+                    });
+              }
+            });
+
+    HttpServletRequest request = newFakeHttpServletRequest();
+    final FilterPipeline pipeline = injector.getInstance(FilterPipeline.class);
+    pipeline.initPipeline(null);
+    pipeline.dispatch(request, null, newNoOpFilterChain());
+    assertEquals(0, f1.calledAt);
+    assertEquals(1, f2.calledAt);
+  }
+
+public final void testFilterExceptionPrunesStack() throws Exception {
+    Injector injector =
+        Guice.createInjector(
+            new ServletModule() {
+              @Override
+              protected void configureServlets() {
+                filter("/").through(TestFilter.class);
+                filter("/nothing").through(TestFilter.class);
+                filter("/").through(ThrowingFilter.class);
+              }
+            });
+
+    HttpServletRequest request = newFakeHttpServletRequest();
+    FilterPipeline pipeline = injector.getInstance(FilterPipeline.class);
+    pipeline.initPipeline(null);
+    try {
+      pipeline.dispatch(request, null, null);
+      fail("expected exception");
+    } catch (ServletException ex) {
+      for (StackTraceElement element : ex.getStackTrace()) {
+        String className = element.getClassName();
+        assertTrue(
+            "was: " + element,
+            !className.equals(FilterChainInvocation.class.getName())
+                && !className.equals(FilterDefinition.class.getName()));
+      }
+    }
+  }
+
+public final void testServletExceptionPrunesStack() throws Exception {
+    Injector injector =
+        Guice.createInjector(
+            new ServletModule() {
+              @Override
+              protected void configureServlets() {
+                filter("/").through(TestFilter.class);
+                filter("/nothing").through(TestFilter.class);
+                serve("/").with(ThrowingServlet.class);
+              }
+            });
+
+    HttpServletRequest request = newFakeHttpServletRequest();
+    FilterPipeline pipeline = injector.getInstance(FilterPipeline.class);
+    pipeline.initPipeline(null);
+    try {
+      pipeline.dispatch(request, null, null);
+      fail("expected exception");
+    } catch (ServletException ex) {
+      for (StackTraceElement element : ex.getStackTrace()) {
+        String className = element.getClassName();
+        assertTrue(
+            "was: " + element,
+            !className.equals(FilterChainInvocation.class.getName())
+                && !className.equals(FilterDefinition.class.getName()));
+      }
+    }
+  }
+
+@Singleton
+  public static class TestFilter implements Filter {
+    @Override
+    public void init(FilterConfig filterConfig) {
+      inits++;
+    }
+
+    @Override
+    public void doFilter(
+        ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
+        throws IOException, ServletException {
+      doFilters++;
+      filterChain.doFilter(servletRequest, servletResponse);
+    }
+
+    @Override
+    public void destroy() {
+      destroys++;
     }
   }
 
@@ -309,35 +385,6 @@ public class FilterDispatchIntegrationTest extends TestCase {
     }
   }
 
-  public void testFilterOrder() throws Exception {
-    AtomicInteger counter = new AtomicInteger();
-    final CountFilter f1 = new CountFilter(counter);
-    final CountFilter f2 = new CountFilter(counter);
-
-    Injector injector =
-        Guice.createInjector(
-            new ServletModule() {
-              @Override
-              protected void configureServlets() {
-                filter("/").through(f1);
-                install(
-                    new ServletModule() {
-                      @Override
-                      protected void configureServlets() {
-                        filter("/").through(f2);
-                      }
-                    });
-              }
-            });
-
-    HttpServletRequest request = newFakeHttpServletRequest();
-    final FilterPipeline pipeline = injector.getInstance(FilterPipeline.class);
-    pipeline.initPipeline(null);
-    pipeline.dispatch(request, null, newNoOpFilterChain());
-    assertEquals(0, f1.calledAt);
-    assertEquals(1, f2.calledAt);
-  }
-
   /** A filter that keeps count of when it was called by increment a counter. */
   private static class CountFilter implements Filter {
     private final AtomicInteger counter;
@@ -362,64 +409,6 @@ public class FilterDispatchIntegrationTest extends TestCase {
 
     @Override
     public void init(FilterConfig filterConfig) {}
-  }
-
-  public final void testFilterExceptionPrunesStack() throws Exception {
-    Injector injector =
-        Guice.createInjector(
-            new ServletModule() {
-              @Override
-              protected void configureServlets() {
-                filter("/").through(TestFilter.class);
-                filter("/nothing").through(TestFilter.class);
-                filter("/").through(ThrowingFilter.class);
-              }
-            });
-
-    HttpServletRequest request = newFakeHttpServletRequest();
-    FilterPipeline pipeline = injector.getInstance(FilterPipeline.class);
-    pipeline.initPipeline(null);
-    try {
-      pipeline.dispatch(request, null, null);
-      fail("expected exception");
-    } catch (ServletException ex) {
-      for (StackTraceElement element : ex.getStackTrace()) {
-        String className = element.getClassName();
-        assertTrue(
-            "was: " + element,
-            !className.equals(FilterChainInvocation.class.getName())
-                && !className.equals(FilterDefinition.class.getName()));
-      }
-    }
-  }
-
-  public final void testServletExceptionPrunesStack() throws Exception {
-    Injector injector =
-        Guice.createInjector(
-            new ServletModule() {
-              @Override
-              protected void configureServlets() {
-                filter("/").through(TestFilter.class);
-                filter("/nothing").through(TestFilter.class);
-                serve("/").with(ThrowingServlet.class);
-              }
-            });
-
-    HttpServletRequest request = newFakeHttpServletRequest();
-    FilterPipeline pipeline = injector.getInstance(FilterPipeline.class);
-    pipeline.initPipeline(null);
-    try {
-      pipeline.dispatch(request, null, null);
-      fail("expected exception");
-    } catch (ServletException ex) {
-      for (StackTraceElement element : ex.getStackTrace()) {
-        String className = element.getClassName();
-        assertTrue(
-            "was: " + element,
-            !className.equals(FilterChainInvocation.class.getName())
-                && !className.equals(FilterDefinition.class.getName()));
-      }
-    }
   }
 
   @Singleton

@@ -52,7 +52,7 @@ class ServletsModuleBuilder {
 
   private List<UriPatternMatcher> parsePatterns(UriPatternType type, List<String> patterns) {
     List<UriPatternMatcher> patternMatchers = new ArrayList<>();
-    for (String pattern : patterns) {
+    patterns.forEach(pattern -> {
       if (!servletUris.add(pattern)) {
         binder
             .skipSources(ServletModule.class, ServletsModuleBuilder.class)
@@ -70,7 +70,7 @@ class ServletsModuleBuilder {
           patternMatchers.add(matcher);
         }
       }
-    }
+    });
     return patternMatchers;
   }
 
@@ -111,11 +111,8 @@ class ServletsModuleBuilder {
         Key<? extends HttpServlet> servletKey,
         Map<String, String> initParams,
         HttpServlet servletInstance) {
-      for (UriPatternMatcher pattern : uriPatterns) {
-        binder
-            .bind(Key.get(ServletDefinition.class, UniqueAnnotations.create()))
-            .toProvider(new ServletDefinition(servletKey, pattern, initParams, servletInstance));
-      }
+      uriPatterns.forEach(pattern -> binder.bind(Key.get(ServletDefinition.class, UniqueAnnotations.create()))
+			.toProvider(new ServletDefinition(servletKey, pattern, initParams, servletInstance)));
     }
 
     @Override

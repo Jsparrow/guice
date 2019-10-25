@@ -33,29 +33,25 @@ import java.util.Map;
  */
 class TestScope implements Scope {
 
-  @Retention(RUNTIME)
-  @ScopeAnnotation
-  public @interface Scoped {}
-
   private Map<Key, Object> inScopeObjectsMap = new HashMap<>();
 
-  @Override
-  public <T> Provider<T> scope(final Key<T> key, final Provider<T> provider) {
-    return new Provider<T>() {
-      @Override
-      @SuppressWarnings({"unchecked"})
-      public T get() {
-        T t = (T) inScopeObjectsMap.get(key);
-        if (t == null) {
-          t = provider.get();
-          inScopeObjectsMap.put(key, t);
-        }
-        return t;
-      }
-    };
-  }
+	@Override
+	  public <T> Provider<T> scope(final Key<T> key, final Provider<T> provider) {
+	    return () -> {
+	        T t = (T) inScopeObjectsMap.get(key);
+	        if (t == null) {
+	          t = provider.get();
+	          inScopeObjectsMap.put(key, t);
+	        }
+	        return t;
+	      };
+	  }
 
-  public void beginNewScope() {
-    inScopeObjectsMap = new HashMap<>();
-  }
+	public void beginNewScope() {
+	    inScopeObjectsMap = new HashMap<>();
+	  }
+
+	@Retention(RUNTIME)
+	  @ScopeAnnotation
+	  public @interface Scoped {}
 }

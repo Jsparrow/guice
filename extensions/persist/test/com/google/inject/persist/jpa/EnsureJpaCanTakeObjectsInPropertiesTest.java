@@ -32,12 +32,62 @@ import java.util.Map;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.PersistenceException;
 import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EnsureJpaCanTakeObjectsInPropertiesTest extends TestCase {
 
-  private Injector injector;
+  private static final Logger logger = LoggerFactory.getLogger(EnsureJpaCanTakeObjectsInPropertiesTest.class);
+private Injector injector;
 
-  public static class DBModule extends AbstractModule {
+  @Override
+  public void setUp() {
+    injector = null;
+  }
+
+@Override
+  public final void tearDown() {
+    if (injector == null) {
+      return;
+    }
+
+    injector.getInstance(UnitOfWork.class).end();
+    injector.getInstance(EntityManagerFactory.class).close();
+  }
+
+private static DataSource getDataSource() {
+    final JDBCDataSource dataSource = new JDBCDataSource();
+    dataSource.setDatabase("jdbc:hsqldb:mem:persistence");
+    dataSource.setUser("sa");
+    dataSource.setPassword("");
+    return dataSource;
+  }
+
+private void startPersistService(boolean passDataSource) {
+    final DataSource dataSource = getDataSource();
+
+    injector = Guice.createInjector(new DBModule(dataSource, passDataSource));
+
+    //startup persistence
+    injector.getInstance(PersistService.class).start();
+  }
+
+public void testWorksIfPassDataSource() {
+    startPersistService(true);
+  }
+
+public void testFailsIfNoDataSource() {
+    try {
+      startPersistService(false);
+      fail();
+    } catch (PersistenceException ex) {
+      logger.error(ex.getMessage(), ex);
+	// Expected
+      injector = null;
+    }
+  }
+
+public static class DBModule extends AbstractModule {
 
     final DataSource ds;
     final boolean passDataSource;
@@ -59,52 +109,6 @@ public class EnsureJpaCanTakeObjectsInPropertiesTest extends TestCase {
       JpaPersistModule jpaPersistModule = new JpaPersistModule("testProperties").properties(p);
 
       install(jpaPersistModule);
-    }
-  }
-
-  @Override
-  public void setUp() {
-    injector = null;
-  }
-
-  @Override
-  public final void tearDown() {
-    if (injector == null) {
-      return;
-    }
-
-    injector.getInstance(UnitOfWork.class).end();
-    injector.getInstance(EntityManagerFactory.class).close();
-  }
-
-  private static DataSource getDataSource() {
-    final JDBCDataSource dataSource = new JDBCDataSource();
-    dataSource.setDatabase("jdbc:hsqldb:mem:persistence");
-    dataSource.setUser("sa");
-    dataSource.setPassword("");
-    return dataSource;
-  }
-
-  private void startPersistService(boolean passDataSource) {
-    final DataSource dataSource = getDataSource();
-
-    injector = Guice.createInjector(new DBModule(dataSource, passDataSource));
-
-    //startup persistence
-    injector.getInstance(PersistService.class).start();
-  }
-
-  public void testWorksIfPassDataSource() {
-    startPersistService(true);
-  }
-
-  public void testFailsIfNoDataSource() {
-    try {
-      startPersistService(false);
-      fail();
-    } catch (PersistenceException ex) {
-      // Expected
-      injector = null;
     }
   }
 

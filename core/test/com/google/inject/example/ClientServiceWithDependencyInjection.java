@@ -23,7 +23,18 @@ public class ClientServiceWithDependencyInjection {
 
   // 62 lines
 
-  public interface Service {
+  public void testClient() {
+	    MockService mock = new MockService();
+	    Client client = new Client(mock);
+	    client.go();
+	    assertTrue(mock.isGone());
+	  }
+
+	public static void main(String[] args) {
+	    new ClientServiceWithDependencyInjection().testClient();
+	  }
+
+public interface Service {
     void go();
   }
 
@@ -36,11 +47,11 @@ public class ClientServiceWithDependencyInjection {
 
   public static class ServiceFactory {
 
-    private ServiceFactory() {}
-
     private static final Service service = new ServiceImpl();
 
-    public static Service getInstance() {
+	private ServiceFactory() {}
+
+	public static Service getInstance() {
       return service;
     }
   }
@@ -68,13 +79,6 @@ public class ClientServiceWithDependencyInjection {
     }
   }
 
-  public void testClient() {
-    MockService mock = new MockService();
-    Client client = new Client(mock);
-    client.go();
-    assertTrue(mock.isGone());
-  }
-
   public static class MockService implements Service {
 
     private boolean gone = false;
@@ -87,9 +91,5 @@ public class ClientServiceWithDependencyInjection {
     public boolean isGone() {
       return gone;
     }
-  }
-
-  public static void main(String[] args) {
-    new ClientServiceWithDependencyInjection().testClient();
   }
 }

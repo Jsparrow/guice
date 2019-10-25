@@ -49,7 +49,7 @@ final class Initializer {
    * initialization. After initialization direct access through volatile field is used.
    */
   private final CycleDetectingLockFactory<Class<?>> cycleDetectingLockFactory =
-      new CycleDetectingLockFactory<Class<?>>();
+      new CycleDetectingLockFactory<>();
 
   /**
    * Instances that need injection during injector creation to a source that registered them. New
@@ -100,7 +100,7 @@ final class Initializer {
     }
 
     InjectableReference<T> injectableReference =
-        new InjectableReference<T>(
+        new InjectableReference<>(
             injector,
             instance,
             binding == null ? null : binding.getKey(),

@@ -44,198 +44,196 @@ import java.util.Set;
  * @author jessewilson@google.com (Jesse Wilson)
  */
 public abstract class ProviderMethod<T> extends InternalProviderInstanceBindingImpl.CyclicFactory<T>
-    implements HasDependencies, ProvidesMethodBinding<T>, ProviderWithExtensionVisitor<T> {
-
-  /**
-   * Creates a {@link ProviderMethod}.
-   *
-   * <p>Unless {@code skipFastClassGeneration} is set, this will use {@link
-   * net.sf.cglib.reflect.FastClass} to invoke the actual method, since it is significantly faster.
-   * However, this will fail if the method is {@code private} or {@code protected}, since fastclass
-   * is subject to java access policies.
-   */
-  static <T> ProviderMethod<T> create(
-      Key<T> key,
-      Method method,
-      Object instance,
-      ImmutableSet<Dependency<?>> dependencies,
-      Class<? extends Annotation> scopeAnnotation,
-      boolean skipFastClassGeneration,
-      Annotation annotation) {
-    int modifiers = method.getModifiers();
-    /*if[AOP]*/
-    if (!skipFastClassGeneration) {
-      try {
-        net.sf.cglib.reflect.FastClass fc = BytecodeGen.newFastClassForMember(method);
-        if (fc != null) {
-          return new FastClassProviderMethod<T>(
-              key, fc, method, instance, dependencies, scopeAnnotation, annotation);
-        }
-      } catch (net.sf.cglib.core.CodeGenerationException e) {
-        /* fall-through */
-      }
-    }
-    /*end[AOP]*/
-
-    if (!Modifier.isPublic(modifiers)
-        || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
-      method.setAccessible(true);
-    }
-
-    return new ReflectionProviderMethod<T>(
-        key, method, instance, dependencies, scopeAnnotation, annotation);
-  }
+    implements ProvidesMethodBinding<T>, ProviderWithExtensionVisitor<T> {
 
   protected final Object instance;
-  protected final Method method;
+	protected final Method method;
+	private final Key<T> key;
+	private final Class<? extends Annotation> scopeAnnotation;
+	private final ImmutableSet<Dependency<?>> dependencies;
+	private final boolean exposed;
+	private final Annotation annotation;
+	/**
+	   * Set by {@link #initialize(InjectorImpl, Errors)} so it is always available prior to injection.
+	   */
+	  private SingleParameterInjector<?>[] parameterInjectors;
 
-  private final Key<T> key;
-  private final Class<? extends Annotation> scopeAnnotation;
-  private final ImmutableSet<Dependency<?>> dependencies;
-  private final boolean exposed;
-  private final Annotation annotation;
+	/** @param method the method to invoke. It's return type must be the same type as {@code key}. */
+	  private ProviderMethod(
+	      Key<T> key,
+	      Method method,
+	      Object instance,
+	      ImmutableSet<Dependency<?>> dependencies,
+	      Class<? extends Annotation> scopeAnnotation,
+	      Annotation annotation) {
+	    // We can be safely initialized eagerly since our bindings must exist statically and it is an
+	    // error for them not to.
+	    super(InitializationTiming.EAGER);
+	    this.key = key;
+	    this.scopeAnnotation = scopeAnnotation;
+	    this.instance = instance;
+	    this.dependencies = dependencies;
+	    this.method = method;
+	    this.exposed = method.isAnnotationPresent(Exposed.class);
+	    this.annotation = annotation;
+	  }
 
-  /**
-   * Set by {@link #initialize(InjectorImpl, Errors)} so it is always available prior to injection.
-   */
-  private SingleParameterInjector<?>[] parameterInjectors;
+	/**
+	   * Creates a {@link ProviderMethod}.
+	   *
+	   * <p>Unless {@code skipFastClassGeneration} is set, this will use {@link
+	   * net.sf.cglib.reflect.FastClass} to invoke the actual method, since it is significantly faster.
+	   * However, this will fail if the method is {@code private} or {@code protected}, since fastclass
+	   * is subject to java access policies.
+	   */
+	  static <T> ProviderMethod<T> create(
+	      Key<T> key,
+	      Method method,
+	      Object instance,
+	      ImmutableSet<Dependency<?>> dependencies,
+	      Class<? extends Annotation> scopeAnnotation,
+	      boolean skipFastClassGeneration,
+	      Annotation annotation) {
+	    int modifiers = method.getModifiers();
+	    /*if[AOP]*/
+	    if (!skipFastClassGeneration) {
+	      try {
+	        net.sf.cglib.reflect.FastClass fc = BytecodeGen.newFastClassForMember(method);
+	        if (fc != null) {
+	          return new FastClassProviderMethod<>(
+	              key, fc, method, instance, dependencies, scopeAnnotation, annotation);
+	        }
+	      } catch (net.sf.cglib.core.CodeGenerationException e) {
+	        /* fall-through */
+	      }
+	    }
+	    /*end[AOP]*/
+	
+	    if (!Modifier.isPublic(modifiers)
+	        || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
+	      method.setAccessible(true);
+	    }
+	
+	    return new ReflectionProviderMethod<>(
+	        key, method, instance, dependencies, scopeAnnotation, annotation);
+	  }
 
-  /** @param method the method to invoke. It's return type must be the same type as {@code key}. */
-  private ProviderMethod(
-      Key<T> key,
-      Method method,
-      Object instance,
-      ImmutableSet<Dependency<?>> dependencies,
-      Class<? extends Annotation> scopeAnnotation,
-      Annotation annotation) {
-    // We can be safely initialized eagerly since our bindings must exist statically and it is an
-    // error for them not to.
-    super(InitializationTiming.EAGER);
-    this.key = key;
-    this.scopeAnnotation = scopeAnnotation;
-    this.instance = instance;
-    this.dependencies = dependencies;
-    this.method = method;
-    this.exposed = method.isAnnotationPresent(Exposed.class);
-    this.annotation = annotation;
-  }
+	@Override
+	  public Key<T> getKey() {
+	    return key;
+	  }
 
-  @Override
-  public Key<T> getKey() {
-    return key;
-  }
+	@Override
+	  public Method getMethod() {
+	    return method;
+	  }
 
-  @Override
-  public Method getMethod() {
-    return method;
-  }
+	// exposed for GIN
+	  public Object getInstance() {
+	    return instance;
+	  }
 
-  // exposed for GIN
-  public Object getInstance() {
-    return instance;
-  }
+	@Override
+	  public Object getEnclosingInstance() {
+	    return instance;
+	  }
 
-  @Override
-  public Object getEnclosingInstance() {
-    return instance;
-  }
+	@Override
+	  public Annotation getAnnotation() {
+	    return annotation;
+	  }
 
-  @Override
-  public Annotation getAnnotation() {
-    return annotation;
-  }
+	public void configure(Binder binder) {
+	    binder = binder.withSource(method);
+	
+	    if (scopeAnnotation != null) {
+	      binder.bind(key).toProvider(this).in(scopeAnnotation);
+	    } else {
+	      binder.bind(key).toProvider(this);
+	    }
+	
+	    if (exposed) {
+	      // the cast is safe 'cause the only binder we have implements PrivateBinder. If there's a
+	      // misplaced @Exposed, calling this will add an error to the binder's error queue
+	      ((PrivateBinder) binder).expose(key);
+	    }
+	  }
 
-  public void configure(Binder binder) {
-    binder = binder.withSource(method);
+	@Override
+	  void initialize(InjectorImpl injector, Errors errors) throws ErrorsException {
+	    parameterInjectors = injector.getParametersInjectors(dependencies.asList(), errors);
+	  }
 
-    if (scopeAnnotation != null) {
-      binder.bind(key).toProvider(this).in(scopeAnnotation);
-    } else {
-      binder.bind(key).toProvider(this);
-    }
+	@Override
+	  protected T doProvision(InternalContext context, Dependency<?> dependency)
+	      throws InternalProvisionException {
+	    try {
+	      T t = doProvision(SingleParameterInjector.getAll(context, parameterInjectors));
+	      if (t == null && !dependency.isNullable()) {
+	        InternalProvisionException.onNullInjectedIntoNonNullableDependency(getMethod(), dependency);
+	      }
+	      return t;
+	    } catch (IllegalAccessException e) {
+	      throw new AssertionError(e);
+	    } catch (InvocationTargetException userException) {
+	      Throwable cause = userException.getCause() != null ? userException.getCause() : userException;
+	      throw InternalProvisionException.errorInProvider(cause).addSource(getSource());
+	    }
+	  }
 
-    if (exposed) {
-      // the cast is safe 'cause the only binder we have implements PrivateBinder. If there's a
-      // misplaced @Exposed, calling this will add an error to the binder's error queue
-      ((PrivateBinder) binder).expose(key);
-    }
-  }
+	/** Extension point for our subclasses to implement the provisioning strategy. */
+	  abstract T doProvision(Object[] parameters)
+	      throws IllegalAccessException, InvocationTargetException;
 
-  @Override
-  void initialize(InjectorImpl injector, Errors errors) throws ErrorsException {
-    parameterInjectors = injector.getParametersInjectors(dependencies.asList(), errors);
-  }
+	@Override
+	  public Set<Dependency<?>> getDependencies() {
+	    return dependencies;
+	  }
 
-  @Override
-  protected T doProvision(InternalContext context, Dependency<?> dependency)
-      throws InternalProvisionException {
-    try {
-      T t = doProvision(SingleParameterInjector.getAll(context, parameterInjectors));
-      if (t == null && !dependency.isNullable()) {
-        InternalProvisionException.onNullInjectedIntoNonNullableDependency(getMethod(), dependency);
-      }
-      return t;
-    } catch (IllegalAccessException e) {
-      throw new AssertionError(e);
-    } catch (InvocationTargetException userException) {
-      Throwable cause = userException.getCause() != null ? userException.getCause() : userException;
-      throw InternalProvisionException.errorInProvider(cause).addSource(getSource());
-    }
-  }
+	@Override
+	  @SuppressWarnings("unchecked")
+	  public <B, V> V acceptExtensionVisitor(
+	      BindingTargetVisitor<B, V> visitor, ProviderInstanceBinding<? extends B> binding) {
+	    if (visitor instanceof ProvidesMethodTargetVisitor) {
+	      return ((ProvidesMethodTargetVisitor<T, V>) visitor).visit(this);
+	    }
+	    return visitor.visit(binding);
+	  }
 
-  /** Extension point for our subclasses to implement the provisioning strategy. */
-  abstract T doProvision(Object[] parameters)
-      throws IllegalAccessException, InvocationTargetException;
+	@Override
+	  public String toString() {
+	    String annotationString = annotation.toString();
+	    // Show @Provides w/o the com.google.inject prefix.
+	    if (annotation.annotationType() == Provides.class) {
+	      annotationString = "@Provides";
+	    } else if (annotationString.endsWith("()")) {
+	      // Remove the common "()" suffix if there are no values.
+	      annotationString = annotationString.substring(0, annotationString.length() - 2);
+	    }
+	    return new StringBuilder().append(annotationString).append(" ").append(StackTraceElements.forMember(method)).toString();
+	  }
 
-  @Override
-  public Set<Dependency<?>> getDependencies() {
-    return dependencies;
-  }
+	@Override
+	  public boolean equals(Object obj) {
+	    if (obj instanceof ProviderMethod) {
+	      ProviderMethod<?> o = (ProviderMethod<?>) obj;
+	      return method.equals(o.method)
+	          && Objects.equal(instance, o.instance)
+	          && annotation.equals(o.annotation);
+	    } else {
+	      return false;
+	    }
+	  }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public <B, V> V acceptExtensionVisitor(
-      BindingTargetVisitor<B, V> visitor, ProviderInstanceBinding<? extends B> binding) {
-    if (visitor instanceof ProvidesMethodTargetVisitor) {
-      return ((ProvidesMethodTargetVisitor<T, V>) visitor).visit(this);
-    }
-    return visitor.visit(binding);
-  }
+	@Override
+	  public int hashCode() {
+	    // Avoid calling hashCode on 'instance', which is a user-object
+	    // that might not be expecting it.
+	    // (We need to call equals, so we do.  But we can avoid hashCode.)
+	    return Objects.hashCode(method, annotation);
+	  }
 
-  @Override
-  public String toString() {
-    String annotationString = annotation.toString();
-    // Show @Provides w/o the com.google.inject prefix.
-    if (annotation.annotationType() == Provides.class) {
-      annotationString = "@Provides";
-    } else if (annotationString.endsWith("()")) {
-      // Remove the common "()" suffix if there are no values.
-      annotationString = annotationString.substring(0, annotationString.length() - 2);
-    }
-    return annotationString + " " + StackTraceElements.forMember(method);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (obj instanceof ProviderMethod) {
-      ProviderMethod<?> o = (ProviderMethod<?>) obj;
-      return method.equals(o.method)
-          && Objects.equal(instance, o.instance)
-          && annotation.equals(o.annotation);
-    } else {
-      return false;
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    // Avoid calling hashCode on 'instance', which is a user-object
-    // that might not be expecting it.
-    // (We need to call equals, so we do.  But we can avoid hashCode.)
-    return Objects.hashCode(method, annotation);
-  }
-
-  /*if[AOP]*/
+/*if[AOP]*/
   /**
    * A {@link ProviderMethod} implementation that uses {@link net.sf.cglib.reflect.FastClass#invoke}
    * to invoke the provider method.

@@ -118,9 +118,7 @@ public final class PrivateElementsImpl implements PrivateElements {
   public void applyTo(Binder binder) {
     PrivateBinder privateBinder = binder.withSource(source).newPrivateBinder();
 
-    for (Element element : getElements()) {
-      element.applyTo(privateBinder);
-    }
+    getElements().forEach(element -> element.applyTo(privateBinder));
 
     getExposedKeys(); // ensure exposedKeysToSources is populated
     for (Map.Entry<Key<?>, Object> entry : exposedKeysToSources.entrySet()) {

@@ -79,13 +79,9 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
   protected void postProcess() {
     start();
 
-    for (GraphvizNode node : nodes.values()) {
-      renderNode(node);
-    }
+    nodes.values().forEach(this::renderNode);
 
-    for (GraphvizEdge edge : edges) {
-      renderEdge(edge);
-    }
+    edges.forEach(this::renderEdge);
 
     finish();
 
@@ -102,7 +98,7 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
     out.println("digraph injector {");
 
     Map<String, String> attrs = getGraphAttributes();
-    out.println("graph " + getAttrString(attrs) + ";");
+    out.println(new StringBuilder().append("graph ").append(getAttrString(attrs)).append(";").toString());
   }
 
   protected void finish() {
@@ -111,7 +107,7 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
 
   protected void renderNode(GraphvizNode node) {
     Map<String, String> attrs = getNodeAttributes(node);
-    out.println(node.getIdentifier() + " " + getAttrString(attrs));
+    out.println(new StringBuilder().append(node.getIdentifier()).append(" ").append(getAttrString(attrs)).toString());
   }
 
   protected Map<String, String> getNodeAttributes(GraphvizNode node) {
@@ -139,7 +135,7 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
     html.append(cellborder).append("\" border=\"0\">");
 
     html.append("<tr>").append("<td align=\"left\" port=\"header\" ");
-    html.append("bgcolor=\"" + node.getHeaderBackgroundColor() + "\">");
+    html.append(new StringBuilder().append("bgcolor=\"").append(node.getHeaderBackgroundColor()).append("\">").toString());
 
     String subtitle = Joiner.on("<br align=\"left\"/>").join(node.getSubtitles());
     if (subtitle.length() != 0) {
@@ -148,16 +144,16 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
       html.append(subtitle).append("<br align=\"left\"/>").append("</font>");
     }
 
-    html.append("<font color=\"" + node.getHeaderTextColor() + "\">");
+    html.append(new StringBuilder().append("<font color=\"").append(node.getHeaderTextColor()).append("\">").toString());
     html.append(htmlEscape(node.getTitle())).append("<br align=\"left\"/>");
     html.append("</font>").append("</td>").append("</tr>");
 
-    for (Map.Entry<String, String> field : node.getFields().entrySet()) {
+    node.getFields().entrySet().forEach(field -> {
       html.append("<tr>");
       html.append("<td align=\"left\" port=\"").append(htmlEscape(field.getKey())).append("\">");
       html.append(htmlEscape(field.getValue()));
       html.append("</td>").append("</tr>");
-    }
+    });
 
     html.append("</table>");
     html.append(">");
@@ -179,7 +175,7 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
             edge.getHeadPortId(),
             edge.getHeadCompassPoint());
 
-    out.println(tailId + " -> " + headId + " " + getAttrString(attrs));
+    out.println(new StringBuilder().append(tailId).append(" -> ").append(headId).append(" ").append(getAttrString(attrs)).toString());
   }
 
   protected Map<String, String> getEdgeAttributes(GraphvizEdge edge) {
@@ -195,15 +191,15 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
   private String getAttrString(Map<String, String> attrs) {
     List<String> attrList = Lists.newArrayList();
 
-    for (Entry<String, String> attr : attrs.entrySet()) {
+    attrs.entrySet().forEach(attr -> {
       String value = attr.getValue();
 
       if (value != null) {
-        attrList.add(attr.getKey() + "=" + value);
+        attrList.add(new StringBuilder().append(attr.getKey()).append("=").append(value).toString());
       }
-    }
+    });
 
-    return "[" + Joiner.on(", ").join(attrList) + "]";
+    return new StringBuilder().append("[").append(Joiner.on(", ").join(attrList)).append("]").toString();
   }
 
   /**
@@ -234,9 +230,7 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
 
   protected List<String> htmlEscape(List<String> elements) {
     List<String> escaped = Lists.newArrayList();
-    for (String element : elements) {
-      escaped.add(htmlEscape(element));
-    }
+    elements.forEach(element -> escaped.add(htmlEscape(element)));
     return escaped;
   }
 
@@ -264,9 +258,7 @@ public class GraphvizGrapher extends AbstractInjectorGrapher {
     gnode.setHeaderTextColor("#ffffff");
     gnode.setTitle(nameFactory.getClassName(nodeId.getKey()));
 
-    for (Member member : node.getMembers()) {
-      gnode.addField(portIdFactory.getPortId(member), nameFactory.getMemberName(member));
-    }
+    node.getMembers().forEach(member -> gnode.addField(portIdFactory.getPortId(member), nameFactory.getMemberName(member)));
 
     addNode(gnode);
   }

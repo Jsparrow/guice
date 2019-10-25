@@ -26,22 +26,12 @@ public class ServletTestUtils {
 
   private ServletTestUtils() {}
 
-  private static class ThrowingInvocationHandler implements InvocationHandler {
-    @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-      throw new UnsupportedOperationException("No methods are supported on this object");
-    }
-  }
-
   /** Returns a FilterChain that does nothing. */
   public static FilterChain newNoOpFilterChain() {
-    return new FilterChain() {
-      @Override
-      public void doFilter(ServletRequest request, ServletResponse response) {}
-    };
+    return (ServletRequest request, ServletResponse response) -> {};
   }
 
-  /** Returns a fake, HttpServletRequest which stores attributes in a HashMap. */
+/** Returns a fake, HttpServletRequest which stores attributes in a HashMap. */
   public static HttpServletRequest newFakeHttpServletRequest() {
     HttpServletRequest delegate =
         (HttpServletRequest)
@@ -91,7 +81,7 @@ public class ServletTestUtils {
     };
   }
 
-  /**
+/**
    * Returns a fake, HttpServletResponse which throws an exception if any of its methods are called.
    */
   public static HttpServletResponse newFakeHttpServletResponse() {
@@ -100,6 +90,22 @@ public class ServletTestUtils {
             HttpServletResponse.class.getClassLoader(),
             new Class[] {HttpServletResponse.class},
             new ThrowingInvocationHandler());
+  }
+
+/** Returns a fake, serializable HttpSession which stores attributes in a HashMap. */
+  public static HttpSession newFakeHttpSession() {
+    return (HttpSession)
+        Proxy.newProxyInstance(
+            HttpSession.class.getClassLoader(),
+            new Class[] {HttpSession.class},
+            new FakeHttpSessionHandler());
+  }
+
+private static class ThrowingInvocationHandler implements InvocationHandler {
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+      throw new UnsupportedOperationException("No methods are supported on this object");
+    }
   }
 
   private static class FakeHttpSessionHandler implements InvocationHandler, Serializable {
@@ -117,14 +123,5 @@ public class ServletTestUtils {
         throw new UnsupportedOperationException();
       }
     }
-  }
-
-  /** Returns a fake, serializable HttpSession which stores attributes in a HashMap. */
-  public static HttpSession newFakeHttpSession() {
-    return (HttpSession)
-        Proxy.newProxyInstance(
-            HttpSession.class.getClassLoader(),
-            new Class[] {HttpSession.class},
-            new FakeHttpSessionHandler());
   }
 }

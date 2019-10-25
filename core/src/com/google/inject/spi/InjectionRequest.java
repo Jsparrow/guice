@@ -76,7 +76,7 @@ public final class InjectionRequest<T> implements Element {
    *     ConfigurationException#getPartialValue() partial value} is a {@code Set<InjectionPoint>} of
    *     the valid injection points.
    */
-  public Set<InjectionPoint> getInjectionPoints() throws ConfigurationException {
+  public Set<InjectionPoint> getInjectionPoints() {
     return InjectionPoint.forInstanceMethodsAndFields(
         instance != null ? TypeLiteral.get(instance.getClass()) : type);
   }

@@ -76,23 +76,160 @@ public class BytecodeGenTest extends TestCase {
         }
       };
 
-  public void testPackageVisibility() {
+/** as loaded by another class loader */
+  private Class<ProxyTest> proxyTestClass;
+
+private Class<ProxyTestImpl> realClass;
+
+private Module testModule;
+
+public void testPackageVisibility() {
     Injector injector = Guice.createInjector(new PackageVisibilityTestModule());
     injector.getInstance(PublicUserOfPackagePrivate.class); // This must pass.
   }
 
-  public void testInterceptedPackageVisibility() {
+public void testInterceptedPackageVisibility() {
     Injector injector = Guice.createInjector(interceptorModule, new PackageVisibilityTestModule());
     injector.getInstance(PublicUserOfPackagePrivate.class); // This must pass.
   }
 
-  public void testEnhancerNaming() {
+public void testEnhancerNaming() {
     Injector injector = Guice.createInjector(interceptorModule, new PackageVisibilityTestModule());
     PublicUserOfPackagePrivate pupp = injector.getInstance(PublicUserOfPackagePrivate.class);
     assertTrue(
         pupp.getClass()
             .getName()
             .startsWith(PublicUserOfPackagePrivate.class.getName() + "$$EnhancerByGuice$$"));
+  }
+
+@Override
+  @SuppressWarnings("unchecked")
+  protected void setUp() throws Exception {
+    super.setUp();
+
+    ClassLoader testClassLoader = new TestVisibilityClassLoader(true);
+    proxyTestClass = (Class<ProxyTest>) testClassLoader.loadClass(ProxyTest.class.getName());
+    realClass = (Class<ProxyTestImpl>) testClassLoader.loadClass(ProxyTestImpl.class.getName());
+
+    testModule =
+        new AbstractModule() {
+          @Override
+          public void configure() {
+            bind(proxyTestClass).to(realClass);
+          }
+        };
+  }
+
+public void testProxyClassLoading() throws Exception {
+    Object testObject =
+        Guice.createInjector(interceptorModule, testModule).getInstance(proxyTestClass);
+
+    // verify method interception still works
+    Method m = realClass.getMethod("sayHello");
+    assertEquals("HELLO WORLD", m.invoke(testObject));
+  }
+
+public void testSystemClassLoaderIsUsedIfProxiedClassUsesIt() {
+    ProxyTest testProxy =
+        Guice.createInjector(
+                interceptorModule,
+                new Module() {
+                  @Override
+                  public void configure(Binder binder) {
+                    binder.bind(ProxyTest.class).to(ProxyTestImpl.class);
+                  }
+                })
+            .getInstance(ProxyTest.class);
+
+    if (ProxyTest.class.getClassLoader() == systemClassLoader) {
+      assertSame(testProxy.getClass().getClassLoader(), systemClassLoader);
+    } else {
+      assertNotSame(testProxy.getClass().getClassLoader(), systemClassLoader);
+    }
+  }
+
+public void testProxyClassUnloading() {
+    Object testObject =
+        Guice.createInjector(interceptorModule, testModule).getInstance(proxyTestClass);
+    assertNotNull(testObject.getClass().getClassLoader());
+    assertNotSame(testObject.getClass().getClassLoader(), systemClassLoader);
+
+    // take a weak reference to the generated proxy class
+    WeakReference<Class<?>> clazzRef = new WeakReference<>(testObject.getClass());
+
+    assertNotNull(clazzRef.get());
+
+    // null the proxy
+    testObject = null;
+
+    /*
+     * this should be enough to queue the weak reference
+     * unless something is holding onto it accidentally.
+     */
+    GcFinalization.awaitClear(clazzRef);
+
+    // This test could be somewhat flaky when the GC isn't working.
+    // If it fails, run the test again to make sure it's failing reliably.
+    assertNull("Proxy class was not unloaded.", clazzRef.get());
+  }
+
+public void testProxyingPackagePrivateMethods() {
+    Injector injector = Guice.createInjector(interceptorModule);
+    assertEquals("HI WORLD", injector.getInstance(PackageClassPackageMethod.class).sayHi());
+    assertEquals("HI WORLD", injector.getInstance(PublicClassPackageMethod.class).sayHi());
+    assertEquals("HI WORLD", injector.getInstance(ProtectedClassProtectedMethod.class).sayHi());
+  }
+
+public void testClassLoaderBridging() throws Exception {
+    ClassLoader testClassLoader = new TestVisibilityClassLoader(false);
+
+    Class hiddenMethodReturnClass = testClassLoader.loadClass(HiddenMethodReturn.class.getName());
+    Class hiddenMethodParameterClass =
+        testClassLoader.loadClass(HiddenMethodParameter.class.getName());
+
+    Injector injector = Guice.createInjector(noopInterceptorModule);
+
+    Class hiddenClass = testClassLoader.loadClass(Hidden.class.getName());
+    Constructor ctor = hiddenClass.getDeclaredConstructor();
+
+    ctor.setAccessible(true);
+
+    // don't use bridging for proxies with private parameters
+    Object o1 = injector.getInstance(hiddenMethodParameterClass);
+    o1.getClass().getDeclaredMethod("method", hiddenClass).invoke(o1, ctor.newInstance());
+
+    // don't use bridging for proxies with private return types
+    Object o2 = injector.getInstance(hiddenMethodReturnClass);
+    o2.getClass().getDeclaredMethod("method").invoke(o2);
+  }
+
+// This tests for a situation where a osgi bundle contains a version of guice.  When guice
+  // generates a fast class it will use a bridge classloader
+  public void testFastClassUsesBridgeClassloader() throws Throwable {
+    Injector injector = Guice.createInjector();
+    // These classes are all in the same classloader as guice itself, so other than the private one
+    // they can all be fast class invoked
+    injector.getInstance(PublicInject.class).assertIsFastClassInvoked();
+    injector.getInstance(ProtectedInject.class).assertIsFastClassInvoked();
+    injector.getInstance(PackagePrivateInject.class).assertIsFastClassInvoked();
+    injector.getInstance(PrivateInject.class).assertIsReflectionInvoked();
+
+    // This classloader will load the types in an loader with a different version of guice/cglib
+    // this prevents the use of fastclass for all but the public types (where the bridge
+    // classloader can be used).
+    MultipleVersionsOfGuiceClassLoader fakeLoader = new MultipleVersionsOfGuiceClassLoader();
+    injector
+        .getInstance(fakeLoader.loadLogCreatorType(PublicInject.class))
+        .assertIsFastClassInvoked();
+    injector
+        .getInstance(fakeLoader.loadLogCreatorType(ProtectedInject.class))
+        .assertIsReflectionInvoked();
+    injector
+        .getInstance(fakeLoader.loadLogCreatorType(PackagePrivateInject.class))
+        .assertIsReflectionInvoked();
+    injector
+        .getInstance(fakeLoader.loadLogCreatorType(PrivateInject.class))
+        .assertIsReflectionInvoked();
   }
 
   // TODO(sameb): Figure out how to test FastClass naming tests.
@@ -156,30 +293,6 @@ public class BytecodeGenTest extends TestCase {
     }
   }
 
-  /** as loaded by another class loader */
-  private Class<ProxyTest> proxyTestClass;
-
-  private Class<ProxyTestImpl> realClass;
-  private Module testModule;
-
-  @Override
-  @SuppressWarnings("unchecked")
-  protected void setUp() throws Exception {
-    super.setUp();
-
-    ClassLoader testClassLoader = new TestVisibilityClassLoader(true);
-    proxyTestClass = (Class<ProxyTest>) testClassLoader.loadClass(ProxyTest.class.getName());
-    realClass = (Class<ProxyTestImpl>) testClassLoader.loadClass(ProxyTestImpl.class.getName());
-
-    testModule =
-        new AbstractModule() {
-          @Override
-          public void configure() {
-            bind(proxyTestClass).to(realClass);
-          }
-        };
-  }
-
   interface ProxyTest {
     String sayHello();
   }
@@ -201,66 +314,6 @@ public class BytecodeGenTest extends TestCase {
     public String sayHello() {
       return "HELLO";
     }
-  }
-
-  public void testProxyClassLoading() throws Exception {
-    Object testObject =
-        Guice.createInjector(interceptorModule, testModule).getInstance(proxyTestClass);
-
-    // verify method interception still works
-    Method m = realClass.getMethod("sayHello");
-    assertEquals("HELLO WORLD", m.invoke(testObject));
-  }
-
-  public void testSystemClassLoaderIsUsedIfProxiedClassUsesIt() {
-    ProxyTest testProxy =
-        Guice.createInjector(
-                interceptorModule,
-                new Module() {
-                  @Override
-                  public void configure(Binder binder) {
-                    binder.bind(ProxyTest.class).to(ProxyTestImpl.class);
-                  }
-                })
-            .getInstance(ProxyTest.class);
-
-    if (ProxyTest.class.getClassLoader() == systemClassLoader) {
-      assertSame(testProxy.getClass().getClassLoader(), systemClassLoader);
-    } else {
-      assertNotSame(testProxy.getClass().getClassLoader(), systemClassLoader);
-    }
-  }
-
-  public void testProxyClassUnloading() {
-    Object testObject =
-        Guice.createInjector(interceptorModule, testModule).getInstance(proxyTestClass);
-    assertNotNull(testObject.getClass().getClassLoader());
-    assertNotSame(testObject.getClass().getClassLoader(), systemClassLoader);
-
-    // take a weak reference to the generated proxy class
-    WeakReference<Class<?>> clazzRef = new WeakReference<Class<?>>(testObject.getClass());
-
-    assertNotNull(clazzRef.get());
-
-    // null the proxy
-    testObject = null;
-
-    /*
-     * this should be enough to queue the weak reference
-     * unless something is holding onto it accidentally.
-     */
-    GcFinalization.awaitClear(clazzRef);
-
-    // This test could be somewhat flaky when the GC isn't working.
-    // If it fails, run the test again to make sure it's failing reliably.
-    assertNull("Proxy class was not unloaded.", clazzRef.get());
-  }
-
-  public void testProxyingPackagePrivateMethods() {
-    Injector injector = Guice.createInjector(interceptorModule);
-    assertEquals("HI WORLD", injector.getInstance(PackageClassPackageMethod.class).sayHi());
-    assertEquals("HI WORLD", injector.getInstance(PublicClassPackageMethod.class).sayHi());
-    assertEquals("HI WORLD", injector.getInstance(ProtectedClassProtectedMethod.class).sayHi());
   }
 
   static class PackageClassPackageMethod {
@@ -291,58 +344,6 @@ public class BytecodeGenTest extends TestCase {
 
   public static class HiddenMethodParameter {
     public void method(Hidden h) {}
-  }
-
-  public void testClassLoaderBridging() throws Exception {
-    ClassLoader testClassLoader = new TestVisibilityClassLoader(false);
-
-    Class hiddenMethodReturnClass = testClassLoader.loadClass(HiddenMethodReturn.class.getName());
-    Class hiddenMethodParameterClass =
-        testClassLoader.loadClass(HiddenMethodParameter.class.getName());
-
-    Injector injector = Guice.createInjector(noopInterceptorModule);
-
-    Class hiddenClass = testClassLoader.loadClass(Hidden.class.getName());
-    Constructor ctor = hiddenClass.getDeclaredConstructor();
-
-    ctor.setAccessible(true);
-
-    // don't use bridging for proxies with private parameters
-    Object o1 = injector.getInstance(hiddenMethodParameterClass);
-    o1.getClass().getDeclaredMethod("method", hiddenClass).invoke(o1, ctor.newInstance());
-
-    // don't use bridging for proxies with private return types
-    Object o2 = injector.getInstance(hiddenMethodReturnClass);
-    o2.getClass().getDeclaredMethod("method").invoke(o2);
-  }
-
-  // This tests for a situation where a osgi bundle contains a version of guice.  When guice
-  // generates a fast class it will use a bridge classloader
-  public void testFastClassUsesBridgeClassloader() throws Throwable {
-    Injector injector = Guice.createInjector();
-    // These classes are all in the same classloader as guice itself, so other than the private one
-    // they can all be fast class invoked
-    injector.getInstance(PublicInject.class).assertIsFastClassInvoked();
-    injector.getInstance(ProtectedInject.class).assertIsFastClassInvoked();
-    injector.getInstance(PackagePrivateInject.class).assertIsFastClassInvoked();
-    injector.getInstance(PrivateInject.class).assertIsReflectionInvoked();
-
-    // This classloader will load the types in an loader with a different version of guice/cglib
-    // this prevents the use of fastclass for all but the public types (where the bridge
-    // classloader can be used).
-    MultipleVersionsOfGuiceClassLoader fakeLoader = new MultipleVersionsOfGuiceClassLoader();
-    injector
-        .getInstance(fakeLoader.loadLogCreatorType(PublicInject.class))
-        .assertIsFastClassInvoked();
-    injector
-        .getInstance(fakeLoader.loadLogCreatorType(ProtectedInject.class))
-        .assertIsReflectionInvoked();
-    injector
-        .getInstance(fakeLoader.loadLogCreatorType(PackagePrivateInject.class))
-        .assertIsReflectionInvoked();
-    injector
-        .getInstance(fakeLoader.loadLogCreatorType(PrivateInject.class))
-        .assertIsReflectionInvoked();
   }
 
   // This classloader simulates an OSGI environment where a bundle has a conflicting definition of
@@ -424,7 +425,7 @@ public class BytecodeGenTest extends TestCase {
           break;
         }
         if (element.getClassName().equals(Constructor.class.getName())
-            && element.getMethodName().equals("newInstance")) {
+            && "newInstance".equals(element.getMethodName())) {
           return;
         }
       }

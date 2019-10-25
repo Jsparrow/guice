@@ -58,13 +58,8 @@ public class DependencyEdge extends Edge {
 
   @Override
   public String toString() {
-    return "DependencyEdge{fromId="
-        + getFromId()
-        + " toId="
-        + getToId()
-        + " injectionPoint="
-        + injectionPoint
-        + "}";
+    return new StringBuilder().append("DependencyEdge{fromId=").append(getFromId()).append(" toId=").append(getToId()).append(" injectionPoint=").append(injectionPoint).append("}")
+			.toString();
   }
 
   @Override

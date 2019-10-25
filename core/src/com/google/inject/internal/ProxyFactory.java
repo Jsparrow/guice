@@ -88,9 +88,7 @@ final class ProxyFactory<T> implements ConstructionProxyFactory<T> {
 
     // Create method/interceptor holders and record indices.
     List<MethodInterceptorsPair> methodInterceptorsPairs = Lists.newArrayList();
-    for (Method method : methods) {
-      methodInterceptorsPairs.add(new MethodInterceptorsPair(method));
-    }
+    methods.forEach(method -> methodInterceptorsPairs.add(new MethodInterceptorsPair(method)));
 
     // Iterate over aspects and add interceptors for the methods they apply to
     boolean anyMatched = false;
@@ -100,9 +98,7 @@ final class ProxyFactory<T> implements ConstructionProxyFactory<T> {
           if (pair.method.isSynthetic()) {
             logger.log(
                 Level.WARNING,
-                "Method [{0}] is synthetic and is being intercepted by {1}."
-                    + " This could indicate a bug.  The method may be intercepted twice,"
-                    + " or may not be intercepted at all.",
+                new StringBuilder().append("Method [{0}] is synthetic and is being intercepted by {1}.").append(" This could indicate a bug.  The method may be intercepted twice,").append(" or may not be intercepted at all.").toString(),
                 new Object[] {pair.method, methodAspect.interceptors()});
           }
           visibility = visibility.and(BytecodeGen.Visibility.forMember(pair.method));
@@ -172,7 +168,7 @@ final class ProxyFactory<T> implements ConstructionProxyFactory<T> {
       Enhancer enhancer = BytecodeGen.newEnhancer(declaringClass, visibility);
       enhancer.setCallbackFilter(new IndicesCallbackFilter(methods));
       enhancer.setCallbackTypes(callbackTypes);
-      return new ProxyConstructor<T>(enhancer, injectionPoint, callbacks, interceptors);
+      return new ProxyConstructor<>(enhancer, injectionPoint, callbacks, interceptors);
     } catch (Throwable e) {
       throw new Errors().errorEnhancingClass(declaringClass, e).toException();
     }

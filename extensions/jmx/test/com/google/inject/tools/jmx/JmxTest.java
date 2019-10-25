@@ -28,7 +28,15 @@ import java.lang.annotation.Retention;
 /** @author crazybob@google.com (Bob Lee) */
 public class JmxTest {
 
-  interface Foo {}
+  public static void main(String[] args) throws Exception {
+	    Manager.main(new String[] {TestModule.class.getName()});
+	  }
+
+	@BindingAnnotation
+	  @Retention(RUNTIME)
+	  @interface Transactional {}
+
+interface Foo {}
 
   static class FooImpl implements Foo {}
 
@@ -36,14 +44,6 @@ public class JmxTest {
   static class TransactionalFoo implements Foo {}
 
   static class Bar {}
-
-  @BindingAnnotation
-  @Retention(RUNTIME)
-  @interface Transactional {}
-
-  public static void main(String[] args) throws Exception {
-    Manager.main(new String[] {TestModule.class.getName()});
-  }
 
   public static class TestModule extends AbstractModule {
 

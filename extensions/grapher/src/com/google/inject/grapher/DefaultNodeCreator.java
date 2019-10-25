@@ -99,9 +99,7 @@ final class DefaultNodeCreator implements NodeCreator {
     public Collection<Node> visit(ConstructorBinding<?> binding) {
       Collection<Member> members = Lists.newArrayList();
       members.add(binding.getConstructor().getMember());
-      for (InjectionPoint injectionPoint : binding.getInjectableMembers()) {
-        members.add(injectionPoint.getMember());
-      }
+      binding.getInjectableMembers().forEach(injectionPoint -> members.add(injectionPoint.getMember()));
 
       return ImmutableList.<Node>of(newImplementationNode(binding, members));
     }

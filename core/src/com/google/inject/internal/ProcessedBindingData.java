@@ -45,9 +45,7 @@ class ProcessedBindingData {
 
   /** Initialize bindings. This may be done eagerly */
   void initializeBindings() {
-    for (Runnable initializer : uninitializedBindings) {
-      initializer.run();
-    }
+    uninitializedBindings.forEach(Runnable::run);
   }
 
   /**
@@ -56,9 +54,7 @@ class ProcessedBindingData {
    * <p>TODO(lukes): figure out exactly why this case exists.
    */
   void runCreationListeners(Errors errors) {
-    for (CreationListener creationListener : creationListeners) {
-      creationListener.notify(errors);
-    }
+    creationListeners.forEach(creationListener -> creationListener.notify(errors));
   }
 
   /**
@@ -67,8 +63,6 @@ class ProcessedBindingData {
    * for OptionalBinder bindings.
    */
   void initializeDelayedBindings() {
-    for (Runnable initializer : delayedUninitializedBindings) {
-      initializer.run();
-    }
+    delayedUninitializedBindings.forEach(Runnable::run);
   }
 }

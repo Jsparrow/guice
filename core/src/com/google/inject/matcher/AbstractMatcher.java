@@ -27,77 +27,77 @@ public abstract class AbstractMatcher<T> implements Matcher<T> {
 
   @Override
   public Matcher<T> and(final Matcher<? super T> other) {
-    return new AndMatcher<T>(this, other);
+    return new AndMatcher<>(this, other);
   }
 
   @Override
   public Matcher<T> or(Matcher<? super T> other) {
-    return new OrMatcher<T>(this, other);
+    return new OrMatcher<>(this, other);
   }
 
   private static class AndMatcher<T> extends AbstractMatcher<T> implements Serializable {
-    private final Matcher<? super T> a, b;
+    private static final long serialVersionUID = 0;
+	private final Matcher<? super T> a;
+	private final Matcher<? super T> b;
 
-    public AndMatcher(Matcher<? super T> a, Matcher<? super T> b) {
+	public AndMatcher(Matcher<? super T> a, Matcher<? super T> b) {
       this.a = a;
       this.b = b;
     }
 
-    @Override
+	@Override
     public boolean matches(T t) {
       return a.matches(t) && b.matches(t);
     }
 
-    @Override
+	@Override
     public boolean equals(Object other) {
       return other instanceof AndMatcher
           && ((AndMatcher) other).a.equals(a)
           && ((AndMatcher) other).b.equals(b);
     }
 
-    @Override
+	@Override
     public int hashCode() {
       return 41 * (a.hashCode() ^ b.hashCode());
     }
 
-    @Override
+	@Override
     public String toString() {
-      return "and(" + a + ", " + b + ")";
+      return new StringBuilder().append("and(").append(a).append(", ").append(b).append(")").toString();
     }
-
-    private static final long serialVersionUID = 0;
   }
 
   private static class OrMatcher<T> extends AbstractMatcher<T> implements Serializable {
-    private final Matcher<? super T> a, b;
+    private static final long serialVersionUID = 0;
+	private final Matcher<? super T> a;
+	private final Matcher<? super T> b;
 
-    public OrMatcher(Matcher<? super T> a, Matcher<? super T> b) {
+	public OrMatcher(Matcher<? super T> a, Matcher<? super T> b) {
       this.a = a;
       this.b = b;
     }
 
-    @Override
+	@Override
     public boolean matches(T t) {
       return a.matches(t) || b.matches(t);
     }
 
-    @Override
+	@Override
     public boolean equals(Object other) {
       return other instanceof OrMatcher
           && ((OrMatcher) other).a.equals(a)
           && ((OrMatcher) other).b.equals(b);
     }
 
-    @Override
+	@Override
     public int hashCode() {
       return 37 * (a.hashCode() ^ b.hashCode());
     }
 
-    @Override
+	@Override
     public String toString() {
-      return "or(" + a + ", " + b + ")";
+      return new StringBuilder().append("or(").append(a).append(", ").append(b).append(")").toString();
     }
-
-    private static final long serialVersionUID = 0;
   }
 }

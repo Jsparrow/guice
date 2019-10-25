@@ -51,11 +51,6 @@ public class InjectionPointTest extends TestCase {
 
   public @Inject void bar(@Named("b") String param) {}
 
-  public static class Constructable {
-    @Inject
-    public Constructable(@Named("c") String param) {}
-  }
-
   public void testFieldInjectionPoint() throws NoSuchFieldException, IOException, ErrorsException {
     TypeLiteral<?> typeLiteral = TypeLiteral.get(getClass());
     Field fooField = getClass().getField("foo");
@@ -69,11 +64,7 @@ public class InjectionPointTest extends TestCase {
 
     Dependency<?> dependency = getOnlyElement(injectionPoint.getDependencies());
     assertEquals(
-        "Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value="
-            + Annotations.memberValueString("a")
-            + ")]@"
-            + getClass().getName()
-            + ".foo",
+        new StringBuilder().append("Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value=").append(Annotations.memberValueString("a")).append(")]@").append(getClass().getName()).append(".foo").toString(),
         dependency.toString());
     assertEquals(fooField, dependency.getInjectionPoint().getMember());
     assertEquals(-1, dependency.getParameterIndex());
@@ -85,7 +76,7 @@ public class InjectionPointTest extends TestCase {
         getOnlyElement(new InjectionPoint(typeLiteral, fooField, false).getDependencies()));
   }
 
-  public void testMethodInjectionPoint() throws Exception {
+public void testMethodInjectionPoint() throws Exception {
     TypeLiteral<?> typeLiteral = TypeLiteral.get(getClass());
 
     Method barMethod = getClass().getMethod("bar", String.class);
@@ -98,11 +89,7 @@ public class InjectionPointTest extends TestCase {
 
     Dependency<?> dependency = getOnlyElement(injectionPoint.getDependencies());
     assertEquals(
-        "Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value="
-            + Annotations.memberValueString("b")
-            + ")]@"
-            + getClass().getName()
-            + ".bar()[0]",
+        new StringBuilder().append("Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value=").append(Annotations.memberValueString("b")).append(")]@").append(getClass().getName()).append(".bar()[0]").toString(),
         dependency.toString());
     assertEquals(barMethod, dependency.getInjectionPoint().getMember());
     assertEquals(0, dependency.getParameterIndex());
@@ -114,7 +101,7 @@ public class InjectionPointTest extends TestCase {
         getOnlyElement(new InjectionPoint(typeLiteral, barMethod, false).getDependencies()));
   }
 
-  public void testConstructorInjectionPoint()
+public void testConstructorInjectionPoint()
       throws NoSuchMethodException, IOException, ErrorsException {
     TypeLiteral<?> typeLiteral = TypeLiteral.get(Constructable.class);
 
@@ -128,11 +115,7 @@ public class InjectionPointTest extends TestCase {
 
     Dependency<?> dependency = getOnlyElement(injectionPoint.getDependencies());
     assertEquals(
-        "Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value="
-            + Annotations.memberValueString("c")
-            + ")]@"
-            + Constructable.class.getName()
-            + ".<init>()[0]",
+        new StringBuilder().append("Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value=").append(Annotations.memberValueString("c")).append(")]@").append(Constructable.class.getName()).append(".<init>()[0]").toString(),
         dependency.toString());
     assertEquals(constructor, dependency.getInjectionPoint().getMember());
     assertEquals(0, dependency.getParameterIndex());
@@ -143,12 +126,10 @@ public class InjectionPointTest extends TestCase {
         dependency, getOnlyElement(new InjectionPoint(typeLiteral, constructor).getDependencies()));
   }
 
-  public void testUnattachedDependency() throws IOException {
+public void testUnattachedDependency() throws IOException {
     Dependency<String> dependency = Dependency.get(Key.get(String.class, named("d")));
     assertEquals(
-        "Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value="
-            + Annotations.memberValueString("d")
-            + ")]",
+        new StringBuilder().append("Key[type=java.lang.String, annotation=@com.google.inject.name.Named(value=").append(Annotations.memberValueString("d")).append(")]").toString(),
         dependency.toString());
     assertNull(dependency.getInjectionPoint());
     assertEquals(-1, dependency.getParameterIndex());
@@ -158,7 +139,7 @@ public class InjectionPointTest extends TestCase {
     assertEqualsBothWays(dependency, Dependency.get(Key.get(String.class, named("d"))));
   }
 
-  public void testForConstructor() throws NoSuchMethodException {
+public void testForConstructor() throws NoSuchMethodException {
     Constructor<HashSet> constructor = HashSet.class.getConstructor();
     TypeLiteral<HashSet<String>> hashSet = new TypeLiteral<HashSet<String>>() {};
 
@@ -190,12 +171,12 @@ public class InjectionPointTest extends TestCase {
     }
   }
 
-  public void testForConstructorOf() {
+public void testForConstructorOf() {
     InjectionPoint injectionPoint = InjectionPoint.forConstructorOf(Constructable.class);
     assertEquals(Constructable.class.getName() + ".<init>()", injectionPoint.toString());
   }
 
-  public void testAddForInstanceMethodsAndFields() throws Exception {
+public void testAddForInstanceMethodsAndFields() throws Exception {
     Method instanceMethod = HasInjections.class.getMethod("instanceMethod", String.class);
     Field instanceField = HasInjections.class.getField("instanceField");
     Field instanceField2 = HasInjections.class.getField("instanceField2");
@@ -212,7 +193,7 @@ public class InjectionPointTest extends TestCase {
         .inOrder();
   }
 
-  public void testAddForStaticMethodsAndFields() throws Exception {
+public void testAddForStaticMethodsAndFields() throws Exception {
     Method staticMethod = HasInjections.class.getMethod("staticMethod", String.class);
     Field staticField = HasInjections.class.getField("staticField");
     Field staticField2 = HasInjections.class.getField("staticField2");
@@ -228,31 +209,7 @@ public class InjectionPointTest extends TestCase {
         .inOrder();
   }
 
-  static class HasInjections {
-    @Inject
-    public static void staticMethod(@Named("a") String a) {}
-
-    @Inject
-    @Named("c")
-    public static String staticField;
-
-    @Inject
-    @Named("c")
-    public static String staticField2;
-
-    @Inject
-    public void instanceMethod(@Named("d") String d) {}
-
-    @Inject
-    @Named("f")
-    public String instanceField;
-
-    @Inject
-    @Named("f")
-    public String instanceField2;
-  }
-
-  public void testAddForParameterizedInjections() {
+public void testAddForParameterizedInjections() {
     TypeLiteral<?> type = new TypeLiteral<ParameterizedInjections<String>>() {};
 
     InjectionPoint constructor = InjectionPoint.forConstructorOf(type);
@@ -263,14 +220,7 @@ public class InjectionPointTest extends TestCase {
     assertEquals(new Key<Set<String>>() {}, getOnlyElement(field.getDependencies()).getKey());
   }
 
-  static class ParameterizedInjections<T> {
-    @Inject Set<T> setOfTees;
-
-    @Inject
-    public ParameterizedInjections(Map<T, T> map) {}
-  }
-
-  public void testSignature() throws Exception {
+public void testSignature() throws Exception {
     Signature fooA = new Signature(Foo.class.getDeclaredMethod("a", String.class, int.class));
     Signature fooB = new Signature(Foo.class.getDeclaredMethod("b"));
     Signature barA = new Signature(Bar.class.getDeclaredMethod("a", String.class, int.class));
@@ -282,21 +232,7 @@ public class InjectionPointTest extends TestCase {
     assertEquals(fooB, barB);
   }
 
-  static class Foo {
-    void a(String s, int i) {}
-
-    int b() {
-      return 0;
-    }
-  }
-
-  static class Bar {
-    public void a(String s, int i) {}
-
-    void b() {}
-  }
-
-  public void testOverrideBehavior() {
+public void testOverrideBehavior() {
     Set<InjectionPoint> points;
 
     points = InjectionPoint.forInstanceMethodsAndFields(Super.class);
@@ -337,7 +273,7 @@ public class InjectionPointTest extends TestCase {
     assertPoints(points, Sub.class, "privateAtAndPublicG", "atFirstThenG", "gFirstThenAt");
   }
 
-  /**
+/**
    * This test serves two purposes: 1) It makes sure that the bridge methods javax generates don't
    * stop us from injecting superclass methods in the case of javax.inject.Inject. This would happen
    * prior to java8 (where javac didn't copy annotations from the superclass into the subclass
@@ -362,9 +298,9 @@ public class InjectionPointTest extends TestCase {
     assertPoints(points, RestrictedSuper.class, "jInject", "gInject");
   }
 
-  private void assertPoints(
+private void assertPoints(
       Iterable<InjectionPoint> points, Class<?> clazz, String... methodNames) {
-    Set<String> methods = new HashSet<String>();
+    Set<String> methods = new HashSet<>();
     for (InjectionPoint point : points) {
       if (point.getDeclaringType().getRawType() == clazz) {
         methods.add(point.getMember().getName());
@@ -373,7 +309,7 @@ public class InjectionPointTest extends TestCase {
     assertEquals(points.toString(), ImmutableSet.copyOf(methodNames), methods);
   }
 
-  /** Asserts that each injection point has the specified dependencies, in the given order. */
+/** Asserts that each injection point has the specified dependencies, in the given order. */
   private void assertPointDependencies(
       Iterable<InjectionPoint> points, TypeLiteral<?>... literals) {
     for (InjectionPoint point : points) {
@@ -382,6 +318,56 @@ public class InjectionPointTest extends TestCase {
         assertEquals(literals[dep.getParameterIndex()], dep.getKey().getTypeLiteral());
       }
     }
+  }
+
+public static class Constructable {
+    @Inject
+    public Constructable(@Named("c") String param) {}
+  }
+
+  static class HasInjections {
+    @Inject
+    @Named("c")
+    public static String staticField;
+
+	@Inject
+    @Named("c")
+    public static String staticField2;
+
+	@Inject
+    @Named("f")
+    public String instanceField;
+
+	@Inject
+    @Named("f")
+    public String instanceField2;
+
+	@Inject
+    public static void staticMethod(@Named("a") String a) {}
+
+	@Inject
+    public void instanceMethod(@Named("d") String d) {}
+  }
+
+  static class ParameterizedInjections<T> {
+    @Inject Set<T> setOfTees;
+
+    @Inject
+    public ParameterizedInjections(Map<T, T> map) {}
+  }
+
+  static class Foo {
+    void a(String s, int i) {}
+
+    int b() {
+      return 0;
+    }
+  }
+
+  static class Bar {
+    public void a(String s, int i) {}
+
+    void b() {}
   }
 
   static class Super {

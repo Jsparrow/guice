@@ -43,7 +43,7 @@ public class SpringIntegration {
    * </pre>
    */
   public static <T> Provider<T> fromSpring(Class<T> type, String name) {
-    return new InjectableSpringProvider<T>(type, name);
+    return new InjectableSpringProvider<>(type, name);
   }
 
   /**
@@ -81,33 +81,32 @@ public class SpringIntegration {
     boolean singleton;
     final Class<T> type;
     final String name;
+	volatile T instance;
 
-    public SpringProvider(Class<T> type, String name) {
+	public SpringProvider(Class<T> type, String name) {
       this.type = checkNotNull(type, "type");
       this.name = checkNotNull(name, "name");
     }
 
-    static <T> SpringProvider<T> newInstance(Class<T> type, String name) {
-      return new SpringProvider<T>(type, name);
+	static <T> SpringProvider<T> newInstance(Class<T> type, String name) {
+      return new SpringProvider<>(type, name);
     }
 
-    void initialize(BeanFactory beanFactory) {
+	void initialize(BeanFactory beanFactory) {
       this.beanFactory = beanFactory;
       if (!beanFactory.isTypeMatch(name, type)) {
         throw new ClassCastException(
-            "Spring bean named '" + name + "' does not implement " + type.getName() + ".");
+            new StringBuilder().append("Spring bean named '").append(name).append("' does not implement ").append(type.getName()).append(".").toString());
       }
       singleton = beanFactory.isSingleton(name);
     }
 
-    @Override
+	@Override
     public T get() {
       return singleton ? getSingleton() : type.cast(beanFactory.getBean(name));
     }
 
-    volatile T instance;
-
-    private T getSingleton() {
+	private T getSingleton() {
       if (instance == null) {
         instance = type.cast(beanFactory.getBean(name));
       }

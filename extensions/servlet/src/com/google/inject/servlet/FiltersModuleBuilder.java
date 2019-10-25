@@ -48,7 +48,7 @@ class FiltersModuleBuilder {
 
   private List<UriPatternMatcher> parsePatterns(UriPatternType type, List<String> patterns) {
     List<UriPatternMatcher> patternMatchers = new ArrayList<>();
-    for (String pattern : patterns) {
+    patterns.forEach(pattern -> {
       UriPatternMatcher matcher = null;
       try {
         matcher = UriPatternType.get(type, pattern);
@@ -60,7 +60,7 @@ class FiltersModuleBuilder {
       if (matcher != null) {
         patternMatchers.add(matcher);
       }
-    }
+    });
     return patternMatchers;
   }
 
@@ -101,12 +101,8 @@ class FiltersModuleBuilder {
 
     private void through(
         Key<? extends Filter> filterKey, Map<String, String> initParams, Filter filterInstance) {
-      for (UriPatternMatcher pattern : uriPatterns) {
-        binder
-            .bind(FilterDefinition.class)
-            .annotatedWith(UniqueAnnotations.create())
-            .toProvider(new FilterDefinition(filterKey, pattern, initParams, filterInstance));
-      }
+      uriPatterns.forEach(pattern -> binder.bind(FilterDefinition.class).annotatedWith(UniqueAnnotations.create())
+			.toProvider(new FilterDefinition(filterKey, pattern, initParams, filterInstance)));
     }
 
     @Override

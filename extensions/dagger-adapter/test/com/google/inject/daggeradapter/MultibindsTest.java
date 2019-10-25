@@ -37,11 +37,35 @@ import junit.framework.TestCase;
 /** Tests of {@link Multibinds} support in {@link DaggerAdapter}. */
 
 public class MultibindsTest extends TestCase {
-  @Retention(RetentionPolicy.RUNTIME)
-  @Qualifier
-  @interface TestQualifier {}
+  public void testBinds() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(BasicModule.class));
+	
+	    Binding<Set<Number>> setBinding = injector.getBinding(new Key<Set<Number>>() {});
+	    assertThat(setBinding).hasProvidedValueThat().isEqualTo(ImmutableSet.of());
+	    assertThat(setBinding).hasSource(BasicModule.class, "set");
+	
+	    Binding<Map<Integer, Double>> mapBinding =
+	        injector.getBinding(new Key<Map<Integer, Double>>() {});
+	    assertThat(mapBinding).hasProvidedValueThat().isEqualTo(ImmutableMap.of());
+	    assertThat(mapBinding).hasSource(BasicModule.class, "map");
+	
+	    Binding<Set<Number>> qualifiedSetBinding =
+	        injector.getBinding(Key.get(new TypeLiteral<Set<Number>>() {}, TestQualifier.class));
+	    assertThat(qualifiedSetBinding).hasProvidedValueThat().isEqualTo(ImmutableSet.of());
+	    assertThat(qualifiedSetBinding).hasSource(BasicModule.class, "qualifiedSet");
+	
+	    Binding<Map<Integer, Double>> qualifiedMapBinding =
+	        injector.getBinding(
+	            Key.get(new TypeLiteral<Map<Integer, Double>>() {}, TestQualifier.class));
+	    assertThat(qualifiedMapBinding).hasProvidedValueThat().isEqualTo(ImmutableMap.of());
+	    assertThat(qualifiedMapBinding).hasSource(BasicModule.class, "qualifiedMap");
+	  }
 
-  @Module
+	@Retention(RetentionPolicy.RUNTIME)
+	  @Qualifier
+	  @interface TestQualifier {}
+
+@Module
   interface BasicModule {
     @Multibinds
     Set<Number> set();
@@ -56,29 +80,5 @@ public class MultibindsTest extends TestCase {
     @Multibinds
     @TestQualifier
     Map<Integer, Double> qualifiedMap();
-  }
-
-  public void testBinds() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(BasicModule.class));
-
-    Binding<Set<Number>> setBinding = injector.getBinding(new Key<Set<Number>>() {});
-    assertThat(setBinding).hasProvidedValueThat().isEqualTo(ImmutableSet.of());
-    assertThat(setBinding).hasSource(BasicModule.class, "set");
-
-    Binding<Map<Integer, Double>> mapBinding =
-        injector.getBinding(new Key<Map<Integer, Double>>() {});
-    assertThat(mapBinding).hasProvidedValueThat().isEqualTo(ImmutableMap.of());
-    assertThat(mapBinding).hasSource(BasicModule.class, "map");
-
-    Binding<Set<Number>> qualifiedSetBinding =
-        injector.getBinding(Key.get(new TypeLiteral<Set<Number>>() {}, TestQualifier.class));
-    assertThat(qualifiedSetBinding).hasProvidedValueThat().isEqualTo(ImmutableSet.of());
-    assertThat(qualifiedSetBinding).hasSource(BasicModule.class, "qualifiedSet");
-
-    Binding<Map<Integer, Double>> qualifiedMapBinding =
-        injector.getBinding(
-            Key.get(new TypeLiteral<Map<Integer, Double>>() {}, TestQualifier.class));
-    assertThat(qualifiedMapBinding).hasProvidedValueThat().isEqualTo(ImmutableMap.of());
-    assertThat(qualifiedMapBinding).hasSource(BasicModule.class, "qualifiedMap");
   }
 }

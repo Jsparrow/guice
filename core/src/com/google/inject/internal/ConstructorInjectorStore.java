@@ -89,7 +89,7 @@ final class ConstructorInjectorStore {
 
     errors.throwIfNewErrors(numErrorsBefore);
 
-    return new ConstructorInjector<T>(
+    return new ConstructorInjector<>(
         membersInjector.getInjectionPoints(),
         factory.create(),
         constructorParameterInjectors,

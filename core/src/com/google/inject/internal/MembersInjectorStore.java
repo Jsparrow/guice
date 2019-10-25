@@ -99,7 +99,7 @@ final class MembersInjectorStore {
 
     EncounterImpl<T> encounter = new EncounterImpl<>(errors, injector.lookups);
     Set<TypeListener> alreadySeenListeners = Sets.newHashSet();
-    for (TypeListenerBinding binding : typeListenerBindings) {
+    typeListenerBindings.forEach(binding -> {
       TypeListener typeListener = binding.getListener();
       if (!alreadySeenListeners.contains(typeListener) && binding.getTypeMatcher().matches(type)) {
         alreadySeenListeners.add(typeListener);
@@ -109,18 +109,18 @@ final class MembersInjectorStore {
           errors.errorNotifyingTypeListener(binding, type, e);
         }
       }
-    }
+    });
     encounter.invalidate();
     errors.throwIfNewErrors(numErrorsBefore);
 
-    return new MembersInjectorImpl<T>(injector, type, encounter, injectors);
+    return new MembersInjectorImpl<>(injector, type, encounter, injectors);
   }
 
   /** Returns the injectors for the specified injection points. */
   ImmutableList<SingleMemberInjector> getInjectors(
       Set<InjectionPoint> injectionPoints, Errors errors) {
     List<SingleMemberInjector> injectors = Lists.newArrayList();
-    for (InjectionPoint injectionPoint : injectionPoints) {
+    injectionPoints.forEach(injectionPoint -> {
       try {
         Errors errorsForMember =
             injectionPoint.isOptional()
@@ -134,7 +134,7 @@ final class MembersInjectorStore {
       } catch (ErrorsException ignoredForNow) {
         // ignored for now
       }
-    }
+    });
     return ImmutableList.copyOf(injectors);
   }
 

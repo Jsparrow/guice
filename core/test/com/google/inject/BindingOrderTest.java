@@ -35,15 +35,6 @@ public class BindingOrderTest extends TestCase {
         });
   }
 
-  public static class BoundFirst {
-    @Inject
-    public BoundFirst(BoundSecond boundSecond) {}
-  }
-
-  interface BoundSecond {}
-
-  static class BoundSecondImpl implements BoundSecond {}
-
   public void testBindingOrderAndScopes() {
     Injector injector =
         Guice.createInjector(
@@ -58,7 +49,7 @@ public class BindingOrderTest extends TestCase {
     assertSame(injector.getInstance(A.class).b, injector.getInstance(A.class).b);
   }
 
-  public void testBindingWithExtraThreads() throws InterruptedException {
+public void testBindingWithExtraThreads() throws InterruptedException {
     final CountDownLatch ready = new CountDownLatch(1);
     final CountDownLatch done = new CountDownLatch(1);
     final AtomicReference<B> ref = new AtomicReference<>();
@@ -98,6 +89,15 @@ public class BindingOrderTest extends TestCase {
     done.await();
     assertNotNull(ref.get());
   }
+
+public static class BoundFirst {
+    @Inject
+    public BoundFirst(BoundSecond boundSecond) {}
+  }
+
+  interface BoundSecond {}
+
+  static class BoundSecondImpl implements BoundSecond {}
 
   static class A {
     @Inject B b;

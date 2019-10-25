@@ -41,7 +41,7 @@ public class CircularDependencyTest extends TestCase {
     BImpl.nextId = 0;
   }
 
-  public void testCircularlyDependentConstructors() throws CreationException {
+  public void testCircularlyDependentConstructors() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -54,7 +54,7 @@ public class CircularDependencyTest extends TestCase {
     assertCircularDependencies(injector);
   }
 
-  public void testCircularlyDependentConstructorsWithProviderMethods() throws CreationException {
+  public void testCircularlyDependentConstructorsWithProviderMethods() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -73,7 +73,7 @@ public class CircularDependencyTest extends TestCase {
     assertCircularDependencies(injector);
   }
 
-  public void testCircularlyDependentConstructorsWithProviderInstances() throws CreationException {
+  public void testCircularlyDependentConstructorsWithProviderInstances() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -105,7 +105,7 @@ public class CircularDependencyTest extends TestCase {
     assertCircularDependencies(injector);
   }
 
-  public void testCircularlyDependentConstructorsWithProviderKeys() throws CreationException {
+  public void testCircularlyDependentConstructorsWithProviderKeys() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -118,7 +118,7 @@ public class CircularDependencyTest extends TestCase {
     assertCircularDependencies(injector);
   }
 
-  public void testCircularlyDependentConstructorsWithProvidedBy() throws CreationException {
+  public void testCircularlyDependentConstructorsWithProvidedBy() {
     Injector injector = Guice.createInjector();
     assertCircularDependencies(injector);
   }
@@ -134,7 +134,369 @@ public class CircularDependencyTest extends TestCase {
     assertSame(a, injector.getInstance(A.class));
   }
 
-  @ProvidedBy(AutoAP.class)
+  public void testUnresolvableCircularDependency() {
+    try {
+      Guice.createInjector().getInstance(C.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Tried proxying ").append(C.class.getName()).append(" to support a circular dependency, ").toString(),
+          "but it is not an interface.");
+    }
+  }
+
+public void testUnresolvableCircularDependenciesWithProviderInstances() {
+    try {
+      Guice.createInjector(
+              new AbstractModule() {
+
+                @Provides
+                C c(D d) {
+                  return null;
+                }
+
+                @Provides
+                D d(C c) {
+                  return null;
+                }
+              })
+          .getInstance(C.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Tried proxying ").append(C.class.getName()).append(" to support a circular dependency, ").toString(),
+          "but it is not an interface.");
+    }
+  }
+
+public void testUnresolvableCircularDependenciesWithProviderKeys() {
+    try {
+      Guice.createInjector(
+              new AbstractModule() {
+                @Override
+                protected void configure() {
+                  bind(C2.class).toProvider(C2P.class);
+                  bind(D2.class).toProvider(D2P.class);
+                }
+              })
+          .getInstance(C2.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Tried proxying ").append(C2.class.getName()).append(" to support a circular dependency, ").toString(),
+          "but it is not an interface.");
+    }
+  }
+
+public void testUnresolvableCircularDependenciesWithProvidedBy() {
+    try {
+      Guice.createInjector().getInstance(C2.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Tried proxying ").append(C2.class.getName()).append(" to support a circular dependency, ").toString(),
+          "but it is not an interface.");
+    }
+  }
+
+public void testDisabledCircularDependency() {
+    try {
+      Guice.createInjector(
+              new AbstractModule() {
+                @Override
+                protected void configure() {
+                  binder().disableCircularProxies();
+                }
+              })
+          .getInstance(C.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(C.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+  }
+
+public void testDisabledCircularDependenciesWithProviderInstances() {
+    try {
+      Guice.createInjector(
+              new AbstractModule() {
+                @Override
+                protected void configure() {
+                  binder().disableCircularProxies();
+                }
+
+                @Provides
+                C c(D d) {
+                  return null;
+                }
+
+                @Provides
+                D d(C c) {
+                  return null;
+                }
+              })
+          .getInstance(C.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(C.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+  }
+
+public void testDisabledCircularDependenciesWithProviderKeys() {
+    try {
+      Guice.createInjector(
+              new AbstractModule() {
+                @Override
+                protected void configure() {
+                  binder().disableCircularProxies();
+                  bind(C2.class).toProvider(C2P.class);
+                  bind(D2.class).toProvider(D2P.class);
+                }
+              })
+          .getInstance(C2.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(C2.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+  }
+
+public void testDisabledCircularDependenciesWithProvidedBy() {
+    try {
+      Guice.createInjector(
+              new AbstractModule() {
+                @Override
+                protected void configure() {
+                  binder().disableCircularProxies();
+                }
+              })
+          .getInstance(C2.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(C2.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+  }
+
+/**
+   * As reported by issue 349, we give a lousy trace when a class is circularly dependent on itself
+   * in multiple ways.
+   */
+  public void testCircularlyDependentMultipleWays() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                binder.bind(A.class).to(E.class);
+                binder.bind(B.class).to(E.class);
+              }
+            });
+    injector.getInstance(A.class);
+  }
+
+public void testDisablingCircularDependencies() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                binder().disableCircularProxies();
+                binder.bind(A.class).to(E.class);
+                binder.bind(B.class).to(E.class);
+              }
+            });
+
+    try {
+      injector.getInstance(A.class);
+      fail("expected exception");
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(A.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+  }
+
+public void testCircularDependencyProxyDelegateNeverInitialized() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(F.class).to(RealF.class);
+                bind(G.class).to(RealG.class);
+              }
+            });
+    F f = injector.getInstance(F.class);
+    assertEquals("F", f.g().f().toString());
+    assertEquals("G", f.g().f().g().toString());
+  }
+
+/**
+   * Tests that ProviderInternalFactory can detect circular dependencies before it gets to
+   * Scopes.SINGLETON. This is especially important because the failure in Scopes.SINGLETON doesn't
+   * have enough context to provide a decent error message.
+   */
+  public void testCircularDependenciesDetectedEarlyWhenDependenciesHaveDifferentTypes() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(Number.class).to(Integer.class);
+              }
+
+              @Provides
+              @Singleton
+              Integer provideInteger(List list) {
+                return 2;
+              }
+
+              @Provides
+              List provideList(Integer integer) {
+                return new ArrayList();
+              }
+            });
+    try {
+      injector.getInstance(Number.class);
+      fail();
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Tried proxying ").append(Integer.class.getName()).append(" to support a circular dependency, ").toString(),
+          "but it is not an interface.");
+    }
+  }
+
+public void testPrivateModulesDontTriggerCircularErrorsInProviders() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                install(
+                    new PrivateModule() {
+                      @Override
+                      protected void configure() {
+                        bind(Foo.class);
+                        expose(Foo.class);
+                      }
+
+                      @Provides
+                      String provideString(Bar bar) {
+                        return "private 1, " + bar.string;
+                      }
+                    });
+                install(
+                    new PrivateModule() {
+                      @Override
+                      protected void configure() {
+                        bind(Bar.class);
+                        expose(Bar.class);
+                      }
+
+                      @Provides
+                      String provideString() {
+                        return "private 2";
+                      }
+                    });
+              }
+            });
+    Foo foo = injector.getInstance(Foo.class);
+    assertEquals("private 1, private 2", foo.string);
+  }
+
+/**
+   * When Scope Providers call their unscoped Provider's get() methods are called, it's possible
+   * that the result is a circular proxy designed for one specific parameter (not for all possible
+   * parameters). But custom scopes typically cache the results without checking to see if the
+   * result is a proxy. This leads to caching a result that is unsuitable for reuse for other
+   * parameters.
+   *
+   * <p>This means that custom proxies have to do an {@code if(Scopes.isCircularProxy(..))} in order
+   * to avoid exceptions.
+   */
+  public void testCustomScopeCircularProxies() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bindScope(SimpleSingleton.class, new BasicSingleton());
+                bind(H.class).to(HImpl.class);
+                bind(I.class).to(IImpl.class);
+                bind(J.class).to(JImpl.class);
+              }
+            });
+
+    // The reason this happens is because the Scope gets these requests, in order:
+    // entry: Key<IImpl> (1 - from getInstance call)
+    // entry: Key<HImpl>
+    // entry: Key<IImpl> (2 - circular dependency from HImpl)
+    // result of 2nd Key<IImpl> - a com.google.inject.$Proxy, because it's a circular proxy
+    // result of Key<HImpl> - an HImpl
+    // entry: Key<JImpl>
+    // entry: Key<IImpl> (3 - another circular dependency, this time from JImpl)
+    // At this point, if the first Key<Impl> result was cached, our cache would have
+    //  Key<IImpl> caching to an instanceof of I, but not an an instanceof of IImpl.
+    // If returned this, it would result in cglib giving a ClassCastException or
+    // java reflection giving an IllegalArgumentException when filling in parameters
+    // for the constructor, because JImpl wants an IImpl, not an I.
+
+    try {
+      injector.getInstance(IImpl.class);
+      fail();
+    } catch (ProvisionException pe) {
+      assertContains(
+          Iterables.getOnlyElement(pe.getErrorMessages()).getMessage(),
+          new StringBuilder().append("Tried proxying ").append(IImpl.class.getName()).append(" to support a circular dependency, but it is not an interface.").toString());
+    }
+  }
+
+public void testDisabledNonConstructorCircularDependencies() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                binder().disableCircularProxies();
+              }
+            });
+
+    try {
+      injector.getInstance(K.class);
+      fail("expected exception");
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(K.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+
+    try {
+      injector.getInstance(L.class);
+      fail("expected exception");
+    } catch (ProvisionException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("Found a circular dependency involving ").append(L.class.getName()).append(", and circular dependencies are disabled.").toString());
+    }
+  }
+
+@Target({ElementType.TYPE, ElementType.METHOD})
+  @Retention(RUNTIME)
+  @ScopeAnnotation
+  public @interface SimpleSingleton {}
+
+@ProvidedBy(AutoAP.class)
   public interface A {
     B getB();
 
@@ -230,75 +592,6 @@ public class CircularDependencyTest extends TestCase {
     }
   }
 
-  public void testUnresolvableCircularDependency() {
-    try {
-      Guice.createInjector().getInstance(C.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Tried proxying " + C.class.getName() + " to support a circular dependency, ",
-          "but it is not an interface.");
-    }
-  }
-
-  public void testUnresolvableCircularDependenciesWithProviderInstances() {
-    try {
-      Guice.createInjector(
-              new AbstractModule() {
-
-                @Provides
-                C c(D d) {
-                  return null;
-                }
-
-                @Provides
-                D d(C c) {
-                  return null;
-                }
-              })
-          .getInstance(C.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Tried proxying " + C.class.getName() + " to support a circular dependency, ",
-          "but it is not an interface.");
-    }
-  }
-
-  public void testUnresolvableCircularDependenciesWithProviderKeys() {
-    try {
-      Guice.createInjector(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  bind(C2.class).toProvider(C2P.class);
-                  bind(D2.class).toProvider(D2P.class);
-                }
-              })
-          .getInstance(C2.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Tried proxying " + C2.class.getName() + " to support a circular dependency, ",
-          "but it is not an interface.");
-    }
-  }
-
-  public void testUnresolvableCircularDependenciesWithProvidedBy() {
-    try {
-      Guice.createInjector().getInstance(C2.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Tried proxying " + C2.class.getName() + " to support a circular dependency, ",
-          "but it is not an interface.");
-    }
-  }
-
   static class C {
     @Inject
     C(D d) {}
@@ -341,139 +634,6 @@ public class CircularDependencyTest extends TestCase {
     D2(C2 c) {}
   }
 
-  public void testDisabledCircularDependency() {
-    try {
-      Guice.createInjector(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  binder().disableCircularProxies();
-                }
-              })
-          .getInstance(C.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + C.class.getName()
-              + ", and circular dependencies are disabled.");
-    }
-  }
-
-  public void testDisabledCircularDependenciesWithProviderInstances() {
-    try {
-      Guice.createInjector(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  binder().disableCircularProxies();
-                }
-
-                @Provides
-                C c(D d) {
-                  return null;
-                }
-
-                @Provides
-                D d(C c) {
-                  return null;
-                }
-              })
-          .getInstance(C.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + C.class.getName()
-              + ", and circular dependencies are disabled.");
-    }
-  }
-
-  public void testDisabledCircularDependenciesWithProviderKeys() {
-    try {
-      Guice.createInjector(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  binder().disableCircularProxies();
-                  bind(C2.class).toProvider(C2P.class);
-                  bind(D2.class).toProvider(D2P.class);
-                }
-              })
-          .getInstance(C2.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + C2.class.getName()
-              + ", and circular dependencies are disabled.");
-    }
-  }
-
-  public void testDisabledCircularDependenciesWithProvidedBy() {
-    try {
-      Guice.createInjector(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  binder().disableCircularProxies();
-                }
-              })
-          .getInstance(C2.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + C2.class.getName()
-              + ", and circular dependencies are disabled.");
-    }
-  }
-
-  /**
-   * As reported by issue 349, we give a lousy trace when a class is circularly dependent on itself
-   * in multiple ways.
-   */
-  public void testCircularlyDependentMultipleWays() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                binder.bind(A.class).to(E.class);
-                binder.bind(B.class).to(E.class);
-              }
-            });
-    injector.getInstance(A.class);
-  }
-
-  public void testDisablingCircularDependencies() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                binder().disableCircularProxies();
-                binder.bind(A.class).to(E.class);
-                binder.bind(B.class).to(E.class);
-              }
-            });
-
-    try {
-      injector.getInstance(A.class);
-      fail("expected exception");
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + A.class.getName()
-              + ", and circular dependencies are disabled.");
-    }
-  }
-
   @Singleton
   static class E implements A, B {
     @Inject
@@ -493,21 +653,6 @@ public class CircularDependencyTest extends TestCase {
     public int id() {
       return 0;
     }
-  }
-
-  public void testCircularDependencyProxyDelegateNeverInitialized() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(F.class).to(RealF.class);
-                bind(G.class).to(RealG.class);
-              }
-            });
-    F f = injector.getInstance(F.class);
-    assertEquals("F", f.g().f().toString());
-    assertEquals("G", f.g().f().g().toString());
   }
 
   public interface F {
@@ -558,135 +703,12 @@ public class CircularDependencyTest extends TestCase {
     }
   }
 
-  /**
-   * Tests that ProviderInternalFactory can detect circular dependencies before it gets to
-   * Scopes.SINGLETON. This is especially important because the failure in Scopes.SINGLETON doesn't
-   * have enough context to provide a decent error message.
-   */
-  public void testCircularDependenciesDetectedEarlyWhenDependenciesHaveDifferentTypes() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Number.class).to(Integer.class);
-              }
-
-              @Provides
-              @Singleton
-              Integer provideInteger(List list) {
-                return 2;
-              }
-
-              @Provides
-              List provideList(Integer integer) {
-                return new ArrayList();
-              }
-            });
-    try {
-      injector.getInstance(Number.class);
-      fail();
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Tried proxying " + Integer.class.getName() + " to support a circular dependency, ",
-          "but it is not an interface.");
-    }
-  }
-
-  public void testPrivateModulesDontTriggerCircularErrorsInProviders() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                install(
-                    new PrivateModule() {
-                      @Override
-                      protected void configure() {
-                        bind(Foo.class);
-                        expose(Foo.class);
-                      }
-
-                      @Provides
-                      String provideString(Bar bar) {
-                        return new String("private 1, " + bar.string);
-                      }
-                    });
-                install(
-                    new PrivateModule() {
-                      @Override
-                      protected void configure() {
-                        bind(Bar.class);
-                        expose(Bar.class);
-                      }
-
-                      @Provides
-                      String provideString() {
-                        return new String("private 2");
-                      }
-                    });
-              }
-            });
-    Foo foo = injector.getInstance(Foo.class);
-    assertEquals("private 1, private 2", foo.string);
-  }
-
   static class Foo {
     @Inject String string;
   }
 
   static class Bar {
     @Inject String string;
-  }
-
-  /**
-   * When Scope Providers call their unscoped Provider's get() methods are called, it's possible
-   * that the result is a circular proxy designed for one specific parameter (not for all possible
-   * parameters). But custom scopes typically cache the results without checking to see if the
-   * result is a proxy. This leads to caching a result that is unsuitable for reuse for other
-   * parameters.
-   *
-   * <p>This means that custom proxies have to do an {@code if(Scopes.isCircularProxy(..))} in order
-   * to avoid exceptions.
-   */
-  public void testCustomScopeCircularProxies() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bindScope(SimpleSingleton.class, new BasicSingleton());
-                bind(H.class).to(HImpl.class);
-                bind(I.class).to(IImpl.class);
-                bind(J.class).to(JImpl.class);
-              }
-            });
-
-    // The reason this happens is because the Scope gets these requests, in order:
-    // entry: Key<IImpl> (1 - from getInstance call)
-    // entry: Key<HImpl>
-    // entry: Key<IImpl> (2 - circular dependency from HImpl)
-    // result of 2nd Key<IImpl> - a com.google.inject.$Proxy, because it's a circular proxy
-    // result of Key<HImpl> - an HImpl
-    // entry: Key<JImpl>
-    // entry: Key<IImpl> (3 - another circular dependency, this time from JImpl)
-    // At this point, if the first Key<Impl> result was cached, our cache would have
-    //  Key<IImpl> caching to an instanceof of I, but not an an instanceof of IImpl.
-    // If returned this, it would result in cglib giving a ClassCastException or
-    // java reflection giving an IllegalArgumentException when filling in parameters
-    // for the constructor, because JImpl wants an IImpl, not an I.
-
-    try {
-      injector.getInstance(IImpl.class);
-      fail();
-    } catch (ProvisionException pe) {
-      assertContains(
-          Iterables.getOnlyElement(pe.getErrorMessages()).getMessage(),
-          "Tried proxying "
-              + IImpl.class.getName()
-              + " to support a circular dependency, but it is not an interface.");
-    }
   }
 
   interface H {}
@@ -713,63 +735,21 @@ public class CircularDependencyTest extends TestCase {
     JImpl(IImpl i) {}
   }
 
-  @Target({ElementType.TYPE, ElementType.METHOD})
-  @Retention(RUNTIME)
-  @ScopeAnnotation
-  public @interface SimpleSingleton {}
-
   public static class BasicSingleton implements Scope {
     private static Map<Key<?>, Object> cache = Maps.newHashMap();
 
     @Override
     public <T> Provider<T> scope(final Key<T> key, final Provider<T> unscoped) {
-      return new Provider<T>() {
-        @Override
-        @SuppressWarnings("unchecked")
-        public T get() {
-          if (!cache.containsKey(key)) {
-            T t = unscoped.get();
-            if (Scopes.isCircularProxy(t)) {
-              return t;
-            }
-            cache.put(key, t);
-          }
-          return (T) cache.get(key);
-        }
-      };
-    }
-  }
-
-  public void testDisabledNonConstructorCircularDependencies() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                binder().disableCircularProxies();
-              }
-            });
-
-    try {
-      injector.getInstance(K.class);
-      fail("expected exception");
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + K.class.getName()
-              + ", and circular dependencies are disabled.");
-    }
-
-    try {
-      injector.getInstance(L.class);
-      fail("expected exception");
-    } catch (ProvisionException expected) {
-      assertContains(
-          expected.getMessage(),
-          "Found a circular dependency involving "
-              + L.class.getName()
-              + ", and circular dependencies are disabled.");
+      return () -> {
+	  if (!cache.containsKey(key)) {
+	    T t = unscoped.get();
+	    if (Scopes.isCircularProxy(t)) {
+	      return t;
+	    }
+	    cache.put(key, t);
+	  }
+	  return (T) cache.get(key);
+	};
     }
   }
 
