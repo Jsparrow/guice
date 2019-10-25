@@ -53,26 +53,6 @@ public class DefaultMethodInterceptionTest extends TestCase {
     interceptedCallCount.set(0);
   }
 
-  @Retention(RUNTIME)
-  @Target({METHOD, TYPE})
-  public @interface InterceptMe {}
-
-  /** Interface with a default method annotated to be intercepted. */
-  public interface Foo {
-    @InterceptMe
-    default String defaultMethod() {
-      callCount.incrementAndGet();
-      return "Foo";
-    }
-  }
-
-  /** Foo implementation that does not override the default method. */
-  public static class NonOverridingFoo implements Foo {
-    public String methodCallingDefault() {
-      return "NonOverriding-" + defaultMethod();
-    }
-  }
-
   public void testInterceptedDefaultMethod() {
     Injector injector =
         Guice.createInjector(
@@ -91,7 +71,7 @@ public class DefaultMethodInterceptionTest extends TestCase {
     assertEquals(1, interceptedCallCount.get());
   }
 
-  public void testInterceptedDefaultMethod_calledByAnotherMethod() {
+public void testInterceptedDefaultMethod_calledByAnotherMethod() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -108,19 +88,7 @@ public class DefaultMethodInterceptionTest extends TestCase {
     assertEquals(1, interceptedCallCount.get());
   }
 
-  /** A base class defining a method with the same signature as Foo's default method. */
-  public static class BaseClass {
-    // the definition of this method on the class will win over the default method
-    public String defaultMethod() {
-      callCount.incrementAndGet();
-      return "BaseClass";
-    }
-  }
-
-  /** Foo implementation that should use superclass method rather than default method. */
-  public static class InheritingFoo extends BaseClass implements Foo {}
-
-  public void testInterceptedDefaultMethod_whenParentClassDefinesNonInterceptedMethod() {
+public void testInterceptedDefaultMethod_whenParentClassDefinesNonInterceptedMethod() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -139,24 +107,7 @@ public class DefaultMethodInterceptionTest extends TestCase {
     assertEquals(0, interceptedCallCount.get());
   }
 
-  /**
-   * A base class defining an intercepted method with the same signature as Foo's default method.
-   */
-  public static class BaseClass2 {
-    // the definition of this method on the class will win over the default method
-    @InterceptMe
-    public String defaultMethod() {
-      callCount.incrementAndGet();
-      return "BaseClass2";
-    }
-  }
-
-  /**
-   * Foo implementation that should use intercepted superclass method rather than default method.
-   */
-  public static class InheritingFoo2 extends BaseClass2 implements Foo {}
-
-  public void testInterceptedDefaultMethod_whenParentClassDefinesInterceptedMethod() {
+public void testInterceptedDefaultMethod_whenParentClassDefinesInterceptedMethod() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -175,23 +126,7 @@ public class DefaultMethodInterceptionTest extends TestCase {
     assertEquals(1, interceptedCallCount.get());
   }
 
-  public interface Baz {
-    default String doSomething() {
-      return "Baz";
-    }
-
-    String doSomethingElse();
-  }
-
-  public static class BazImpl implements Baz {
-
-    @Override
-    public String doSomethingElse() {
-      return "BazImpl";
-    }
-  }
-
-  public void testInterception_ofAllMethodsOnType() {
+public void testInterception_ofAllMethodsOnType() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -210,7 +145,7 @@ public class DefaultMethodInterceptionTest extends TestCase {
     assertEquals(2, interceptedCallCount.get());
   }
 
-  public void testInterception_ofAllMethodsOnType_interceptsInheritedDefaultMethod() {
+public void testInterception_ofAllMethodsOnType_interceptsInheritedDefaultMethod() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -227,5 +162,70 @@ public class DefaultMethodInterceptionTest extends TestCase {
     assertEquals("BazImpl", baz.doSomethingElse());
 
     assertEquals(2, interceptedCallCount.get());
+  }
+
+@Retention(RUNTIME)
+  @Target({METHOD, TYPE})
+  public @interface InterceptMe {}
+
+/** Interface with a default method annotated to be intercepted. */
+  public interface Foo {
+    @InterceptMe
+    default String defaultMethod() {
+      callCount.incrementAndGet();
+      return "Foo";
+    }
+  }
+
+  /** Foo implementation that does not override the default method. */
+  public static class NonOverridingFoo implements Foo {
+    public String methodCallingDefault() {
+      return "NonOverriding-" + defaultMethod();
+    }
+  }
+
+  /** A base class defining a method with the same signature as Foo's default method. */
+  public static class BaseClass {
+    // the definition of this method on the class will win over the default method
+    public String defaultMethod() {
+      callCount.incrementAndGet();
+      return "BaseClass";
+    }
+  }
+
+  /** Foo implementation that should use superclass method rather than default method. */
+  public static class InheritingFoo extends BaseClass implements Foo {}
+
+  /**
+   * A base class defining an intercepted method with the same signature as Foo's default method.
+   */
+  public static class BaseClass2 {
+    // the definition of this method on the class will win over the default method
+    @InterceptMe
+    public String defaultMethod() {
+      callCount.incrementAndGet();
+      return "BaseClass2";
+    }
+  }
+
+  /**
+   * Foo implementation that should use intercepted superclass method rather than default method.
+   */
+  public static class InheritingFoo2 extends BaseClass2 implements Foo {}
+
+  public interface Baz {
+    default String doSomething() {
+      return "Baz";
+    }
+
+    String doSomethingElse();
+  }
+
+  public static class BazImpl implements Baz {
+
+    @Override
+    public String doSomethingElse() {
+      return "BazImpl";
+    }
   }
 }

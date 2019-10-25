@@ -87,7 +87,7 @@ public class ProvisionExceptionTest extends TestCase {
       assertContains(
           e.getMessage(),
           "Error injecting method",
-          "at " + E.class.getName() + ".setObject(ProvisionExceptionTest.java:");
+          new StringBuilder().append("at ").append(E.class.getName()).append(".setObject(ProvisionExceptionTest.java:").toString());
     }
   }
 
@@ -123,7 +123,7 @@ public class ProvisionExceptionTest extends TestCase {
       assertContains(
           e.getMessage(),
           "1) User Exception",
-          "at " + F.class.getName() + ".<init>(ProvisionExceptionTest.java:");
+          new StringBuilder().append("at ").append(F.class.getName()).append(".<init>(ProvisionExceptionTest.java:").toString());
     }
   }
 
@@ -272,7 +272,7 @@ public class ProvisionExceptionTest extends TestCase {
           ConstructorWithBindingAnnotation.class.getName() + ".<init>() is annotated with @",
           Green.class.getName() + "(), ",
           "but binding annotations should be applied to its parameters instead.",
-          "at " + ConstructorWithBindingAnnotation.class.getName() + ".class",
+          new StringBuilder().append("at ").append(ConstructorWithBindingAnnotation.class.getName()).append(".class").toString(),
           "while locating " + ConstructorWithBindingAnnotation.class.getName());
     }
   }
@@ -305,7 +305,7 @@ public class ProvisionExceptionTest extends TestCase {
     } catch (ProvisionException expected) {
       assertContains(
           expected.getMessage(),
-          "at " + RealD.class.getName() + ".<init>(ProvisionExceptionTest.java:",
+          new StringBuilder().append("at ").append(RealD.class.getName()).append(".<init>(ProvisionExceptionTest.java:").toString(),
           "while locating " + RealD.class.getName(),
           "while locating " + D.class.getName());
     }
@@ -347,9 +347,7 @@ public class ProvisionExceptionTest extends TestCase {
     } catch (CreationException ce) {
       assertEquals(sharedException, ce.getCause());
       assertEquals(2, ce.getErrorMessages().size());
-      for (Message message : ce.getErrorMessages()) {
-        assertEquals(sharedException, message.getCause());
-      }
+      ce.getErrorMessages().forEach(message -> assertEquals(sharedException, message.getCause()));
     }
   }
 
@@ -387,7 +385,12 @@ public class ProvisionExceptionTest extends TestCase {
     }
   }
 
-  @SuppressWarnings("ClassCanBeStatic")
+  @Retention(RUNTIME)
+  @Target({FIELD, PARAMETER, CONSTRUCTOR, METHOD})
+  @BindingAnnotation
+  @interface Green {}
+
+@SuppressWarnings("ClassCanBeStatic")
   private class InnerClass {}
 
   static class A {
@@ -439,11 +442,6 @@ public class ProvisionExceptionTest extends TestCase {
       return green;
     }
   }
-
-  @Retention(RUNTIME)
-  @Target({FIELD, PARAMETER, CONSTRUCTOR, METHOD})
-  @BindingAnnotation
-  @interface Green {}
 
   interface D {}
 

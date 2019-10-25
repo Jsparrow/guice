@@ -39,11 +39,6 @@ final class ProvisionListenerStackCallback<T> {
   private final ProvisionListener[] listeners;
   private final Binding<T> binding;
 
-  @SuppressWarnings("unchecked")
-  public static <T> ProvisionListenerStackCallback<T> emptyListener() {
-    return (ProvisionListenerStackCallback<T>) EMPTY_CALLBACK;
-  }
-
   public ProvisionListenerStackCallback(Binding<T> binding, List<ProvisionListener> listeners) {
     this.binding = binding;
     if (listeners.isEmpty()) {
@@ -54,11 +49,16 @@ final class ProvisionListenerStackCallback<T> {
     }
   }
 
-  public boolean hasListeners() {
+@SuppressWarnings("unchecked")
+  public static <T> ProvisionListenerStackCallback<T> emptyListener() {
+    return (ProvisionListenerStackCallback<T>) EMPTY_CALLBACK;
+  }
+
+public boolean hasListeners() {
     return listeners.length > 0;
   }
 
-  public T provision(InternalContext context, ProvisionCallback<T> callable)
+public T provision(InternalContext context, ProvisionCallback<T> callable)
       throws InternalProvisionException {
     Provision provision = new Provision(context, callable);
     RuntimeException caught = null;
@@ -84,9 +84,9 @@ final class ProvisionListenerStackCallback<T> {
     }
   }
 
-  // TODO(sameb): Can this be more InternalFactory-like?
+// TODO(sameb): Can this be more InternalFactory-like?
   public interface ProvisionCallback<T> {
-    public T call() throws InternalProvisionException;
+    T call() throws InternalProvisionException;
   }
 
   private class Provision extends ProvisionListener.ProvisionInvocation<T> {

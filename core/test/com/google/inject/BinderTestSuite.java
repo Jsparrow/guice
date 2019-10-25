@@ -40,316 +40,324 @@ import junit.framework.TestSuite;
 /** @author jessewilson@google.com (Jesse Wilson) */
 public class BinderTestSuite extends TestCase {
 
-  public static Test suite() {
-    TestSuite suite = new TestSuite();
+  /** negative to throw, 101... for eager singletons, 201... for everything else */
+	  static final AtomicInteger nextId = new AtomicInteger();
 
-    new Builder()
-        .name("bind A")
-        .module(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(A.class);
-              }
-            })
-        .creationException("No implementation for %s was bound", A.class.getName())
-        .addToSuite(suite);
+	public static Test suite() {
+	    TestSuite suite = new TestSuite();
+	
+	    new Builder()
+	        .name("bind A")
+	        .module(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(A.class);
+	              }
+	            })
+	        .creationException("No implementation for %s was bound", A.class.getName())
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("bind PlainA named apple")
+	        .module(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(PlainA.class).annotatedWith(named("apple"));
+	              }
+	            })
+	        .creationException(
+	            "No implementation for %s annotated with %s was bound",
+	            PlainA.class.getName(), named("apple"))
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("bind A to new PlainA(1)")
+	        .module(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(A.class).toInstance(new PlainA(1));
+	              }
+	            })
+	        .creationTime(CreationTime.NONE)
+	        .expectedValues(new PlainA(1), new PlainA(1), new PlainA(1))
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("no binding, AWithProvidedBy")
+	        .key(Key.get(AWithProvidedBy.class), InjectsAWithProvidedBy.class)
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("no binding, AWithImplementedBy")
+	        .key(Key.get(AWithImplementedBy.class), InjectsAWithImplementedBy.class)
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("no binding, ScopedA")
+	        .key(Key.get(ScopedA.class), InjectsScopedA.class)
+	        .expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202))
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("no binding, AWithProvidedBy named apple")
+	        .key(Key.get(AWithProvidedBy.class, named("apple")), InjectsAWithProvidedByNamedApple.class)
+	        .configurationException(
+	            "No implementation for %s annotated with %s was bound",
+	            AWithProvidedBy.class.getName(), named("apple"))
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("no binding, AWithImplementedBy named apple")
+	        .key(
+	            Key.get(AWithImplementedBy.class, named("apple")),
+	            InjectsAWithImplementedByNamedApple.class)
+	        .configurationException(
+	            "No implementation for %s annotated with %s was bound",
+	            AWithImplementedBy.class.getName(), named("apple"))
+	        .addToSuite(suite);
+	
+	    new Builder()
+	        .name("no binding, ScopedA named apple")
+	        .key(Key.get(ScopedA.class, named("apple")), InjectsScopedANamedApple.class)
+	        .configurationException(
+	            "No implementation for %s annotated with %s was bound",
+	            ScopedA.class.getName(), named("apple"))
+	        .addToSuite(suite);
+	
+	    for (final Scoper scoper : Scoper.values()) {
+	      new Builder()
+	          .name("bind PlainA")
+	          .key(Key.get(PlainA.class), InjectsPlainA.class)
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  AnnotatedBindingBuilder<PlainA> abb = bind(PlainA.class);
+	                  scoper.configure(abb);
+	                }
+	              })
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind A to PlainA")
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  ScopedBindingBuilder sbb = bind(A.class).to(PlainA.class);
+	                  scoper.configure(sbb);
+	                }
+	              })
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind A to PlainAProvider.class")
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  ScopedBindingBuilder sbb = bind(A.class).toProvider(PlainAProvider.class);
+	                  scoper.configure(sbb);
+	                }
+	              })
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind A to new PlainAProvider()")
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  ScopedBindingBuilder sbb = bind(A.class).toProvider(new PlainAProvider());
+	                  scoper.configure(sbb);
+	                }
+	              })
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind AWithProvidedBy")
+	          .key(Key.get(AWithProvidedBy.class), InjectsAWithProvidedBy.class)
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  ScopedBindingBuilder sbb = bind(AWithProvidedBy.class);
+	                  scoper.configure(sbb);
+	                }
+	              })
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind AWithImplementedBy")
+	          .key(Key.get(AWithImplementedBy.class), InjectsAWithImplementedBy.class)
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  ScopedBindingBuilder sbb = bind(AWithImplementedBy.class);
+	                  scoper.configure(sbb);
+	                }
+	              })
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind ScopedA")
+	          .key(Key.get(ScopedA.class), InjectsScopedA.class)
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  ScopedBindingBuilder sbb = bind(ScopedA.class);
+	                  scoper.configure(sbb);
+	                }
+	              })
+	          .expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202))
+	          .scoper(scoper)
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind AWithProvidedBy named apple")
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  scoper.configure(bind(AWithProvidedBy.class).annotatedWith(named("apple")));
+	                }
+	              })
+	          .creationException(
+	              "No implementation for %s annotated with %s was bound",
+	              AWithProvidedBy.class.getName(), named("apple"))
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind AWithImplementedBy named apple")
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  scoper.configure(bind(AWithImplementedBy.class).annotatedWith(named("apple")));
+	                }
+	              })
+	          .creationException(
+	              "No implementation for %s annotated with %s was bound",
+	              AWithImplementedBy.class.getName(), named("apple"))
+	          .addToSuite(suite);
+	
+	      new Builder()
+	          .name("bind ScopedA named apple")
+	          .module(
+	              new AbstractModule() {
+	                @Override
+	                protected void configure() {
+	                  scoper.configure(bind(ScopedA.class).annotatedWith(named("apple")));
+	                }
+	              })
+	          .creationException(
+	              "No implementation for %s annotated with %s was bound",
+	              ScopedA.class.getName(), named("apple"))
+	          .addToSuite(suite);
+	    }
+	
+	    return suite;
+	  }
 
-    new Builder()
-        .name("bind PlainA named apple")
-        .module(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(PlainA.class).annotatedWith(named("apple"));
-              }
-            })
-        .creationException(
-            "No implementation for %s annotated with %s was bound",
-            PlainA.class.getName(), named("apple"))
-        .addToSuite(suite);
+	enum Scoper {
+	    UNSCOPED {
+	      @Override
+	      void configure(ScopedBindingBuilder sbb) {}
+	
+	      @Override
+	      void apply(Builder builder) {}
+	    },
+	
+	    EAGER_SINGLETON {
+	      @Override
+	      void configure(ScopedBindingBuilder sbb) {
+	        sbb.asEagerSingleton();
+	      }
+	
+	      @Override
+	      void apply(Builder builder) {
+	        builder.expectedValues(new PlainA(101), new PlainA(101), new PlainA(101));
+	        builder.creationTime(CreationTime.EAGER);
+	      }
+	    },
+	
+	    SCOPES_SINGLETON {
+	      @Override
+	      void configure(ScopedBindingBuilder sbb) {
+	        sbb.in(Scopes.SINGLETON);
+	      }
+	
+	      @Override
+	      void apply(Builder builder) {
+	        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(201));
+	      }
+	    },
+	
+	    SINGLETON_DOT_CLASS {
+	      @Override
+	      void configure(ScopedBindingBuilder sbb) {
+	        sbb.in(Singleton.class);
+	      }
+	
+	      @Override
+	      void apply(Builder builder) {
+	        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(201));
+	      }
+	    },
+	
+	    TWO_AT_A_TIME_SCOPED_DOT_CLASS {
+	      @Override
+	      void configure(ScopedBindingBuilder sbb) {
+	        sbb.in(TwoAtATimeScoped.class);
+	      }
+	
+	      @Override
+	      void apply(Builder builder) {
+	        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202));
+	      }
+	    },
+	
+	    TWO_AT_A_TIME_SCOPE {
+	      @Override
+	      void configure(ScopedBindingBuilder sbb) {
+	        sbb.in(new TwoAtATimeScope());
+	      }
+	
+	      @Override
+	      void apply(Builder builder) {
+	        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202));
+	      }
+	    };
+	
+	    abstract void configure(ScopedBindingBuilder sbb);
+	
+	    abstract void apply(Builder builder);
+	  }
 
-    new Builder()
-        .name("bind A to new PlainA(1)")
-        .module(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(A.class).toInstance(new PlainA(1));
-              }
-            })
-        .creationTime(CreationTime.NONE)
-        .expectedValues(new PlainA(1), new PlainA(1), new PlainA(1))
-        .addToSuite(suite);
+	/** When Guice creates a value, directly or via a provider */
+	  enum CreationTime {
+	    NONE,
+	    EAGER,
+	    LAZY
+	  }
 
-    new Builder()
-        .name("no binding, AWithProvidedBy")
-        .key(Key.get(AWithProvidedBy.class), InjectsAWithProvidedBy.class)
-        .addToSuite(suite);
+	@Target({TYPE, METHOD})
+	  @Retention(RUNTIME)
+	  @ScopeAnnotation
+	  public @interface TwoAtATimeScoped {}
 
-    new Builder()
-        .name("no binding, AWithImplementedBy")
-        .key(Key.get(AWithImplementedBy.class), InjectsAWithImplementedBy.class)
-        .addToSuite(suite);
-
-    new Builder()
-        .name("no binding, ScopedA")
-        .key(Key.get(ScopedA.class), InjectsScopedA.class)
-        .expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202))
-        .addToSuite(suite);
-
-    new Builder()
-        .name("no binding, AWithProvidedBy named apple")
-        .key(Key.get(AWithProvidedBy.class, named("apple")), InjectsAWithProvidedByNamedApple.class)
-        .configurationException(
-            "No implementation for %s annotated with %s was bound",
-            AWithProvidedBy.class.getName(), named("apple"))
-        .addToSuite(suite);
-
-    new Builder()
-        .name("no binding, AWithImplementedBy named apple")
-        .key(
-            Key.get(AWithImplementedBy.class, named("apple")),
-            InjectsAWithImplementedByNamedApple.class)
-        .configurationException(
-            "No implementation for %s annotated with %s was bound",
-            AWithImplementedBy.class.getName(), named("apple"))
-        .addToSuite(suite);
-
-    new Builder()
-        .name("no binding, ScopedA named apple")
-        .key(Key.get(ScopedA.class, named("apple")), InjectsScopedANamedApple.class)
-        .configurationException(
-            "No implementation for %s annotated with %s was bound",
-            ScopedA.class.getName(), named("apple"))
-        .addToSuite(suite);
-
-    for (final Scoper scoper : Scoper.values()) {
-      new Builder()
-          .name("bind PlainA")
-          .key(Key.get(PlainA.class), InjectsPlainA.class)
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  AnnotatedBindingBuilder<PlainA> abb = bind(PlainA.class);
-                  scoper.configure(abb);
-                }
-              })
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind A to PlainA")
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  ScopedBindingBuilder sbb = bind(A.class).to(PlainA.class);
-                  scoper.configure(sbb);
-                }
-              })
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind A to PlainAProvider.class")
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  ScopedBindingBuilder sbb = bind(A.class).toProvider(PlainAProvider.class);
-                  scoper.configure(sbb);
-                }
-              })
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind A to new PlainAProvider()")
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  ScopedBindingBuilder sbb = bind(A.class).toProvider(new PlainAProvider());
-                  scoper.configure(sbb);
-                }
-              })
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind AWithProvidedBy")
-          .key(Key.get(AWithProvidedBy.class), InjectsAWithProvidedBy.class)
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  ScopedBindingBuilder sbb = bind(AWithProvidedBy.class);
-                  scoper.configure(sbb);
-                }
-              })
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind AWithImplementedBy")
-          .key(Key.get(AWithImplementedBy.class), InjectsAWithImplementedBy.class)
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  ScopedBindingBuilder sbb = bind(AWithImplementedBy.class);
-                  scoper.configure(sbb);
-                }
-              })
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind ScopedA")
-          .key(Key.get(ScopedA.class), InjectsScopedA.class)
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  ScopedBindingBuilder sbb = bind(ScopedA.class);
-                  scoper.configure(sbb);
-                }
-              })
-          .expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202))
-          .scoper(scoper)
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind AWithProvidedBy named apple")
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  scoper.configure(bind(AWithProvidedBy.class).annotatedWith(named("apple")));
-                }
-              })
-          .creationException(
-              "No implementation for %s annotated with %s was bound",
-              AWithProvidedBy.class.getName(), named("apple"))
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind AWithImplementedBy named apple")
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  scoper.configure(bind(AWithImplementedBy.class).annotatedWith(named("apple")));
-                }
-              })
-          .creationException(
-              "No implementation for %s annotated with %s was bound",
-              AWithImplementedBy.class.getName(), named("apple"))
-          .addToSuite(suite);
-
-      new Builder()
-          .name("bind ScopedA named apple")
-          .module(
-              new AbstractModule() {
-                @Override
-                protected void configure() {
-                  scoper.configure(bind(ScopedA.class).annotatedWith(named("apple")));
-                }
-              })
-          .creationException(
-              "No implementation for %s annotated with %s was bound",
-              ScopedA.class.getName(), named("apple"))
-          .addToSuite(suite);
-    }
-
-    return suite;
-  }
-
-  enum Scoper {
-    UNSCOPED {
-      @Override
-      void configure(ScopedBindingBuilder sbb) {}
-
-      @Override
-      void apply(Builder builder) {}
-    },
-
-    EAGER_SINGLETON {
-      @Override
-      void configure(ScopedBindingBuilder sbb) {
-        sbb.asEagerSingleton();
-      }
-
-      @Override
-      void apply(Builder builder) {
-        builder.expectedValues(new PlainA(101), new PlainA(101), new PlainA(101));
-        builder.creationTime(CreationTime.EAGER);
-      }
-    },
-
-    SCOPES_SINGLETON {
-      @Override
-      void configure(ScopedBindingBuilder sbb) {
-        sbb.in(Scopes.SINGLETON);
-      }
-
-      @Override
-      void apply(Builder builder) {
-        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(201));
-      }
-    },
-
-    SINGLETON_DOT_CLASS {
-      @Override
-      void configure(ScopedBindingBuilder sbb) {
-        sbb.in(Singleton.class);
-      }
-
-      @Override
-      void apply(Builder builder) {
-        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(201));
-      }
-    },
-
-    TWO_AT_A_TIME_SCOPED_DOT_CLASS {
-      @Override
-      void configure(ScopedBindingBuilder sbb) {
-        sbb.in(TwoAtATimeScoped.class);
-      }
-
-      @Override
-      void apply(Builder builder) {
-        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202));
-      }
-    },
-
-    TWO_AT_A_TIME_SCOPE {
-      @Override
-      void configure(ScopedBindingBuilder sbb) {
-        sbb.in(new TwoAtATimeScope());
-      }
-
-      @Override
-      void apply(Builder builder) {
-        builder.expectedValues(new PlainA(201), new PlainA(201), new PlainA(202), new PlainA(202));
-      }
-    };
-
-    abstract void configure(ScopedBindingBuilder sbb);
-
-    abstract void apply(Builder builder);
-  }
-
-  /** When Guice creates a value, directly or via a provider */
-  enum CreationTime {
-    NONE,
-    EAGER,
-    LAZY
-  }
-
-  public static class Builder {
+public static class Builder {
     private String name = "test";
     private Key<?> key = Key.get(A.class);
     private Class<? extends Injectable> injectsKey = InjectsA.class;
@@ -399,7 +407,7 @@ public class BinderTestSuite extends TestCase {
     }
 
     private Builder scoper(Scoper scoper) {
-      name(name + " in " + scoper);
+      name(new StringBuilder().append(name).append(" in ").append(scoper).toString());
       scoper.apply(this);
       return this;
     }
@@ -461,15 +469,11 @@ public class BinderTestSuite extends TestCase {
 
       Provider<?> provider = newInjector().getProvider(key);
       nextId.set(201);
-      for (Object value : expectedValues) {
-        assertEquals(value, provider.get());
-      }
+      expectedValues.forEach(value -> assertEquals(value, provider.get()));
 
       Provider<?> bindingProvider = newInjector().getBinding(key).getProvider();
       nextId.set(201);
-      for (Object value : expectedValues) {
-        assertEquals(value, bindingProvider.get());
-      }
+      expectedValues.forEach(value -> assertEquals(value, bindingProvider.get()));
 
       injector = newInjector();
       nextId.set(201);
@@ -491,9 +495,7 @@ public class BinderTestSuite extends TestCase {
       Injectable hasProvider = injector1.getInstance(injectsKey);
       hasProvider.provider.get();
       nextId.set(201);
-      for (Object value : expectedValues) {
-        assertEquals(value, hasProvider.provider.get());
-      }
+      expectedValues.forEach(value -> assertEquals(value, hasProvider.provider.get()));
     }
   }
 
@@ -675,7 +677,7 @@ public class BinderTestSuite extends TestCase {
         assertContains(
             expected.getMessage(),
             "Illegal value: -1",
-            "for the 1st parameter of " + injectsKey.getName() + ".inject");
+            new StringBuilder().append("for the 1st parameter of ").append(injectsKey.getName()).append(".inject").toString());
       }
 
       nextId.set(201);
@@ -687,7 +689,7 @@ public class BinderTestSuite extends TestCase {
         assertContains(
             expected.getMessage(),
             "Illegal value: -1",
-            "for the 1st parameter of " + injectsKey.getName() + ".inject");
+            new StringBuilder().append("for the 1st parameter of ").append(injectsKey.getName()).append(".inject").toString());
       }
 
       nextId.set(201);
@@ -702,9 +704,6 @@ public class BinderTestSuite extends TestCase {
       }
     }
   }
-
-  /** negative to throw, 101... for eager singletons, 201... for everything else */
-  static final AtomicInteger nextId = new AtomicInteger();
 
   @ProvidedBy(PlainAProvider.class)
   interface AWithProvidedBy {}
@@ -827,11 +826,6 @@ public class BinderTestSuite extends TestCase {
       };
     }
   }
-
-  @Target({TYPE, METHOD})
-  @Retention(RUNTIME)
-  @ScopeAnnotation
-  public @interface TwoAtATimeScoped {}
 
   @TwoAtATimeScoped
   static class ScopedA extends PlainA {}

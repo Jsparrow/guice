@@ -53,14 +53,14 @@ final class DefaultConstructionProxyFactory<T> implements ConstructionProxyFacto
         // be impossible.
         Preconditions.checkArgument(
             index >= 0, "Could not find constructor %s in fast class", constructor);
-        return new FastClassProxy<T>(injectionPoint, constructor, fc, index);
+        return new FastClassProxy<>(injectionPoint, constructor, fc, index);
       }
     } catch (net.sf.cglib.core.CodeGenerationException e) {
       /* fall-through */
     }
     /*end[AOP]*/
 
-    return new ReflectiveProxy<T>(injectionPoint, constructor);
+    return new ReflectiveProxy<>(injectionPoint, constructor);
   }
 
   /*if[AOP]*/
@@ -124,10 +124,9 @@ final class DefaultConstructionProxyFactory<T> implements ConstructionProxyFacto
     public T newInstance(Object... arguments) throws InvocationTargetException {
       try {
         return constructor.newInstance(arguments);
-      } catch (InstantiationException e) {
-        throw new AssertionError(e); // shouldn't happen, we know this is a concrete type
-      } catch (IllegalAccessException e) {
-        throw new AssertionError(e); // a security manager is blocking us, we're hosed
+      } catch (IllegalAccessException | InstantiationException e) {
+        // shouldn't happen, we know this is a concrete type
+		throw new AssertionError(e); // a security manager is blocking us, we're hosed
       }
     }
 

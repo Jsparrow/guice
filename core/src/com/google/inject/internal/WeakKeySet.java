@@ -53,13 +53,17 @@ final class WeakKeySet {
   private final Cache<State, Set<KeyAndSource>> evictionCache =
       CacheBuilder.newBuilder().weakKeys().removalListener(this::cleanupOnRemoval).build();
 
-  private void cleanupOnRemoval(RemovalNotification<State, Set<KeyAndSource>> notification) {
+  WeakKeySet(Object lock) {
+    this.lock = lock;
+  }
+
+private void cleanupOnRemoval(RemovalNotification<State, Set<KeyAndSource>> notification) {
     Preconditions.checkState(RemovalCause.COLLECTED.equals(notification.getCause()));
 
     // There may be multiple child injectors blacklisting a certain key so only remove the source
     // that's relevant.
     synchronized (lock) {
-      for (KeyAndSource keyAndSource : notification.getValue()) {
+      notification.getValue().forEach(keyAndSource -> {
         Multiset<Object> set = backingMap.get(keyAndSource.key);
         if (set != null) {
           set.remove(keyAndSource.source);
@@ -67,15 +71,11 @@ final class WeakKeySet {
             backingMap.remove(keyAndSource.key);
           }
         }
-      }
+      });
     }
   }
 
-  WeakKeySet(Object lock) {
-    this.lock = lock;
-  }
-
-  public void add(Key<?> key, State state, Object source) {
+public void add(Key<?> key, State state, Object source) {
     if (backingMap == null) {
       backingMap = Maps.newHashMap();
     }
@@ -88,27 +88,28 @@ final class WeakKeySet {
     backingMap.computeIfAbsent(key, k -> LinkedHashMultiset.create()).add(convertedSource);
 
     // Avoid all the extra work if we can.
-    if (state.parent() != State.NONE) {
-      Set<KeyAndSource> keyAndSources = evictionCache.getIfPresent(state);
-      if (keyAndSources == null) {
+	if (state.parent() == State.NONE) {
+		return;
+	}
+	Set<KeyAndSource> keyAndSources = evictionCache.getIfPresent(state);
+	if (keyAndSources == null) {
         evictionCache.put(state, keyAndSources = Sets.newHashSet());
       }
-      keyAndSources.add(new KeyAndSource(key, convertedSource));
-    }
+	keyAndSources.add(new KeyAndSource(key, convertedSource));
   }
 
-  public boolean contains(Key<?> key) {
+public boolean contains(Key<?> key) {
     evictionCache.cleanUp();
     return backingMap != null && backingMap.containsKey(key);
   }
 
-  public Set<Object> getSources(Key<?> key) {
+public Set<Object> getSources(Key<?> key) {
     evictionCache.cleanUp();
     Multiset<Object> sources = (backingMap == null) ? null : backingMap.get(key);
     return (sources == null) ? null : sources.elementSet();
   }
 
-  private static final class KeyAndSource {
+private static final class KeyAndSource {
     final Key<?> key;
     final Object source;
 

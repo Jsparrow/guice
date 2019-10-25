@@ -63,10 +63,7 @@ public class ProvisionListenerTest extends TestCase {
       assertEquals(1, pe.getErrorMessages().size());
       assertContains(
           pe.getMessage(),
-          "1) Error notifying ProvisionListener "
-              + FailBeforeProvision.class.getName()
-              + " of "
-              + Foo.class.getName(),
+          new StringBuilder().append("1) Error notifying ProvisionListener ").append(FailBeforeProvision.class.getName()).append(" of ").append(Foo.class.getName()).toString(),
           "Reason: java.lang.RuntimeException: boo",
           "while locating " + Foo.class.getName());
       assertEquals("boo", pe.getCause().getMessage());
@@ -89,10 +86,7 @@ public class ProvisionListenerTest extends TestCase {
       assertEquals(1, pe.getErrorMessages().size());
       assertContains(
           pe.getMessage(),
-          "1) Error notifying ProvisionListener "
-              + FailAfterProvision.class.getName()
-              + " of "
-              + Foo.class.getName(),
+          new StringBuilder().append("1) Error notifying ProvisionListener ").append(FailAfterProvision.class.getName()).append(" of ").append(Foo.class.getName()).toString(),
           "Reason: java.lang.RuntimeException: boo",
           "while locating " + Foo.class.getName());
       assertEquals("boo", pe.getCause().getMessage());
@@ -259,10 +253,7 @@ public class ProvisionListenerTest extends TestCase {
       assertEquals(1, pe.getErrorMessages().size());
       assertContains(
           pe.getMessage(),
-          "1) Error notifying ProvisionListener "
-              + ProvisionTwice.class.getName()
-              + " of "
-              + Foo.class.getName(),
+          new StringBuilder().append("1) Error notifying ProvisionListener ").append(ProvisionTwice.class.getName()).append(" of ").append(Foo.class.getName()).toString(),
           "Reason: java.lang.IllegalStateException: Already provisioned in this listener.",
           "while locating " + Foo.class.getName());
       assertEquals("Already provisioned in this listener.", pe.getCause().getMessage());
@@ -326,10 +317,7 @@ public class ProvisionListenerTest extends TestCase {
       assertEquals(1, pe.getErrorMessages().size());
       assertContains(
           pe.getMessage(),
-          "1) Error notifying ProvisionListener "
-              + FailBeforeProvision.class.getName()
-              + " of "
-              + Foo.class.getName(),
+          new StringBuilder().append("1) Error notifying ProvisionListener ").append(FailBeforeProvision.class.getName()).append(" of ").append(Foo.class.getName()).toString(),
           "Reason: java.lang.RuntimeException: boo",
           "while locating " + Foo.class.getName());
       assertEquals("boo", pe.getCause().getMessage());
@@ -357,10 +345,7 @@ public class ProvisionListenerTest extends TestCase {
       assertEquals(1, pe.getErrorMessages().size());
       assertContains(
           pe.getMessage(),
-          "1) Error notifying ProvisionListener "
-              + FailAfterProvision.class.getName()
-              + " of "
-              + Foo.class.getName(),
+          new StringBuilder().append("1) Error notifying ProvisionListener ").append(FailAfterProvision.class.getName()).append(" of ").append(Foo.class.getName()).toString(),
           "Reason: java.lang.RuntimeException: boo",
           "while locating " + Foo.class.getName());
       assertEquals("boo", pe.getCause().getMessage());
@@ -494,7 +479,201 @@ public class ProvisionListenerTest extends TestCase {
     }
   }
 
-  interface Interface {}
+  private static Matcher<Binding<?>> keyMatcher(final Class<?> clazz) {
+    return new AbstractMatcher<Binding<?>>() {
+      @Override
+      public boolean matches(Binding<?> t) {
+        return t.getKey().equals(Key.get(clazz));
+      }
+    };
+  }
+
+@SuppressWarnings("unchecked")
+  public void testDependencyChain() {
+    final List<Class<?>> pList = Lists.newArrayList();
+    final List<Class<?>> totalList = Lists.newArrayList();
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(Instance.class).toInstance(new Instance());
+                bind(B.class).to(BImpl.class);
+                bind(D.class).toProvider(DP.class);
+
+                bindListener(
+                    Matchers.any(),
+                    new ProvisionListener() {
+                      @Override
+                      public <T> void onProvision(ProvisionInvocation<T> provision) {
+                        totalList.add(provision.getBinding().getKey().getRawType());
+                      }
+                    });
+
+                // Build up a list of asserters for our dependency chains.
+                ImmutableList.Builder<Class<?>> chain = ImmutableList.builder();
+                chain.add(Instance.class);
+                bindListener(keyMatcher(Instance.class), new ChainAsserter(pList, chain.build()));
+
+                chain.add(A.class);
+                bindListener(keyMatcher(A.class), new ChainAsserter(pList, chain.build()));
+
+                chain.add(B.class).add(BImpl.class);
+                bindListener(keyMatcher(BImpl.class), new ChainAsserter(pList, chain.build()));
+
+                chain.add(C.class);
+                bindListener(keyMatcher(C.class), new ChainAsserter(pList, chain.build()));
+
+                // the chain has D before DP even though DP is provisioned & notified first
+                // because we do DP because of D, and need DP to provision D.
+                chain.add(D.class).add(DP.class);
+                bindListener(keyMatcher(D.class), new ChainAsserter(pList, chain.build()));
+                bindListener(keyMatcher(DP.class), new ChainAsserter(pList, chain.build()));
+
+                chain.add(E.class);
+                bindListener(keyMatcher(E.class), new ChainAsserter(pList, chain.build()));
+
+                chain.add(F.class);
+                bindListener(keyMatcher(F.class), new ChainAsserter(pList, chain.build()));
+              }
+
+              @Provides
+              C c(D d) {
+                return new C() {};
+              }
+            });
+    injector.getInstance(Instance.class);
+    // make sure we're checking all of the chain asserters..
+    assertEquals(
+        of(Instance.class, A.class, BImpl.class, C.class, DP.class, D.class, E.class, F.class),
+        pList);
+    // and make sure that nothing else was notified that we didn't expect.
+    assertEquals(totalList, pList);
+  }
+
+public void testModuleRequestInjection() {
+    final AtomicBoolean notified = new AtomicBoolean();
+    Guice.createInjector(
+        new AbstractModule() {
+          @Override
+          protected void configure() {
+            requestInjection(
+                new Object() {
+                  @Inject Foo foo;
+                });
+            bindListener(
+                Matchers.any(),
+                new SpecialChecker(Foo.class, getClass().getName() + ".configure(", notified));
+          }
+        });
+    assertTrue(notified.get());
+  }
+
+public void testToProviderInstance() {
+    final AtomicBoolean notified = new AtomicBoolean();
+    Guice.createInjector(
+        new AbstractModule() {
+          @Override
+          protected void configure() {
+            bind(Object.class)
+                .toProvider(
+                    new Provider<Object>() {
+                      @Inject Foo foo;
+
+                      @Override
+                      public Object get() {
+                        return null;
+                      }
+                    });
+            bindListener(
+                Matchers.any(),
+                new SpecialChecker(Foo.class, getClass().getName() + ".configure(", notified));
+          }
+        });
+    assertTrue(notified.get());
+  }
+
+public void testInjectorInjectMembers() {
+    final Object object =
+        new Object() {
+          @Inject Foo foo;
+        };
+    final AtomicBoolean notified = new AtomicBoolean();
+    Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bindListener(
+                    Matchers.any(),
+                    new SpecialChecker(Foo.class, object.getClass().getName(), notified));
+              }
+            })
+        .injectMembers(object);
+    assertTrue(notified.get());
+  }
+
+public void testBindToInjectorWithListeningGivesSaneException() {
+    try {
+      Guice.createInjector(
+          new AbstractModule() {
+            @Override
+            protected void configure() {
+              bindListener(Matchers.any(), new Counter());
+              bind(Injector.class).toProvider(Providers.<Injector>of(null));
+            }
+          });
+      fail();
+    } catch (CreationException ce) {
+      assertContains(
+          ce.getMessage(), "Binding to core guice framework type is not allowed: Injector.");
+    }
+  }
+
+public void testProvisionIsNotifiedAfterContextsClear() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bindListener(
+                    Matchers.any(),
+                    new ProvisionListener() {
+                      @Override
+                      public <T> void onProvision(ProvisionInvocation<T> provision) {
+                        Object provisioned = provision.provision();
+                        if (provisioned instanceof X) {
+                          ((X) provisioned).init();
+                        } else if (provisioned instanceof Y) {
+                          X.createY = false;
+                          ((Y) provisioned).init();
+                        }
+                      }
+                    });
+              }
+            });
+
+    X.createY = true;
+    X x = injector.getInstance(X.class);
+    assertNotSame(x, x.y.x);
+    assertFalse(new StringBuilder().append("x.id: ").append(x.id).append(", x.y.x.id: ").append(x.y.x.id).toString(), x.id == x.y.x.id);
+  }
+
+public void testDeDuplicateProvisionListeners() {
+    final Counter counter = new Counter();
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bindListener(Matchers.any(), counter);
+                bindListener(Matchers.any(), counter);
+              }
+            });
+    injector.getInstance(Many.class);
+    assertEquals("ProvisionListener not de-duplicated", 1, counter.count);
+  }
+
+interface Interface {}
 
   static class Implementation implements Interface {}
 
@@ -583,7 +762,7 @@ public class ProvisionListenerTest extends TestCase {
       if (provision.getBinding() instanceof InstanceBinding) {
         Class<? super T> expected = provision.getBinding().getKey().getRawType();
         assertTrue(
-            "expected instanceof: " + expected + ", but was: " + provisioned,
+            new StringBuilder().append("expected instanceof: ").append(expected).append(", but was: ").append(provisioned).toString(),
             expected.isInstance(provisioned));
       } else {
         assertEquals(provision.getBinding().getKey().getRawType(), provisioned.getClass());
@@ -651,146 +830,11 @@ public class ProvisionListenerTest extends TestCase {
     @Override
     public <T> void onProvision(ProvisionInvocation<T> provision) {
       List<Class<?>> actual = Lists.newArrayList();
-      for (com.google.inject.spi.DependencyAndSource dep : provision.getDependencyChain()) {
-        actual.add(dep.getDependency().getKey().getRawType());
-      }
+      provision.getDependencyChain().forEach(dep -> actual.add(dep.getDependency().getKey().getRawType()));
       assertEquals(expected, actual);
 
       provisionList.add(provision.getBinding().getKey().getRawType());
     }
-  }
-
-  private static Matcher<Binding<?>> keyMatcher(final Class<?> clazz) {
-    return new AbstractMatcher<Binding<?>>() {
-      @Override
-      public boolean matches(Binding<?> t) {
-        return t.getKey().equals(Key.get(clazz));
-      }
-    };
-  }
-
-  @SuppressWarnings("unchecked")
-  public void testDependencyChain() {
-    final List<Class<?>> pList = Lists.newArrayList();
-    final List<Class<?>> totalList = Lists.newArrayList();
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(Instance.class).toInstance(new Instance());
-                bind(B.class).to(BImpl.class);
-                bind(D.class).toProvider(DP.class);
-
-                bindListener(
-                    Matchers.any(),
-                    new ProvisionListener() {
-                      @Override
-                      public <T> void onProvision(ProvisionInvocation<T> provision) {
-                        totalList.add(provision.getBinding().getKey().getRawType());
-                      }
-                    });
-
-                // Build up a list of asserters for our dependency chains.
-                ImmutableList.Builder<Class<?>> chain = ImmutableList.builder();
-                chain.add(Instance.class);
-                bindListener(keyMatcher(Instance.class), new ChainAsserter(pList, chain.build()));
-
-                chain.add(A.class);
-                bindListener(keyMatcher(A.class), new ChainAsserter(pList, chain.build()));
-
-                chain.add(B.class).add(BImpl.class);
-                bindListener(keyMatcher(BImpl.class), new ChainAsserter(pList, chain.build()));
-
-                chain.add(C.class);
-                bindListener(keyMatcher(C.class), new ChainAsserter(pList, chain.build()));
-
-                // the chain has D before DP even though DP is provisioned & notified first
-                // because we do DP because of D, and need DP to provision D.
-                chain.add(D.class).add(DP.class);
-                bindListener(keyMatcher(D.class), new ChainAsserter(pList, chain.build()));
-                bindListener(keyMatcher(DP.class), new ChainAsserter(pList, chain.build()));
-
-                chain.add(E.class);
-                bindListener(keyMatcher(E.class), new ChainAsserter(pList, chain.build()));
-
-                chain.add(F.class);
-                bindListener(keyMatcher(F.class), new ChainAsserter(pList, chain.build()));
-              }
-
-              @Provides
-              C c(D d) {
-                return new C() {};
-              }
-            });
-    injector.getInstance(Instance.class);
-    // make sure we're checking all of the chain asserters..
-    assertEquals(
-        of(Instance.class, A.class, BImpl.class, C.class, DP.class, D.class, E.class, F.class),
-        pList);
-    // and make sure that nothing else was notified that we didn't expect.
-    assertEquals(totalList, pList);
-  }
-
-  public void testModuleRequestInjection() {
-    final AtomicBoolean notified = new AtomicBoolean();
-    Guice.createInjector(
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            requestInjection(
-                new Object() {
-                  @Inject Foo foo;
-                });
-            bindListener(
-                Matchers.any(),
-                new SpecialChecker(Foo.class, getClass().getName() + ".configure(", notified));
-          }
-        });
-    assertTrue(notified.get());
-  }
-
-  public void testToProviderInstance() {
-    final AtomicBoolean notified = new AtomicBoolean();
-    Guice.createInjector(
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            bind(Object.class)
-                .toProvider(
-                    new Provider<Object>() {
-                      @Inject Foo foo;
-
-                      @Override
-                      public Object get() {
-                        return null;
-                      }
-                    });
-            bindListener(
-                Matchers.any(),
-                new SpecialChecker(Foo.class, getClass().getName() + ".configure(", notified));
-          }
-        });
-    assertTrue(notified.get());
-  }
-
-  public void testInjectorInjectMembers() {
-    final Object object =
-        new Object() {
-          @Inject Foo foo;
-        };
-    final AtomicBoolean notified = new AtomicBoolean();
-    Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bindListener(
-                    Matchers.any(),
-                    new SpecialChecker(Foo.class, object.getClass().getName(), notified));
-              }
-            })
-        .injectMembers(object);
-    assertTrue(notified.get());
   }
 
   private static class SpecialChecker implements ProvisionListener {
@@ -862,52 +906,6 @@ public class ProvisionListenerTest extends TestCase {
 
   private static class F {}
 
-  public void testBindToInjectorWithListeningGivesSaneException() {
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              bindListener(Matchers.any(), new Counter());
-              bind(Injector.class).toProvider(Providers.<Injector>of(null));
-            }
-          });
-      fail();
-    } catch (CreationException ce) {
-      assertContains(
-          ce.getMessage(), "Binding to core guice framework type is not allowed: Injector.");
-    }
-  }
-
-  public void testProvisionIsNotifiedAfterContextsClear() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bindListener(
-                    Matchers.any(),
-                    new ProvisionListener() {
-                      @Override
-                      public <T> void onProvision(ProvisionInvocation<T> provision) {
-                        Object provisioned = provision.provision();
-                        if (provisioned instanceof X) {
-                          ((X) provisioned).init();
-                        } else if (provisioned instanceof Y) {
-                          X.createY = false;
-                          ((Y) provisioned).init();
-                        }
-                      }
-                    });
-              }
-            });
-
-    X.createY = true;
-    X x = injector.getInstance(X.class);
-    assertNotSame(x, x.y.x);
-    assertFalse("x.id: " + x.id + ", x.y.x.id: " + x.y.x.id, x.id == x.y.x.id);
-  }
-
   private static class X {
     static final AtomicInteger COUNTER = new AtomicInteger();
     static boolean createY;
@@ -940,20 +938,5 @@ public class ProvisionListenerTest extends TestCase {
     void init() {
       this.x = xProvider.get();
     }
-  }
-
-  public void testDeDuplicateProvisionListeners() {
-    final Counter counter = new Counter();
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bindListener(Matchers.any(), counter);
-                bindListener(Matchers.any(), counter);
-              }
-            });
-    injector.getInstance(Many.class);
-    assertEquals("ProvisionListener not de-duplicated", 1, counter.count);
   }
 }

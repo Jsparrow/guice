@@ -52,195 +52,296 @@ import javax.inject.Qualifier;
  */
 public class Annotations {
 
-  /** Returns {@code true} if the given annotation type has no attributes. */
-  public static boolean isMarker(Class<? extends Annotation> annotationType) {
-    return annotationType.getDeclaredMethods().length == 0;
-  }
-
-  public static boolean isAllDefaultMethods(Class<? extends Annotation> annotationType) {
-    boolean hasMethods = false;
-    for (Method m : annotationType.getDeclaredMethods()) {
-      hasMethods = true;
-      if (m.getDefaultValue() == null) {
-        return false;
-      }
-    }
-    return hasMethods;
-  }
-
   private static final LoadingCache<Class<? extends Annotation>, Annotation> cache =
-      CacheBuilder.newBuilder()
-          .weakKeys()
-          .build(
-              new CacheLoader<Class<? extends Annotation>, Annotation>() {
-                @Override
-                public Annotation load(Class<? extends Annotation> input) {
-                  return generateAnnotationImpl(input);
-                }
-              });
+	      CacheBuilder.newBuilder()
+	          .weakKeys()
+	          .build(
+	              new CacheLoader<Class<? extends Annotation>, Annotation>() {
+	                @Override
+	                public Annotation load(Class<? extends Annotation> input) {
+	                  return generateAnnotationImpl(input);
+	                }
+	              });
+	private static final MapJoiner JOINER = Joiner.on(", ").withKeyValueSeparator("=");
+	private static final boolean QUOTE_MEMBER_VALUES = determineWhetherToQuote();
+	private static final AnnotationChecker scopeChecker =
+	      new AnnotationChecker(Arrays.asList(ScopeAnnotation.class, javax.inject.Scope.class));
+	private static final AnnotationChecker bindingAnnotationChecker =
+	      new AnnotationChecker(Arrays.asList(BindingAnnotation.class, Qualifier.class));
 
-  /**
-   * Generates an Annotation for the annotation class. Requires that the annotation is all
-   * optionals.
-   */
-  public static <T extends Annotation> T generateAnnotation(Class<T> annotationType) {
-    Preconditions.checkState(
-        isAllDefaultMethods(annotationType), "%s is not all default methods", annotationType);
-    return (T) cache.getUnchecked(annotationType);
-  }
+	/** Returns {@code true} if the given annotation type has no attributes. */
+	  public static boolean isMarker(Class<? extends Annotation> annotationType) {
+	    return annotationType.getDeclaredMethods().length == 0;
+	  }
 
-  private static <T extends Annotation> T generateAnnotationImpl(final Class<T> annotationType) {
-    final Map<String, Object> members = resolveMembers(annotationType);
-    return annotationType.cast(
-        Proxy.newProxyInstance(
-            annotationType.getClassLoader(),
-            new Class<?>[] {annotationType},
-            new InvocationHandler() {
-              @Override
-              public Object invoke(Object proxy, Method method, Object[] args) throws Exception {
-                String name = method.getName();
-                if (name.equals("annotationType")) {
-                  return annotationType;
-                } else if (name.equals("toString")) {
-                  return annotationToString(annotationType, members);
-                } else if (name.equals("hashCode")) {
-                  return annotationHashCode(annotationType, members);
-                } else if (name.equals("equals")) {
-                  return annotationEquals(annotationType, members, args[0]);
-                } else {
-                  return members.get(name);
-                }
-              }
-            }));
-  }
+	public static boolean isAllDefaultMethods(Class<? extends Annotation> annotationType) {
+	    boolean hasMethods = false;
+	    for (Method m : annotationType.getDeclaredMethods()) {
+	      hasMethods = true;
+	      if (m.getDefaultValue() == null) {
+	        return false;
+	      }
+	    }
+	    return hasMethods;
+	  }
 
-  private static ImmutableMap<String, Object> resolveMembers(
-      Class<? extends Annotation> annotationType) {
-    ImmutableMap.Builder<String, Object> result = ImmutableMap.builder();
-    for (Method method : annotationType.getDeclaredMethods()) {
-      result.put(method.getName(), method.getDefaultValue());
-    }
-    return result.build();
-  }
+	/**
+	   * Generates an Annotation for the annotation class. Requires that the annotation is all
+	   * optionals.
+	   */
+	  public static <T extends Annotation> T generateAnnotation(Class<T> annotationType) {
+	    Preconditions.checkState(
+	        isAllDefaultMethods(annotationType), "%s is not all default methods", annotationType);
+	    return (T) cache.getUnchecked(annotationType);
+	  }
 
-  /** Implements {@link Annotation#equals}. */
-  private static boolean annotationEquals(
-      Class<? extends Annotation> type, Map<String, Object> members, Object other)
-      throws Exception {
-    if (!type.isInstance(other)) {
-      return false;
-    }
-    for (Method method : type.getDeclaredMethods()) {
-      String name = method.getName();
-      if (!Arrays.deepEquals(
-          new Object[] {method.invoke(other)}, new Object[] {members.get(name)})) {
-        return false;
-      }
-    }
-    return true;
-  }
+	private static <T extends Annotation> T generateAnnotationImpl(final Class<T> annotationType) {
+	    final Map<String, Object> members = resolveMembers(annotationType);
+	    return annotationType.cast(
+	        Proxy.newProxyInstance(
+	            annotationType.getClassLoader(),
+	            new Class<?>[] {annotationType},
+	            (Object proxy, Method method, Object[] args) -> {
+	                String name = method.getName();
+	                if ("annotationType".equals(name)) {
+	                  return annotationType;
+	                } else if ("toString".equals(name)) {
+	                  return annotationToString(annotationType, members);
+	                } else if ("hashCode".equals(name)) {
+	                  return annotationHashCode(annotationType, members);
+	                } else if ("equals".equals(name)) {
+	                  return annotationEquals(annotationType, members, args[0]);
+	                } else {
+	                  return members.get(name);
+	                }
+	              }));
+	  }
 
-  /** Implements {@link Annotation#hashCode}. */
-  private static int annotationHashCode(
-      Class<? extends Annotation> type, Map<String, Object> members) throws Exception {
-    int result = 0;
-    for (Method method : type.getDeclaredMethods()) {
-      String name = method.getName();
-      Object value = members.get(name);
-      result += (127 * name.hashCode()) ^ (Arrays.deepHashCode(new Object[] {value}) - 31);
-    }
-    return result;
-  }
+	private static ImmutableMap<String, Object> resolveMembers(
+	      Class<? extends Annotation> annotationType) {
+	    ImmutableMap.Builder<String, Object> result = ImmutableMap.builder();
+	    for (Method method : annotationType.getDeclaredMethods()) {
+	      result.put(method.getName(), method.getDefaultValue());
+	    }
+	    return result.build();
+	  }
 
-  private static final MapJoiner JOINER = Joiner.on(", ").withKeyValueSeparator("=");
+	/** Implements {@link Annotation#equals}. */
+	  private static boolean annotationEquals(
+	      Class<? extends Annotation> type, Map<String, Object> members, Object other)
+	      throws Exception {
+	    if (!type.isInstance(other)) {
+	      return false;
+	    }
+	    for (Method method : type.getDeclaredMethods()) {
+	      String name = method.getName();
+	      if (!Arrays.deepEquals(
+	          new Object[] {method.invoke(other)}, new Object[] {members.get(name)})) {
+	        return false;
+	      }
+	    }
+	    return true;
+	  }
 
-  /** Implements {@link Annotation#toString}. */
-  private static String annotationToString(
-      Class<? extends Annotation> type, Map<String, Object> members) throws Exception {
-    StringBuilder sb = new StringBuilder().append("@").append(type.getName()).append("(");
-    JOINER.appendTo(
-        sb,
-        Maps.transformValues(
-            members,
-            arg -> {
-              String s = Arrays.deepToString(new Object[] {arg});
-              return s.substring(1, s.length() - 1); // cut off brackets
-            }));
-    return sb.append(")").toString();
-  }
+	/** Implements {@link Annotation#hashCode}. */
+	  private static int annotationHashCode(
+	      Class<? extends Annotation> type, Map<String, Object> members) throws Exception {
+	    int result = 0;
+	    for (Method method : type.getDeclaredMethods()) {
+	      String name = method.getName();
+	      Object value = members.get(name);
+	      result += (127 * name.hashCode()) ^ (Arrays.deepHashCode(new Object[] {value}) - 31);
+	    }
+	    return result;
+	  }
 
-  /** Returns true if the given annotation is retained at runtime. */
-  public static boolean isRetainedAtRuntime(Class<? extends Annotation> annotationType) {
-    Retention retention = annotationType.getAnnotation(Retention.class);
-    return retention != null && retention.value() == RetentionPolicy.RUNTIME;
-  }
+	/** Implements {@link Annotation#toString}. */
+	  private static String annotationToString(
+	      Class<? extends Annotation> type, Map<String, Object> members) throws Exception {
+	    StringBuilder sb = new StringBuilder().append("@").append(type.getName()).append("(");
+	    JOINER.appendTo(
+	        sb,
+	        Maps.transformValues(
+	            members,
+	            arg -> {
+	              String s = Arrays.deepToString(new Object[] {arg});
+	              return s.substring(1, s.length() - 1); // cut off brackets
+	            }));
+	    return sb.append(")").toString();
+	  }
 
-  /** Returns the scope annotation on {@code type}, or null if none is specified. */
-  public static Class<? extends Annotation> findScopeAnnotation(
-      Errors errors, Class<?> implementation) {
-    return findScopeAnnotation(errors, implementation.getAnnotations());
-  }
+	/** Returns true if the given annotation is retained at runtime. */
+	  public static boolean isRetainedAtRuntime(Class<? extends Annotation> annotationType) {
+	    Retention retention = annotationType.getAnnotation(Retention.class);
+	    return retention != null && retention.value() == RetentionPolicy.RUNTIME;
+	  }
 
-  /** Returns the scoping annotation, or null if there isn't one. */
-  public static Class<? extends Annotation> findScopeAnnotation(
-      Errors errors, Annotation[] annotations) {
-    Class<? extends Annotation> found = null;
+	/** Returns the scope annotation on {@code type}, or null if none is specified. */
+	  public static Class<? extends Annotation> findScopeAnnotation(
+	      Errors errors, Class<?> implementation) {
+	    return findScopeAnnotation(errors, implementation.getAnnotations());
+	  }
 
-    for (Annotation annotation : annotations) {
-      Class<? extends Annotation> annotationType = annotation.annotationType();
-      if (isScopeAnnotation(annotationType)) {
-        if (found != null) {
-          errors.duplicateScopeAnnotations(found, annotationType);
-        } else {
-          found = annotationType;
-        }
-      }
-    }
+	/** Returns the scoping annotation, or null if there isn't one. */
+	  public static Class<? extends Annotation> findScopeAnnotation(
+	      Errors errors, Annotation[] annotations) {
+	    Class<? extends Annotation> found = null;
+	
+	    for (Annotation annotation : annotations) {
+	      Class<? extends Annotation> annotationType = annotation.annotationType();
+	      if (isScopeAnnotation(annotationType)) {
+	        if (found != null) {
+	          errors.duplicateScopeAnnotations(found, annotationType);
+	        } else {
+	          found = annotationType;
+	        }
+	      }
+	    }
+	
+	    return found;
+	  }
 
-    return found;
-  }
+	static boolean containsComponentAnnotation(Annotation[] annotations) {
+	    for (Annotation annotation : annotations) {
+	      // TODO(user): Should we scope this down to dagger.Component?
+	      if ("Component".equals(annotation.annotationType().getSimpleName())) {
+	        return true;
+	      }
+	    }
+	
+	    return false;
+	  }
 
-  static boolean containsComponentAnnotation(Annotation[] annotations) {
-    for (Annotation annotation : annotations) {
-      // TODO(user): Should we scope this down to dagger.Component?
-      if (annotation.annotationType().getSimpleName().equals("Component")) {
-        return true;
-      }
-    }
+	/**
+	   * Returns {@code value}, quoted if annotation implementations quote their member values. In Java
+	   * 9, annotations quote their string members.
+	   */
+	  public static String memberValueString(String value) {
+	    return QUOTE_MEMBER_VALUES ? new StringBuilder().append("\"").append(value).append("\"").toString() : value;
+	  }
 
-    return false;
-  }
+	@TestAnnotation("determineWhetherToQuote")
+	  private static boolean determineWhetherToQuote() {
+	    try {
+	      String annotation =
+	          Annotations.class
+	              .getDeclaredMethod("determineWhetherToQuote")
+	              .getAnnotation(TestAnnotation.class)
+	              .toString();
+	      return annotation.contains("\"determineWhetherToQuote\"");
+	    } catch (NoSuchMethodException e) {
+	      throw new AssertionError(e);
+	    }
+	  }
 
-  private static final boolean QUOTE_MEMBER_VALUES = determineWhetherToQuote();
+	public static boolean isScopeAnnotation(Class<? extends Annotation> annotationType) {
+	    return scopeChecker.hasAnnotations(annotationType);
+	  }
 
-  /**
-   * Returns {@code value}, quoted if annotation implementations quote their member values. In Java
-   * 9, annotations quote their string members.
-   */
-  public static String memberValueString(String value) {
-    return QUOTE_MEMBER_VALUES ? "\"" + value + "\"" : value;
-  }
+	/**
+	   * Adds an error if there is a misplaced annotations on {@code type}. Scoping annotations are not
+	   * allowed on abstract classes or interfaces.
+	   */
+	  public static void checkForMisplacedScopeAnnotations(
+	      Class<?> type, Object source, Errors errors) {
+	    if (Classes.isConcrete(type)) {
+	      return;
+	    }
+	
+	    Class<? extends Annotation> scopeAnnotation = findScopeAnnotation(errors, type);
+	    if (scopeAnnotation != null
+	        // We let Dagger Components through to aid migrations.
+	        && !containsComponentAnnotation(type.getAnnotations())) {
+	      errors.withSource(type).scopeAnnotationOnAbstractType(scopeAnnotation, type, source);
+	    }
+	  }
 
-  @Retention(RUNTIME)
-  private @interface TestAnnotation {
-    String value();
-  }
+	// NOTE: getKey/findBindingAnnotation are used by Gin which is abandoned.  So changing this API
+	  // will prevent Gin users from upgrading Guice version.
+	
+	  /** Gets a key for the given type, member and annotations. */
+	  public static Key<?> getKey(
+	      TypeLiteral<?> type, Member member, Annotation[] annotations, Errors errors)
+	      throws ErrorsException {
+	    int numErrorsBefore = errors.size();
+	    Annotation found = findBindingAnnotation(errors, member, annotations);
+	    errors.throwIfNewErrors(numErrorsBefore);
+	    return found == null ? Key.get(type) : Key.get(type, found);
+	  }
 
-  @TestAnnotation("determineWhetherToQuote")
-  private static boolean determineWhetherToQuote() {
-    try {
-      String annotation =
-          Annotations.class
-              .getDeclaredMethod("determineWhetherToQuote")
-              .getAnnotation(TestAnnotation.class)
-              .toString();
-      return annotation.contains("\"determineWhetherToQuote\"");
-    } catch (NoSuchMethodException e) {
-      throw new AssertionError(e);
-    }
-  }
+	/** Returns the binding annotation on {@code member}, or null if there isn't one. */
+	  public static Annotation findBindingAnnotation(
+	      Errors errors, Member member, Annotation[] annotations) {
+	    Annotation found = null;
+	
+	    for (Annotation annotation : annotations) {
+	      Class<? extends Annotation> annotationType = annotation.annotationType();
+	      if (isBindingAnnotation(annotationType)) {
+	        if (found != null) {
+	          errors.duplicateBindingAnnotations(member, found.annotationType(), annotationType);
+	        } else {
+	          found = annotation;
+	        }
+	      }
+	    }
+	
+	    return found;
+	  }
 
-  /** Checks for the presence of annotations. Caches results because Android doesn't. */
+	/** Returns true if annotations of the specified type are binding annotations. */
+	  public static boolean isBindingAnnotation(Class<? extends Annotation> annotationType) {
+	    return bindingAnnotationChecker.hasAnnotations(annotationType);
+	  }
+
+	/**
+	   * If the annotation is an instance of {@code javax.inject.Named}, canonicalizes to
+	   * com.google.guice.name.Named. Returns the given annotation otherwise.
+	   */
+	  public static Annotation canonicalizeIfNamed(Annotation annotation) {
+	    if (annotation instanceof javax.inject.Named) {
+	      return Names.named(((javax.inject.Named) annotation).value());
+	    } else {
+	      return annotation;
+	    }
+	  }
+
+	/**
+	   * If the annotation is the class {@code javax.inject.Named}, canonicalizes to
+	   * com.google.guice.name.Named. Returns the given annotation class otherwise.
+	   */
+	  public static Class<? extends Annotation> canonicalizeIfNamed(
+	      Class<? extends Annotation> annotationType) {
+	    if (annotationType == javax.inject.Named.class) {
+	      return Named.class;
+	    } else {
+	      return annotationType;
+	    }
+	  }
+
+	/**
+	   * Returns the name the binding should use. This is based on the annotation. If the annotation has
+	   * an instance and is not a marker annotation, we ask the annotation for its toString. If it was a
+	   * marker annotation or just an annotation type, we use the annotation's name. Otherwise, the name
+	   * is the empty string.
+	   */
+	  public static String nameOf(Key<?> key) {
+	    Annotation annotation = key.getAnnotation();
+	    Class<? extends Annotation> annotationType = key.getAnnotationType();
+	    if (annotation != null && !isMarker(annotationType)) {
+	      return key.getAnnotation().toString();
+	    } else if (key.getAnnotationType() != null) {
+	      return "@" + key.getAnnotationType().getName();
+	    } else {
+	      return "";
+	    }
+	  }
+
+	@Retention(RUNTIME)
+	  private @interface TestAnnotation {
+	    String value();
+	  }
+
+/** Checks for the presence of annotations. Caches results because Android doesn't. */
   static class AnnotationChecker {
     private final Collection<Class<? extends Annotation>> annotationTypes;
 
@@ -269,114 +370,6 @@ public class Annotations {
     /** Returns true if the given type has one of the desired annotations. */
     boolean hasAnnotations(Class<? extends Annotation> annotated) {
       return cache.getUnchecked(annotated);
-    }
-  }
-
-  private static final AnnotationChecker scopeChecker =
-      new AnnotationChecker(Arrays.asList(ScopeAnnotation.class, javax.inject.Scope.class));
-
-  public static boolean isScopeAnnotation(Class<? extends Annotation> annotationType) {
-    return scopeChecker.hasAnnotations(annotationType);
-  }
-
-  /**
-   * Adds an error if there is a misplaced annotations on {@code type}. Scoping annotations are not
-   * allowed on abstract classes or interfaces.
-   */
-  public static void checkForMisplacedScopeAnnotations(
-      Class<?> type, Object source, Errors errors) {
-    if (Classes.isConcrete(type)) {
-      return;
-    }
-
-    Class<? extends Annotation> scopeAnnotation = findScopeAnnotation(errors, type);
-    if (scopeAnnotation != null
-        // We let Dagger Components through to aid migrations.
-        && !containsComponentAnnotation(type.getAnnotations())) {
-      errors.withSource(type).scopeAnnotationOnAbstractType(scopeAnnotation, type, source);
-    }
-  }
-
-  // NOTE: getKey/findBindingAnnotation are used by Gin which is abandoned.  So changing this API
-  // will prevent Gin users from upgrading Guice version.
-
-  /** Gets a key for the given type, member and annotations. */
-  public static Key<?> getKey(
-      TypeLiteral<?> type, Member member, Annotation[] annotations, Errors errors)
-      throws ErrorsException {
-    int numErrorsBefore = errors.size();
-    Annotation found = findBindingAnnotation(errors, member, annotations);
-    errors.throwIfNewErrors(numErrorsBefore);
-    return found == null ? Key.get(type) : Key.get(type, found);
-  }
-
-  /** Returns the binding annotation on {@code member}, or null if there isn't one. */
-  public static Annotation findBindingAnnotation(
-      Errors errors, Member member, Annotation[] annotations) {
-    Annotation found = null;
-
-    for (Annotation annotation : annotations) {
-      Class<? extends Annotation> annotationType = annotation.annotationType();
-      if (isBindingAnnotation(annotationType)) {
-        if (found != null) {
-          errors.duplicateBindingAnnotations(member, found.annotationType(), annotationType);
-        } else {
-          found = annotation;
-        }
-      }
-    }
-
-    return found;
-  }
-
-  private static final AnnotationChecker bindingAnnotationChecker =
-      new AnnotationChecker(Arrays.asList(BindingAnnotation.class, Qualifier.class));
-
-  /** Returns true if annotations of the specified type are binding annotations. */
-  public static boolean isBindingAnnotation(Class<? extends Annotation> annotationType) {
-    return bindingAnnotationChecker.hasAnnotations(annotationType);
-  }
-
-  /**
-   * If the annotation is an instance of {@code javax.inject.Named}, canonicalizes to
-   * com.google.guice.name.Named. Returns the given annotation otherwise.
-   */
-  public static Annotation canonicalizeIfNamed(Annotation annotation) {
-    if (annotation instanceof javax.inject.Named) {
-      return Names.named(((javax.inject.Named) annotation).value());
-    } else {
-      return annotation;
-    }
-  }
-
-  /**
-   * If the annotation is the class {@code javax.inject.Named}, canonicalizes to
-   * com.google.guice.name.Named. Returns the given annotation class otherwise.
-   */
-  public static Class<? extends Annotation> canonicalizeIfNamed(
-      Class<? extends Annotation> annotationType) {
-    if (annotationType == javax.inject.Named.class) {
-      return Named.class;
-    } else {
-      return annotationType;
-    }
-  }
-
-  /**
-   * Returns the name the binding should use. This is based on the annotation. If the annotation has
-   * an instance and is not a marker annotation, we ask the annotation for its toString. If it was a
-   * marker annotation or just an annotation type, we use the annotation's name. Otherwise, the name
-   * is the empty string.
-   */
-  public static String nameOf(Key<?> key) {
-    Annotation annotation = key.getAnnotation();
-    Class<? extends Annotation> annotationType = key.getAnnotationType();
-    if (annotation != null && !isMarker(annotationType)) {
-      return key.getAnnotation().toString();
-    } else if (key.getAnnotationType() != null) {
-      return "@" + key.getAnnotationType().getName();
-    } else {
-      return "";
     }
   }
 }

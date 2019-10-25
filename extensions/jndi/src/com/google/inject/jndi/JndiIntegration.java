@@ -38,7 +38,7 @@ public class JndiIntegration {
    * </pre>
    */
   public static <T> Provider<T> fromJndi(Class<T> type, String name) {
-    return new JndiProvider<T>(type, name);
+    return new JndiProvider<>(type, name);
   }
 
   static class JndiProvider<T> implements Provider<T> {

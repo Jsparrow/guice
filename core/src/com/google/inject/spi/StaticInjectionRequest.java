@@ -64,7 +64,7 @@ public final class StaticInjectionRequest implements Element {
    *     ConfigurationException#getPartialValue() partial value} is a {@code Set<InjectionPoint>} of
    *     the valid injection points.
    */
-  public Set<InjectionPoint> getInjectionPoints() throws ConfigurationException {
+  public Set<InjectionPoint> getInjectionPoints() {
     return InjectionPoint.forStaticMethodsAndFields(type);
   }
 

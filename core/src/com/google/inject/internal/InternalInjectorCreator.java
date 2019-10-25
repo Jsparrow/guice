@@ -124,9 +124,7 @@ public final class InternalInjectorCreator {
     bindingData.initializeBindings();
     stopwatch.resetAndLog("Binding initialization");
 
-    for (InjectorShell shell : shells) {
-      shell.getInjector().index();
-    }
+    shells.forEach(shell -> shell.getInjector().index());
     stopwatch.resetAndLog("Binding indexing");
 
     injectionRequestProcessor.process(shells);
@@ -142,9 +140,7 @@ public final class InternalInjectorCreator {
     stopwatch.resetAndLog("Instance member validation");
 
     new LookupProcessor(errors).process(shells);
-    for (InjectorShell shell : shells) {
-      ((DeferredLookups) shell.getInjector().lookups).initialize(errors);
-    }
+    shells.forEach(shell -> ((DeferredLookups) shell.getInjector().lookups).initialize(errors));
     stopwatch.resetAndLog("Provider verification");
 
     // This needs to come late since some user bindings rely on requireBinding calls to create
@@ -180,9 +176,7 @@ public final class InternalInjectorCreator {
     errors.throwCreationExceptionIfErrorsExist();
 
     if (shellBuilder.getStage() != Stage.TOOL) {
-      for (InjectorShell shell : shells) {
-        loadEagerSingletons(shell.getInjector(), shellBuilder.getStage(), errors);
-      }
+      shells.forEach(shell -> loadEagerSingletons(shell.getInjector(), shellBuilder.getStage(), errors));
       stopwatch.resetAndLog("Preloading singletons");
     }
     errors.throwCreationExceptionIfErrorsExist();
@@ -229,15 +223,14 @@ public final class InternalInjectorCreator {
     }
 
     // handle a corner case where a child injector links to a binding in a parent injector, and
-    // that binding is singleton. We won't catch this otherwise because we only iterate the child's
-    // bindings. This only applies if the linked binding is not itself scoped.
-    if (binding instanceof LinkedBindingImpl) {
-      Key<?> linkedBinding = ((LinkedBindingImpl<?>) binding).getLinkedKey();
-      return binding.getScoping().isNoScope()
+	// that binding is singleton. We won't catch this otherwise because we only iterate the child's
+	// bindings. This only applies if the linked binding is not itself scoped.
+	if (!(binding instanceof LinkedBindingImpl)) {
+		return false;
+	}
+	Key<?> linkedBinding = ((LinkedBindingImpl<?>) binding).getLinkedKey();
+	return binding.getScoping().isNoScope()
           && isEagerSingleton(injector, injector.getBinding(linkedBinding), stage);
-    }
-
-    return false;
   }
 
   /** {@link Injector} exposed to users in {@link Stage#TOOL}. */

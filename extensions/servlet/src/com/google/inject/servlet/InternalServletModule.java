@@ -42,7 +42,70 @@ import javax.servlet.http.HttpSession;
  */
 final class InternalServletModule extends AbstractModule {
 
-  /**
+  @Override
+	  protected void configure() {
+	    bindScope(RequestScoped.class, REQUEST);
+	    bindScope(SessionScoped.class, SESSION);
+	    bind(ServletRequest.class).to(HttpServletRequest.class);
+	    bind(ServletResponse.class).to(HttpServletResponse.class);
+	
+	    // inject the pipeline into GuiceFilter so it can route requests correctly
+	    // Unfortunate staticness... =(
+	    // NOTE(dhanji): This is maintained for legacy purposes.
+	    requestStaticInjection(GuiceFilter.class);
+	
+	    bind(ManagedFilterPipeline.class);
+	    bind(ManagedServletPipeline.class);
+	    bind(FilterPipeline.class).to(ManagedFilterPipeline.class).asEagerSingleton();
+	
+	    bind(ServletContext.class).toProvider(BackwardsCompatibleServletContextProvider.class);
+	    bind(BackwardsCompatibleServletContextProvider.class);
+	  }
+
+	@Provides
+	  @Singleton
+	  @ScopingOnly
+	  GuiceFilter provideScopingOnlyGuiceFilter() {
+	    return new GuiceFilter(new DefaultFilterPipeline());
+	  }
+
+	@Provides
+	  @RequestScoped
+	  HttpServletRequest provideHttpServletRequest() {
+	    return GuiceFilter.getRequest(Key.get(HttpServletRequest.class));
+	  }
+
+	@Provides
+	  @RequestScoped
+	  HttpServletResponse provideHttpServletResponse() {
+	    return GuiceFilter.getResponse(Key.get(HttpServletResponse.class));
+	  }
+
+	@Provides
+	  HttpSession provideHttpSession() {
+	    return GuiceFilter.getRequest(Key.get(HttpSession.class)).getSession();
+	  }
+
+	@SuppressWarnings("unchecked") // defined by getParameterMap()
+	  @Provides
+	  @RequestScoped
+	  @RequestParameters
+	  Map<String, String[]> provideRequestParameters(ServletRequest req) {
+	    return req.getParameterMap();
+	  }
+
+	@Override
+	  public boolean equals(Object o) {
+	    // Is only ever installed internally, so we don't need to check state.
+	    return o instanceof InternalServletModule;
+	  }
+
+	@Override
+	  public int hashCode() {
+	    return InternalServletModule.class.hashCode();
+	  }
+
+/**
    * Special Provider that tries to obtain an injected servlet context, specific to the current
    * injector, failing which, it falls back to the static singleton instance that is available in
    * the legacy Guice Servlet.
@@ -67,78 +130,9 @@ final class InternalServletModule extends AbstractModule {
 
       Logger.getLogger(InternalServletModule.class.getName())
           .warning(
-              "You are attempting to use a deprecated API (specifically,"
-                  + " attempting to @Inject ServletContext inside an eagerly created"
-                  + " singleton. While we allow this for backwards compatibility, be"
-                  + " warned that this MAY have unexpected behavior if you have more"
-                  + " than one injector (with ServletModule) running in the same JVM."
-                  + " Please consult the Guice documentation at"
-                  + " https://github.com/google/guice/wiki/Servlets for more"
-                  + " information.");
+              new StringBuilder().append("You are attempting to use a deprecated API (specifically,").append(" attempting to @Inject ServletContext inside an eagerly created").append(" singleton. While we allow this for backwards compatibility, be").append(" warned that this MAY have unexpected behavior if you have more").append(" than one injector (with ServletModule) running in the same JVM.").append(" Please consult the Guice documentation at").append(" https://github.com/google/guice/wiki/Servlets for more").append(" information.")
+					.toString());
       return GuiceFilter.getServletContext();
     }
-  }
-
-  @Override
-  protected void configure() {
-    bindScope(RequestScoped.class, REQUEST);
-    bindScope(SessionScoped.class, SESSION);
-    bind(ServletRequest.class).to(HttpServletRequest.class);
-    bind(ServletResponse.class).to(HttpServletResponse.class);
-
-    // inject the pipeline into GuiceFilter so it can route requests correctly
-    // Unfortunate staticness... =(
-    // NOTE(dhanji): This is maintained for legacy purposes.
-    requestStaticInjection(GuiceFilter.class);
-
-    bind(ManagedFilterPipeline.class);
-    bind(ManagedServletPipeline.class);
-    bind(FilterPipeline.class).to(ManagedFilterPipeline.class).asEagerSingleton();
-
-    bind(ServletContext.class).toProvider(BackwardsCompatibleServletContextProvider.class);
-    bind(BackwardsCompatibleServletContextProvider.class);
-  }
-
-  @Provides
-  @Singleton
-  @ScopingOnly
-  GuiceFilter provideScopingOnlyGuiceFilter() {
-    return new GuiceFilter(new DefaultFilterPipeline());
-  }
-
-  @Provides
-  @RequestScoped
-  HttpServletRequest provideHttpServletRequest() {
-    return GuiceFilter.getRequest(Key.get(HttpServletRequest.class));
-  }
-
-  @Provides
-  @RequestScoped
-  HttpServletResponse provideHttpServletResponse() {
-    return GuiceFilter.getResponse(Key.get(HttpServletResponse.class));
-  }
-
-  @Provides
-  HttpSession provideHttpSession() {
-    return GuiceFilter.getRequest(Key.get(HttpSession.class)).getSession();
-  }
-
-  @SuppressWarnings("unchecked") // defined by getParameterMap()
-  @Provides
-  @RequestScoped
-  @RequestParameters
-  Map<String, String[]> provideRequestParameters(ServletRequest req) {
-    return req.getParameterMap();
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    // Is only ever installed internally, so we don't need to check state.
-    return o instanceof InternalServletModule;
-  }
-
-  @Override
-  public int hashCode() {
-    return InternalServletModule.class.hashCode();
   }
 }

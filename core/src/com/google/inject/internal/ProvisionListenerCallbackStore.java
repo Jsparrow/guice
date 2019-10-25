@@ -67,13 +67,13 @@ final class ProvisionListenerCallbackStore {
       "unchecked") // the ProvisionListenerStackCallback type always agrees with the passed type
   public <T> ProvisionListenerStackCallback<T> get(Binding<T> binding) {
     // Never notify any listeners for internal bindings.
-    if (!INTERNAL_BINDINGS.contains(binding.getKey())) {
-      ProvisionListenerStackCallback<T> callback =
+	if (INTERNAL_BINDINGS.contains(binding.getKey())) {
+		return null;
+	}
+	ProvisionListenerStackCallback<T> callback =
           (ProvisionListenerStackCallback<T>)
               cache.getUnchecked(new KeyBinding(binding.getKey(), binding));
-      return callback.hasListeners() ? callback : null;
-    }
-    return null;
+	return callback.hasListeners() ? callback : null;
   }
 
   /**
@@ -107,7 +107,7 @@ final class ProvisionListenerCallbackStore {
       // no listeners.
       return ProvisionListenerStackCallback.emptyListener();
     }
-    return new ProvisionListenerStackCallback<T>(binding, listeners);
+    return new ProvisionListenerStackCallback<>(binding, listeners);
   }
 
   /** A struct that holds key & binding but uses just key for equality/hashcode. */

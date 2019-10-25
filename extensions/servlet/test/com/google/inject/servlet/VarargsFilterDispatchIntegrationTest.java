@@ -27,7 +27,9 @@ import junit.framework.TestCase;
  * @author dhanji@gmail.com (Dhanji R. Prasanna)
  */
 public class VarargsFilterDispatchIntegrationTest extends TestCase {
-  private static int inits, doFilters, destroys;
+  private static int inits;
+private static int doFilters;
+private static int destroys;
 
   @Override
   public final void setUp() {
@@ -71,13 +73,8 @@ public class VarargsFilterDispatchIntegrationTest extends TestCase {
     verify(requestMock);
 
     assertTrue(
-        "lifecycle states did not"
-            + " fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + doFilters
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not").append(" fire correct number of times-- inits: ").append(inits).append("; dos: ").append(doFilters).append("; destroys: ").append(destroys)
+				.toString(),
         inits == 1 && doFilters == 3 && destroys == 1);
   }
 
@@ -113,13 +110,8 @@ public class VarargsFilterDispatchIntegrationTest extends TestCase {
     verify(requestMock);
 
     assertTrue(
-        "lifecycle states did not "
-            + "fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + doFilters
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not ").append("fire correct number of times-- inits: ").append(inits).append("; dos: ").append(doFilters).append("; destroys: ").append(destroys)
+				.toString(),
         inits == 1 && doFilters == 0 && destroys == 1);
   }
 
@@ -156,13 +148,8 @@ public class VarargsFilterDispatchIntegrationTest extends TestCase {
     verify(requestMock);
 
     assertTrue(
-        "lifecycle states did not fire "
-            + "correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + doFilters
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not fire ").append("correct number of times-- inits: ").append(inits).append("; dos: ").append(doFilters).append("; destroys: ").append(destroys)
+				.toString(),
         inits == 1 && doFilters == 2 && destroys == 1);
   }
 

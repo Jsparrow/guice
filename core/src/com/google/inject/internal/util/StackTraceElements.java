@@ -213,7 +213,7 @@ public class StackTraceElements {
 
     @Override
     public String toString() {
-      return declaringClass + "." + methodName + "(" + lineNumber + ")";
+      return new StringBuilder().append(declaringClass).append(".").append(methodName).append("(").append(lineNumber).append(")").toString();
     }
   }
 }

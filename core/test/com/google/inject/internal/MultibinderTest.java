@@ -642,9 +642,7 @@ public class MultibinderTest extends TestCase {
     } catch (ProvisionException expected) {
       assertContains(
           expected.getMessage(),
-          "1) Set injection failed due to null element bound at: "
-              + m.getClass().getName()
-              + ".configure(");
+          new StringBuilder().append("1) Set injection failed due to null element bound at: ").append(m.getClass().getName()).append(".configure(").toString());
     }
   }
 
@@ -729,17 +727,14 @@ public class MultibinderTest extends TestCase {
       if (b instanceof InstanceBinding) {
         if (instanceBinding != null) {
           fail(
-              "Already have an instance binding of: "
-                  + instanceBinding
-                  + ", and now want to add: "
-                  + b);
+              new StringBuilder().append("Already have an instance binding of: ").append(instanceBinding).append(", and now want to add: ").append(b).toString());
         } else {
           instanceBinding = (InstanceBinding) b;
         }
       } else if (b instanceof LinkedKeyBinding) {
         if (linkedBinding != null) {
           fail(
-              "Already have a linked binding of: " + linkedBinding + ", and now want to add: " + b);
+              new StringBuilder().append("Already have a linked binding of: ").append(linkedBinding).append(", and now want to add: ").append(b).toString());
         } else {
           linkedBinding = (LinkedKeyBinding) b;
         }
@@ -790,21 +785,13 @@ public class MultibinderTest extends TestCase {
     assertEquals(ImmutableList.of("leonardo", "donatello", "michaelangelo", "raphael"), inOrder);
   }
 
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface Abc {}
-
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface De {}
-
   private <T> Set<T> setOf(T... elements) {
     Set<T> result = Sets.newHashSet();
     Collections.addAll(result, elements);
     return result;
   }
 
-  /** With overrides, we should get the union of all multibindings. */
+/** With overrides, we should get the union of all multibindings. */
   public void testModuleOverrideAndMultibindings() {
     Module ab =
         new AbstractModule() {
@@ -854,7 +841,7 @@ public class MultibinderTest extends TestCase {
         instance("F"));
   }
 
-  /** With overrides, we should get the union of all multibindings. */
+/** With overrides, we should get the union of all multibindings. */
   public void testModuleOverrideAndMultibindingsWithPermitDuplicates() {
     Module abc =
         new AbstractModule() {
@@ -908,7 +895,7 @@ public class MultibinderTest extends TestCase {
         instance("F"));
   }
 
-  /** Doubly-installed modules should not conflict, even when one is overridden. */
+/** Doubly-installed modules should not conflict, even when one is overridden. */
   public void testModuleOverrideRepeatedInstallsAndMultibindings_toInstance() {
     Module ab =
         new AbstractModule() {
@@ -929,7 +916,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(ImmutableSet.of("A", "B"), injector.getInstance(Key.get(setOfString)));
   }
 
-  public void testModuleOverrideRepeatedInstallsAndMultibindings_toKey() {
+public void testModuleOverrideRepeatedInstallsAndMultibindings_toKey() {
     Module ab =
         new AbstractModule() {
           @Override
@@ -954,7 +941,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(ImmutableSet.of("A", "B"), injector.getInstance(Key.get(setOfString)));
   }
 
-  public void testModuleOverrideRepeatedInstallsAndMultibindings_toProviderInstance() {
+public void testModuleOverrideRepeatedInstallsAndMultibindings_toProviderInstance() {
     Module ab =
         new AbstractModule() {
           @Override
@@ -974,21 +961,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(ImmutableSet.of("A", "B"), injector.getInstance(Key.get(setOfString)));
   }
 
-  private static class AStringProvider implements Provider<String> {
-    @Override
-    public String get() {
-      return "A";
-    }
-  }
-
-  private static class BStringProvider implements Provider<String> {
-    @Override
-    public String get() {
-      return "B";
-    }
-  }
-
-  public void testModuleOverrideRepeatedInstallsAndMultibindings_toProviderKey() {
+public void testModuleOverrideRepeatedInstallsAndMultibindings_toProviderKey() {
     Module ab =
         new AbstractModule() {
           @Override
@@ -1008,44 +981,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(ImmutableSet.of("A", "B"), injector.getInstance(Key.get(setOfString)));
   }
 
-  private static class StringGrabber {
-    private final String string;
-
-    @SuppressWarnings("unused") // Found by reflection
-    public StringGrabber(@Named("A_string") String string) {
-      this.string = string;
-    }
-
-    @SuppressWarnings("unused") // Found by reflection
-    public StringGrabber(@Named("B_string") String string, int unused) {
-      this.string = string;
-    }
-
-    @Override
-    public int hashCode() {
-      return string.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return (obj instanceof StringGrabber) && ((StringGrabber) obj).string.equals(string);
-    }
-
-    @Override
-    public String toString() {
-      return "StringGrabber(" + string + ")";
-    }
-
-    static Set<String> values(Iterable<StringGrabber> grabbers) {
-      Set<String> result = new HashSet<>();
-      for (StringGrabber grabber : grabbers) {
-        result.add(grabber.string);
-      }
-      return result;
-    }
-  }
-
-  public void testModuleOverrideRepeatedInstallsAndMultibindings_toConstructor() {
+public void testModuleOverrideRepeatedInstallsAndMultibindings_toConstructor() {
     TypeLiteral<Set<StringGrabber>> setOfStringGrabber = new TypeLiteral<Set<StringGrabber>>() {};
     Module ab =
         new AbstractModule() {
@@ -1085,7 +1021,7 @@ public class MultibinderTest extends TestCase {
         StringGrabber.values(injector.getInstance(Key.get(setOfStringGrabber))));
   }
 
-  /**
+/**
    * Unscoped bindings should not conflict, whether they were bound with no explicit scope, or
    * explicitly bound in {@link Scopes#NO_SCOPE}.
    */
@@ -1120,7 +1056,7 @@ public class MultibinderTest extends TestCase {
         Guice.createInjector(singleBinding, multibinding).getInstance(Key.get(setOfInteger)));
   }
 
-  /** Ensure key hash codes are fixed at injection time, not binding time. */
+/** Ensure key hash codes are fixed at injection time, not binding time. */
   public void testKeyHashCodesFixedAtInjectionTime() {
     Module ab =
         new AbstractModule() {
@@ -1148,13 +1084,13 @@ public class MultibinderTest extends TestCase {
       }
       assertEquals(bindingKey, clonedKey);
       assertEquals(
-          "Incorrect hashcode for " + bindingKey + " -> " + entry.getValue(),
+          new StringBuilder().append("Incorrect hashcode for ").append(bindingKey).append(" -> ").append(entry.getValue()).toString(),
           bindingKey.hashCode(),
           clonedKey.hashCode());
     }
   }
 
-  /** Ensure bindings do not rehash their keys once returned from {@link Elements#getElements}. */
+/** Ensure bindings do not rehash their keys once returned from {@link Elements#getElements}. */
   public void testBindingKeysFixedOnReturnFromGetElements() {
     final List<String> list = Lists.newArrayList();
     Module ab =
@@ -1182,7 +1118,7 @@ public class MultibinderTest extends TestCase {
     assertSame(keyBefore, keyAfter);
   }
 
-  /*
+/*
    * Verify through gratuitous mutation that key hashCode snapshots and whatnot happens at the right
    * times, by binding two lists that are different at injector creation, but compare equal when the
    * module is configured *and* when the set is instantiated.
@@ -1217,7 +1153,7 @@ public class MultibinderTest extends TestCase {
     } catch (ProvisionException e) {
       assertEquals(1, e.getErrorMessages().size());
       assertContains(
-          Iterables.getOnlyElement(e.getErrorMessages()).getMessage().toString(),
+          Iterables.getOnlyElement(e.getErrorMessages()).getMessage(),
           "Set injection failed due to duplicated element \"[A, B]\"");
     }
 
@@ -1229,7 +1165,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(ImmutableSet.of(ImmutableList.of("A"), ImmutableList.of("B")), set);
   }
 
-  /*
+/*
    * Verify through gratuitous mutation that key hashCode snapshots and whatnot happen at the right
    * times, by binding two lists that compare equal at injector creation, but are different when the
    * module is configured *and* when the set is instantiated.
@@ -1267,12 +1203,7 @@ public class MultibinderTest extends TestCase {
             || ImmutableSet.of(ImmutableList.of("B")).equals(set));
   }
 
-  @BindingAnnotation
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-  private static @interface Marker {}
-
-  @Marker
+@Marker
   public void testMultibinderMatching() throws Exception {
     Method m = MultibinderTest.class.getDeclaredMethod("testMultibinderMatching");
     assertNotNull(m);
@@ -1312,7 +1243,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(expected, s1);
   }
 
-  // See issue 670
+// See issue 670
   public void testSetAndMapValueAreDistinct() {
     Injector injector =
         Guice.createInjector(
@@ -1339,7 +1270,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(Optional.of("D"), injector.getInstance(Key.get(optionalOfString)));
   }
 
-  // See issue 670
+// See issue 670
   public void testSetAndMapValueAreDistinctInSpi() {
     Injector injector =
         Guice.createInjector(
@@ -1400,7 +1331,7 @@ public class MultibinderTest extends TestCase {
     assertTrue(collector.optionalbinding.containsElement(c));
   }
 
-  public void testMultibinderCanInjectCollectionOfProviders() {
+public void testMultibinderCanInjectCollectionOfProviders() {
     Module module =
         new AbstractModule() {
           @Override
@@ -1425,7 +1356,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(expectedValues, collectValues(javaxProviders));
   }
 
-  public void testMultibinderCanInjectCollectionOfProvidersWithAnnotation() {
+public void testMultibinderCanInjectCollectionOfProvidersWithAnnotation() {
     final Annotation ann = Names.named("foo");
     Module module =
         new AbstractModule() {
@@ -1452,7 +1383,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(expectedValues, collectValues(javaxProviders));
   }
 
-  public void testMultibindingProviderDependencies() {
+public void testMultibindingProviderDependencies() {
     final Annotation setAnn = Names.named("foo");
     Injector injector =
         Guice.createInjector(
@@ -1481,7 +1412,7 @@ public class MultibinderTest extends TestCase {
     assertEquals(expected, providerBinding.getDependencies());
   }
 
-  public void testEmptyMultibinder() {
+public void testEmptyMultibinder() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -1495,16 +1426,7 @@ public class MultibinderTest extends TestCase {
         ImmutableList.of(), injector.getInstance(new Key<Collection<Provider<String>>>() {}));
   }
 
-  private static final class ObjectWithInjectionPoint {
-    boolean setterHasBeenCalled;
-
-    @Inject
-    void setter(String dummy) {
-      setterHasBeenCalled = true;
-    }
-  }
-
-  // This tests for a behavior where InstanceBindingImpl.getProvider() would return uninitialized
+// This tests for a behavior where InstanceBindingImpl.getProvider() would return uninitialized
   // instances if called during injector creation (depending on the order of injection requests).
   public void testMultibinderDependsOnInstanceBindingWithInjectionPoints() {
     Guice.createInjector(
@@ -1523,19 +1445,88 @@ public class MultibinderTest extends TestCase {
 
           @Inject
           void setter(String s) {
-            for (ObjectWithInjectionPoint item : provider.get()) {
-              assertTrue(item.setterHasBeenCalled);
-            }
+            provider.get().forEach(item -> assertTrue(item.setterHasBeenCalled));
           }
         });
   }
 
-  private <T> Collection<T> collectValues(
+private <T> Collection<T> collectValues(
       Collection<? extends javax.inject.Provider<T>> providers) {
     Collection<T> values = Lists.newArrayList();
-    for (javax.inject.Provider<T> provider : providers) {
-      values.add(provider.get());
-    }
+    providers.forEach(provider -> values.add(provider.get()));
     return values;
+  }
+
+@BindingAnnotation
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+  private static @interface Marker {}
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface Abc {}
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface De {}
+
+private static class AStringProvider implements Provider<String> {
+    @Override
+    public String get() {
+      return "A";
+    }
+  }
+
+  private static class BStringProvider implements Provider<String> {
+    @Override
+    public String get() {
+      return "B";
+    }
+  }
+
+  private static class StringGrabber {
+    private final String string;
+
+    @SuppressWarnings("unused") // Found by reflection
+    public StringGrabber(@Named("A_string") String string) {
+      this.string = string;
+    }
+
+    @SuppressWarnings("unused") // Found by reflection
+    public StringGrabber(@Named("B_string") String string, int unused) {
+      this.string = string;
+    }
+
+    @Override
+    public int hashCode() {
+      return string.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return (obj instanceof StringGrabber) && ((StringGrabber) obj).string.equals(string);
+    }
+
+    @Override
+    public String toString() {
+      return new StringBuilder().append("StringGrabber(").append(string).append(")").toString();
+    }
+
+    static Set<String> values(Iterable<StringGrabber> grabbers) {
+      Set<String> result = new HashSet<>();
+      for (StringGrabber grabber : grabbers) {
+        result.add(grabber.string);
+      }
+      return result;
+    }
+  }
+
+  private static final class ObjectWithInjectionPoint {
+    boolean setterHasBeenCalled;
+
+    @Inject
+    void setter(String dummy) {
+      setterHasBeenCalled = true;
+    }
   }
 }

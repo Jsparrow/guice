@@ -129,7 +129,7 @@ public final class InjectionPoint {
 
   // This metohd is necessary to create a Dependency<T> with proper generic type information
   private <T> Dependency<T> newDependency(Key<T> key, boolean allowsNull, int parameterIndex) {
-    return new Dependency<T>(this, key, allowsNull, parameterIndex);
+    return new Dependency<>(this, key, allowsNull, parameterIndex);
   }
 
   /** Returns the injected constructor, field, or method. */
@@ -419,7 +419,204 @@ public final class InjectionPoint {
     return true;
   }
 
-  /** Node in the doubly-linked list of injectable members (fields and methods). */
+  static Annotation getAtInject(AnnotatedElement member) {
+    Annotation a = member.getAnnotation(javax.inject.Inject.class);
+    return a == null ? member.getAnnotation(Inject.class) : a;
+  }
+
+/**
+   * Returns an ordered, immutable set of injection points for the given type. Members in
+   * superclasses come before members in subclasses. Within a class, fields come before methods.
+   * Overridden methods are filtered out. The order of fields/methods within a class is consistent
+   * but undefined.
+   *
+   * @param statics true is this method should return static members, false for instance members
+   * @param errors used to record errors
+   */
+  private static Set<InjectionPoint> getInjectionPoints(
+      final TypeLiteral<?> type, boolean statics, Errors errors) {
+    InjectableMembers injectableMembers = new InjectableMembers();
+    OverrideIndex overrideIndex = null;
+
+    List<TypeLiteral<?>> hierarchy = hierarchyFor(type);
+    int topIndex = hierarchy.size() - 1;
+    for (int i = topIndex; i >= 0; i--) {
+      if (overrideIndex != null && i < topIndex) {
+        // Knowing the position within the hierarchy helps us make optimizations.
+        if (i == 0) {
+          overrideIndex.position = Position.BOTTOM;
+        } else {
+          overrideIndex.position = Position.MIDDLE;
+        }
+      }
+
+      TypeLiteral<?> current = hierarchy.get(i);
+
+      for (Field field : getDeclaredFields(current)) {
+        if (Modifier.isStatic(field.getModifiers()) == statics) {
+          Annotation atInject = getAtInject(field);
+          if (atInject != null) {
+            InjectableField injectableField = new InjectableField(current, field, atInject);
+            if (injectableField.jsr330 && Modifier.isFinal(field.getModifiers())) {
+              errors.cannotInjectFinalField(field);
+            }
+            injectableMembers.add(injectableField);
+          }
+        }
+      }
+
+      for (Method method : getDeclaredMethods(current)) {
+        if (isEligibleForInjection(method, statics)) {
+          Annotation atInject = getAtInject(method);
+          if (atInject != null) {
+            InjectableMethod injectableMethod = new InjectableMethod(current, method, atInject);
+            if (checkForMisplacedBindingAnnotations(method, errors)
+                || !isValidMethod(injectableMethod, errors)) {
+              if (overrideIndex != null) {
+                boolean removed =
+                    overrideIndex.removeIfOverriddenBy(method, false, injectableMethod);
+                if (removed) {
+                  logger.log(
+                      Level.WARNING,
+                      new StringBuilder().append("Method: {0} is not a valid injectable method (").append("because it either has misplaced binding annotations ").append("or specifies type parameters) but is overriding a method that is ").append("valid. Because it is not valid, the method will not be injected. ").append("To fix this, make the method a valid injectable method.").toString(),
+                      method);
+                }
+              }
+              continue;
+            }
+            if (statics) {
+              injectableMembers.add(injectableMethod);
+            } else {
+              if (overrideIndex == null) {
+                /*
+                 * Creating the override index lazily means that the first type in the hierarchy
+                 * with injectable methods (not necessarily the top most type) will be treated as
+                 * the TOP position and will enjoy the same optimizations (no checks for overridden
+                 * methods, etc.).
+                 */
+                overrideIndex = new OverrideIndex(injectableMembers);
+              } else {
+                // Forcibly remove the overridden method, otherwise we'll inject
+                // it twice.
+                overrideIndex.removeIfOverriddenBy(method, true, injectableMethod);
+              }
+              overrideIndex.add(injectableMethod);
+            }
+          } else {
+            if (overrideIndex != null) {
+              boolean removed = overrideIndex.removeIfOverriddenBy(method, false, null);
+              if (removed) {
+                logger.log(
+                    Level.WARNING,
+                    new StringBuilder().append("Method: {0} is not annotated with @Inject but ").append("is overriding a method that is annotated with @javax.inject.Inject.").append("Because it is not annotated with @Inject, the method will not be ").append("injected. To fix this, annotate the method with @Inject.").toString(),
+                    method);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (injectableMembers.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    ImmutableSet.Builder<InjectionPoint> builder = ImmutableSet.builder();
+    for (InjectableMember im = injectableMembers.head; im != null; im = im.next) {
+      try {
+        builder.add(im.toInjectionPoint());
+      } catch (ConfigurationException ignorable) {
+        if (!im.optional) {
+          errors.merge(ignorable.getErrorMessages());
+        }
+      }
+    }
+    return builder.build();
+  }
+
+private static Field[] getDeclaredFields(TypeLiteral<?> type) {
+    return DeclaredMembers.getDeclaredFields(type.getRawType());
+  }
+
+private static Method[] getDeclaredMethods(TypeLiteral<?> type) {
+    return DeclaredMembers.getDeclaredMethods(type.getRawType());
+  }
+
+/**
+   * Returns true if the method is eligible to be injected. This is different than {@link
+   * #isValidMethod}, because ineligibility will not drop a method from being injected if a
+   * superclass was eligible & valid. Bridge & synthetic methods are excluded from eligibility for
+   * two reasons:
+   *
+   * <p>Prior to Java8, javac would generate these methods in subclasses without annotations, which
+   * means this would accidentally stop injecting a method annotated with {@link
+   * javax.inject.Inject}, since the spec says to stop injecting if a subclass isn't annotated with
+   * it.
+   *
+   * <p>Starting at Java8, javac copies the annotations to the generated subclass method, except it
+   * leaves out the generic types. If this considered it a valid injectable method, this would eject
+   * the parent's overridden method that had the proper generic types, and would use invalid
+   * injectable parameters as a result.
+   *
+   * <p>The fix for both is simply to ignore these synthetic bridge methods.
+   */
+  private static boolean isEligibleForInjection(Method method, boolean statics) {
+    return Modifier.isStatic(method.getModifiers()) == statics
+        && !method.isBridge()
+        && !method.isSynthetic();
+  }
+
+private static boolean isValidMethod(InjectableMethod injectableMethod, Errors errors) {
+    boolean result = true;
+    if (injectableMethod.jsr330) {
+      Method method = injectableMethod.method;
+      if (Modifier.isAbstract(method.getModifiers())) {
+        errors.cannotInjectAbstractMethod(method);
+        result = false;
+      }
+      if (method.getTypeParameters().length > 0) {
+        errors.cannotInjectMethodWithTypeParameters(method);
+        result = false;
+      }
+    }
+    return result;
+  }
+
+private static List<TypeLiteral<?>> hierarchyFor(TypeLiteral<?> type) {
+    List<TypeLiteral<?>> hierarchy = new ArrayList<>();
+    TypeLiteral<?> current = type;
+    while (current.getRawType() != Object.class) {
+      hierarchy.add(current);
+      current = current.getSupertype(current.getRawType().getSuperclass());
+    }
+    return hierarchy;
+  }
+
+/**
+   * Returns true if a overrides b. Assumes signatures of a and b are the same and a's declaring
+   * class is a subclass of b's declaring class.
+   */
+  private static boolean overrides(Method a, Method b) {
+    // See JLS section 8.4.8.1
+    int modifiers = b.getModifiers();
+    if (Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)) {
+      return true;
+    }
+    if (Modifier.isPrivate(modifiers)) {
+      return false;
+    }
+    // b must be package-private
+    return a.getDeclaringClass().getPackage().equals(b.getDeclaringClass().getPackage());
+  }
+
+/** Position in type hierarchy. */
+  enum Position {
+    TOP, // No need to check for overridden methods
+    MIDDLE,
+    BOTTOM // Methods won't be overridden
+  }
+
+/** Node in the doubly-linked list of injectable members (fields and methods). */
   abstract static class InjectableMember {
     final TypeLiteral<?> declaringType;
     final boolean optional;
@@ -480,11 +677,6 @@ public final class InjectionPoint {
     }
   }
 
-  static Annotation getAtInject(AnnotatedElement member) {
-    Annotation a = member.getAnnotation(javax.inject.Inject.class);
-    return a == null ? member.getAnnotation(Inject.class) : a;
-  }
-
   /** Linked list of injectable members. */
   static class InjectableMembers {
     InjectableMember head;
@@ -520,13 +712,6 @@ public final class InjectionPoint {
     }
   }
 
-  /** Position in type hierarchy. */
-  enum Position {
-    TOP, // No need to check for overridden methods
-    MIDDLE,
-    BOTTOM // Methods won't be overridden
-  }
-
   /**
    * Keeps track of injectable methods so we can remove methods that get overridden in O(1) time.
    * Uses our position in the type hierarchy to perform optimizations.
@@ -535,16 +720,15 @@ public final class InjectionPoint {
     final InjectableMembers injectableMembers;
     Map<Signature, List<InjectableMethod>> bySignature;
     Position position = Position.TOP;
+	/* Caches the signature for the last method. */
+    Method lastMethod;
+	Signature lastSignature;
 
-    OverrideIndex(InjectableMembers injectableMembers) {
+	OverrideIndex(InjectableMembers injectableMembers) {
       this.injectableMembers = injectableMembers;
     }
 
-    /* Caches the signature for the last method. */
-    Method lastMethod;
-    Signature lastSignature;
-
-    /**
+	/**
      * Removes a method overridden by the given method, if present. In order to remain backwards
      * compatible with prior Guice versions, this will *not* remove overridden methods if
      * 'alwaysRemove' is false and the overridden signature was annotated with a
@@ -610,7 +794,7 @@ public final class InjectionPoint {
       return removed;
     }
 
-    /**
+	/**
      * Adds the given method to the list of injection points. Keeps track of it in this index in
      * case it gets overridden.
      */
@@ -620,208 +804,17 @@ public final class InjectionPoint {
         // This method can't be overridden, so there's no need to index it.
         return;
       }
-      if (bySignature != null) {
-        // Try to reuse the signature we created during removal
-        @SuppressWarnings("ReferenceEquality")
-        Signature signature =
-            injectableMethod.method == lastMethod
-                ? lastSignature
-                : new Signature(injectableMethod.method);
-        bySignature.computeIfAbsent(signature, k -> new ArrayList<>()).add(injectableMethod);
-      }
+      if (bySignature == null) {
+		return;
+	}
+	// Try to reuse the signature we created during removal
+	@SuppressWarnings("ReferenceEquality")
+	Signature signature =
+	    injectableMethod.method == lastMethod
+	        ? lastSignature
+	        : new Signature(injectableMethod.method);
+	bySignature.computeIfAbsent(signature, k -> new ArrayList<>()).add(injectableMethod);
     }
-  }
-
-  /**
-   * Returns an ordered, immutable set of injection points for the given type. Members in
-   * superclasses come before members in subclasses. Within a class, fields come before methods.
-   * Overridden methods are filtered out. The order of fields/methods within a class is consistent
-   * but undefined.
-   *
-   * @param statics true is this method should return static members, false for instance members
-   * @param errors used to record errors
-   */
-  private static Set<InjectionPoint> getInjectionPoints(
-      final TypeLiteral<?> type, boolean statics, Errors errors) {
-    InjectableMembers injectableMembers = new InjectableMembers();
-    OverrideIndex overrideIndex = null;
-
-    List<TypeLiteral<?>> hierarchy = hierarchyFor(type);
-    int topIndex = hierarchy.size() - 1;
-    for (int i = topIndex; i >= 0; i--) {
-      if (overrideIndex != null && i < topIndex) {
-        // Knowing the position within the hierarchy helps us make optimizations.
-        if (i == 0) {
-          overrideIndex.position = Position.BOTTOM;
-        } else {
-          overrideIndex.position = Position.MIDDLE;
-        }
-      }
-
-      TypeLiteral<?> current = hierarchy.get(i);
-
-      for (Field field : getDeclaredFields(current)) {
-        if (Modifier.isStatic(field.getModifiers()) == statics) {
-          Annotation atInject = getAtInject(field);
-          if (atInject != null) {
-            InjectableField injectableField = new InjectableField(current, field, atInject);
-            if (injectableField.jsr330 && Modifier.isFinal(field.getModifiers())) {
-              errors.cannotInjectFinalField(field);
-            }
-            injectableMembers.add(injectableField);
-          }
-        }
-      }
-
-      for (Method method : getDeclaredMethods(current)) {
-        if (isEligibleForInjection(method, statics)) {
-          Annotation atInject = getAtInject(method);
-          if (atInject != null) {
-            InjectableMethod injectableMethod = new InjectableMethod(current, method, atInject);
-            if (checkForMisplacedBindingAnnotations(method, errors)
-                || !isValidMethod(injectableMethod, errors)) {
-              if (overrideIndex != null) {
-                boolean removed =
-                    overrideIndex.removeIfOverriddenBy(method, false, injectableMethod);
-                if (removed) {
-                  logger.log(
-                      Level.WARNING,
-                      "Method: {0} is not a valid injectable method ("
-                          + "because it either has misplaced binding annotations "
-                          + "or specifies type parameters) but is overriding a method that is "
-                          + "valid. Because it is not valid, the method will not be injected. "
-                          + "To fix this, make the method a valid injectable method.",
-                      method);
-                }
-              }
-              continue;
-            }
-            if (statics) {
-              injectableMembers.add(injectableMethod);
-            } else {
-              if (overrideIndex == null) {
-                /*
-                 * Creating the override index lazily means that the first type in the hierarchy
-                 * with injectable methods (not necessarily the top most type) will be treated as
-                 * the TOP position and will enjoy the same optimizations (no checks for overridden
-                 * methods, etc.).
-                 */
-                overrideIndex = new OverrideIndex(injectableMembers);
-              } else {
-                // Forcibly remove the overridden method, otherwise we'll inject
-                // it twice.
-                overrideIndex.removeIfOverriddenBy(method, true, injectableMethod);
-              }
-              overrideIndex.add(injectableMethod);
-            }
-          } else {
-            if (overrideIndex != null) {
-              boolean removed = overrideIndex.removeIfOverriddenBy(method, false, null);
-              if (removed) {
-                logger.log(
-                    Level.WARNING,
-                    "Method: {0} is not annotated with @Inject but "
-                        + "is overriding a method that is annotated with @javax.inject.Inject."
-                        + "Because it is not annotated with @Inject, the method will not be "
-                        + "injected. To fix this, annotate the method with @Inject.",
-                    method);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (injectableMembers.isEmpty()) {
-      return Collections.emptySet();
-    }
-
-    ImmutableSet.Builder<InjectionPoint> builder = ImmutableSet.builder();
-    for (InjectableMember im = injectableMembers.head; im != null; im = im.next) {
-      try {
-        builder.add(im.toInjectionPoint());
-      } catch (ConfigurationException ignorable) {
-        if (!im.optional) {
-          errors.merge(ignorable.getErrorMessages());
-        }
-      }
-    }
-    return builder.build();
-  }
-
-  private static Field[] getDeclaredFields(TypeLiteral<?> type) {
-    return DeclaredMembers.getDeclaredFields(type.getRawType());
-  }
-
-  private static Method[] getDeclaredMethods(TypeLiteral<?> type) {
-    return DeclaredMembers.getDeclaredMethods(type.getRawType());
-  }
-
-  /**
-   * Returns true if the method is eligible to be injected. This is different than {@link
-   * #isValidMethod}, because ineligibility will not drop a method from being injected if a
-   * superclass was eligible & valid. Bridge & synthetic methods are excluded from eligibility for
-   * two reasons:
-   *
-   * <p>Prior to Java8, javac would generate these methods in subclasses without annotations, which
-   * means this would accidentally stop injecting a method annotated with {@link
-   * javax.inject.Inject}, since the spec says to stop injecting if a subclass isn't annotated with
-   * it.
-   *
-   * <p>Starting at Java8, javac copies the annotations to the generated subclass method, except it
-   * leaves out the generic types. If this considered it a valid injectable method, this would eject
-   * the parent's overridden method that had the proper generic types, and would use invalid
-   * injectable parameters as a result.
-   *
-   * <p>The fix for both is simply to ignore these synthetic bridge methods.
-   */
-  private static boolean isEligibleForInjection(Method method, boolean statics) {
-    return Modifier.isStatic(method.getModifiers()) == statics
-        && !method.isBridge()
-        && !method.isSynthetic();
-  }
-
-  private static boolean isValidMethod(InjectableMethod injectableMethod, Errors errors) {
-    boolean result = true;
-    if (injectableMethod.jsr330) {
-      Method method = injectableMethod.method;
-      if (Modifier.isAbstract(method.getModifiers())) {
-        errors.cannotInjectAbstractMethod(method);
-        result = false;
-      }
-      if (method.getTypeParameters().length > 0) {
-        errors.cannotInjectMethodWithTypeParameters(method);
-        result = false;
-      }
-    }
-    return result;
-  }
-
-  private static List<TypeLiteral<?>> hierarchyFor(TypeLiteral<?> type) {
-    List<TypeLiteral<?>> hierarchy = new ArrayList<>();
-    TypeLiteral<?> current = type;
-    while (current.getRawType() != Object.class) {
-      hierarchy.add(current);
-      current = current.getSupertype(current.getRawType().getSuperclass());
-    }
-    return hierarchy;
-  }
-
-  /**
-   * Returns true if a overrides b. Assumes signatures of a and b are the same and a's declaring
-   * class is a subclass of b's declaring class.
-   */
-  private static boolean overrides(Method a, Method b) {
-    // See JLS section 8.4.8.1
-    int modifiers = b.getModifiers();
-    if (Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)) {
-      return true;
-    }
-    if (Modifier.isPrivate(modifiers)) {
-      return false;
-    }
-    // b must be package-private
-    return a.getDeclaringClass().getPackage().equals(b.getDeclaringClass().getPackage());
   }
 
   /** A method signature. Used to handle method overridding. */

@@ -123,13 +123,13 @@ public class ThrowingProviderBinder {
   /** @since 4.0 */
   public <P extends CheckedProvider, T> SecondaryBinder<P, T> bind(
       Class<P> interfaceType, Class<T> clazz) {
-    return new SecondaryBinder<P, T>(interfaceType, clazz);
+    return new SecondaryBinder<>(interfaceType, clazz);
   }
 
   /** @since 4.0 */
   public <P extends CheckedProvider, T> SecondaryBinder<P, T> bind(
       Class<P> interfaceType, TypeLiteral<T> typeLiteral) {
-    return new SecondaryBinder<P, T>(interfaceType, typeLiteral.getType());
+    return new SecondaryBinder<>(interfaceType, typeLiteral.getType());
   }
 
   public class SecondaryBinder<P extends CheckedProvider, T> {
@@ -297,33 +297,29 @@ public class ThrowingProviderBinder {
                           Proxy.newProxyInstance(
                               interfaceType.getClassLoader(),
                               new Class<?>[] {interfaceType},
-                              new InvocationHandler() {
-                                @Override
-                                public Object invoke(Object proxy, Method method, Object[] args)
-                                    throws Throwable {
-                                  // Allow methods like .equals(..), .hashcode(..), .toString(..) to work.
-                                  if (method.getDeclaringClass() == Object.class) {
-                                    return method.invoke(this, args);
-                                  }
+                              (Object proxy, Method method, Object[] args) -> {
+                          // Allow methods like .equals(..), .hashcode(..), .toString(..) to work.
+                          if (method.getDeclaringClass() == Object.class) {
+							return method.invoke(this, args);
+                          }
 
-                                  if (scopeExceptions) {
-                                    return resultProvider.get().getOrThrow();
-                                  } else {
-                                    Result result;
-                                    try {
-                                      result = resultProvider.get();
-                                    } catch (ProvisionException pe) {
-                                      Throwable cause = pe.getCause();
-                                      if (cause instanceof ResultException) {
-                                        throw ((ResultException) cause).getCause();
-                                      } else {
-                                        throw pe;
-                                      }
-                                    }
-                                    return result.getOrThrow();
-                                  }
-                                }
-                              }));
+                          if (scopeExceptions) {
+							return resultProvider.get().getOrThrow();
+                          } else {
+							Result result;
+							try {
+							  result = resultProvider.get();
+							} catch (ProvisionException pe) {
+							  Throwable cause = pe.getCause();
+							  if (cause instanceof ResultException) {
+							    throw ((ResultException) cause).getCause();
+							  } else {
+							    throw pe;
+							  }
+							}
+							return result.getOrThrow();
+                          }
+                        }));
 
                   @Override
                   public P get() {

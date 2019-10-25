@@ -109,7 +109,7 @@ public class MatcherTest extends TestCase {
     assertTrue(identicalTo(o).matches(o));
     assertFalse(identicalTo(o).matches(new Object()));
     assertEqualsBothWays(identicalTo(o), identicalTo(o));
-    assertFalse(identicalTo(1).equals(identicalTo(new Integer(1))));
+    assertFalse(identicalTo(1).equals(identicalTo(Integer.valueOf(1))));
   }
 
   public void testInPackage() {
@@ -158,15 +158,15 @@ public class MatcherTest extends TestCase {
     assertEqualWhenReserialized(only("a").and(only("b")));
   }
 
-  abstract static class MyRunnable implements Runnable {}
-
   @Retention(RetentionPolicy.RUNTIME)
   @interface Foo {}
 
+@interface Baz {}
+
+abstract static class MyRunnable implements Runnable {}
+
   @Foo
   static class Bar {}
-
-  @interface Baz {}
 
   @Baz
   static class Car {}

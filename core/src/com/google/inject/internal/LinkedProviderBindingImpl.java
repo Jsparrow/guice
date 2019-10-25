@@ -33,7 +33,27 @@ final class LinkedProviderBindingImpl<T> extends BindingImpl<T>
   final Key<? extends javax.inject.Provider<? extends T>> providerKey;
   final DelayedInitialize delayedInitializer;
 
-  private LinkedProviderBindingImpl(
+  public LinkedProviderBindingImpl(
+      InjectorImpl injector,
+      Key<T> key,
+      Object source,
+      InternalFactory<? extends T> internalFactory,
+      Scoping scoping,
+      Key<? extends javax.inject.Provider<? extends T>> providerKey) {
+    this(injector, key, source, internalFactory, scoping, providerKey, null);
+  }
+
+LinkedProviderBindingImpl(
+      Object source,
+      Key<T> key,
+      Scoping scoping,
+      Key<? extends javax.inject.Provider<? extends T>> providerKey) {
+    super(source, key, scoping);
+    this.providerKey = providerKey;
+    this.delayedInitializer = null;
+  }
+
+private LinkedProviderBindingImpl(
       InjectorImpl injector,
       Key<T> key,
       Object source,
@@ -46,27 +66,7 @@ final class LinkedProviderBindingImpl<T> extends BindingImpl<T>
     this.delayedInitializer = delayedInitializer;
   }
 
-  public LinkedProviderBindingImpl(
-      InjectorImpl injector,
-      Key<T> key,
-      Object source,
-      InternalFactory<? extends T> internalFactory,
-      Scoping scoping,
-      Key<? extends javax.inject.Provider<? extends T>> providerKey) {
-    this(injector, key, source, internalFactory, scoping, providerKey, null);
-  }
-
-  LinkedProviderBindingImpl(
-      Object source,
-      Key<T> key,
-      Scoping scoping,
-      Key<? extends javax.inject.Provider<? extends T>> providerKey) {
-    super(source, key, scoping);
-    this.providerKey = providerKey;
-    this.delayedInitializer = null;
-  }
-
-  static <T> LinkedProviderBindingImpl<T> createWithInitializer(
+static <T> LinkedProviderBindingImpl<T> createWithInitializer(
       InjectorImpl injector,
       Key<T> key,
       Object source,
@@ -74,49 +74,49 @@ final class LinkedProviderBindingImpl<T> extends BindingImpl<T>
       Scoping scoping,
       Key<? extends javax.inject.Provider<? extends T>> providerKey,
       DelayedInitialize delayedInitializer) {
-    return new LinkedProviderBindingImpl<T>(
+    return new LinkedProviderBindingImpl<>(
         injector, key, source, internalFactory, scoping, providerKey, delayedInitializer);
   }
 
-  @Override
+@Override
   public <V> V acceptTargetVisitor(BindingTargetVisitor<? super T, V> visitor) {
     return visitor.visit(this);
   }
 
-  @Override
+@Override
   public Key<? extends javax.inject.Provider<? extends T>> getProviderKey() {
     return providerKey;
   }
 
-  @Override
+@Override
   public void initialize(InjectorImpl injector, Errors errors) throws ErrorsException {
     if (delayedInitializer != null) {
       delayedInitializer.initialize(injector, errors);
     }
   }
 
-  @Override
+@Override
   public Set<Dependency<?>> getDependencies() {
     return ImmutableSet.<Dependency<?>>of(Dependency.get(providerKey));
   }
 
-  @Override
+@Override
   public BindingImpl<T> withScoping(Scoping scoping) {
-    return new LinkedProviderBindingImpl<T>(getSource(), getKey(), scoping, providerKey);
+    return new LinkedProviderBindingImpl<>(getSource(), getKey(), scoping, providerKey);
   }
 
-  @Override
+@Override
   public BindingImpl<T> withKey(Key<T> key) {
-    return new LinkedProviderBindingImpl<T>(getSource(), key, getScoping(), providerKey);
+    return new LinkedProviderBindingImpl<>(getSource(), key, getScoping(), providerKey);
   }
 
-  @Override
+@Override
   public void applyTo(Binder binder) {
     getScoping()
         .applyTo(binder.withSource(getSource()).bind(getKey()).toProvider(getProviderKey()));
   }
 
-  @Override
+@Override
   public String toString() {
     return MoreObjects.toStringHelper(ProviderKeyBinding.class)
         .add("key", getKey())
@@ -126,7 +126,7 @@ final class LinkedProviderBindingImpl<T> extends BindingImpl<T>
         .toString();
   }
 
-  @Override
+@Override
   public boolean equals(Object obj) {
     if (obj instanceof LinkedProviderBindingImpl) {
       LinkedProviderBindingImpl<?> o = (LinkedProviderBindingImpl<?>) obj;
@@ -138,7 +138,7 @@ final class LinkedProviderBindingImpl<T> extends BindingImpl<T>
     }
   }
 
-  @Override
+@Override
   public int hashCode() {
     return Objects.hashCode(getKey(), getScoping(), providerKey);
   }

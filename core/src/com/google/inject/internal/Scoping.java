@@ -159,7 +159,9 @@ public abstract class Scoping {
         }
       };
 
-  public static Scoping forAnnotation(final Class<? extends Annotation> scopingAnnotation) {
+  private Scoping() {}
+
+public static Scoping forAnnotation(final Class<? extends Annotation> scopingAnnotation) {
     if (scopingAnnotation == Singleton.class || scopingAnnotation == javax.inject.Singleton.class) {
       return SINGLETON_ANNOTATION;
     }
@@ -187,7 +189,7 @@ public abstract class Scoping {
     };
   }
 
-  public static Scoping forInstance(final Scope scope) {
+public static Scoping forInstance(final Scope scope) {
     if (scope == Scopes.SINGLETON) {
       return SINGLETON_INSTANCE;
     } else if (scope == Scopes.NO_SCOPE) {
@@ -217,7 +219,7 @@ public abstract class Scoping {
     };
   }
 
-  /**
+/**
    * Returns true if this scope was explicitly applied. If no scope was explicitly applied then the
    * scoping annotation will be used.
    */
@@ -225,7 +227,7 @@ public abstract class Scoping {
     return this != UNSCOPED;
   }
 
-  /**
+/**
    * Returns true if this is the default scope. In this case a new instance will be provided for
    * each injection.
    */
@@ -233,7 +235,7 @@ public abstract class Scoping {
     return getScopeInstance() == Scopes.NO_SCOPE;
   }
 
-  /** Returns true if this scope is a singleton that should be loaded eagerly in {@code stage}. */
+/** Returns true if this scope is a singleton that should be loaded eagerly in {@code stage}. */
   public boolean isEagerSingleton(Stage stage) {
     if (this == EAGER_SINGLETON) {
       return true;
@@ -246,17 +248,17 @@ public abstract class Scoping {
     return false;
   }
 
-  /** Returns the scope instance, or {@code null} if that isn't known for this instance. */
+/** Returns the scope instance, or {@code null} if that isn't known for this instance. */
   public Scope getScopeInstance() {
     return null;
   }
 
-  /** Returns the scope annotation, or {@code null} if that isn't known for this instance. */
+/** Returns the scope annotation, or {@code null} if that isn't known for this instance. */
   public Class<? extends Annotation> getScopeAnnotation() {
     return null;
   }
 
-  @Override
+@Override
   public boolean equals(Object obj) {
     if (obj instanceof Scoping) {
       Scoping o = (Scoping) obj;
@@ -267,18 +269,16 @@ public abstract class Scoping {
     }
   }
 
-  @Override
+@Override
   public int hashCode() {
     return Objects.hashCode(getScopeAnnotation(), getScopeInstance());
   }
 
-  public abstract <V> V acceptVisitor(BindingScopingVisitor<V> visitor);
+public abstract <V> V acceptVisitor(BindingScopingVisitor<V> visitor);
 
-  public abstract void applyTo(ScopedBindingBuilder scopedBindingBuilder);
+public abstract void applyTo(ScopedBindingBuilder scopedBindingBuilder);
 
-  private Scoping() {}
-
-  /** Scopes an internal factory. */
+/** Scopes an internal factory. */
   static <T> InternalFactory<? extends T> scope(
       Key<T> key,
       InjectorImpl injector,
@@ -296,11 +296,11 @@ public abstract class Scoping {
     // ProviderToInternalFactoryAdapter here.  If you change the type make sure to update
     // SingletonScope as well.
     Provider<T> scoped =
-        scope.scope(key, new ProviderToInternalFactoryAdapter<T>(injector, creator));
+        scope.scope(key, new ProviderToInternalFactoryAdapter<>(injector, creator));
     return new InternalFactoryToProviderAdapter<T>(scoped, source);
   }
 
-  /**
+/**
    * Replaces annotation scopes with instance scopes using the Injector's annotation-to-instance
    * map. If the scope annotation has no corresponding instance, an error will be added and unscoped
    * will be retuned.

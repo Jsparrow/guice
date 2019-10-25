@@ -36,7 +36,23 @@ public class Struts2FactoryTest extends TestCase {
 
   private static final Date TODAY = new Date();
 
-  public static class TestListener extends GuiceServletContextListener {
+  public void testStruts2Factory() {
+    Struts2Factory s2Factory = new Struts2Factory();
+    TestListener testListener =
+        new TestListener(
+            new AbstractModule() {
+
+              @Provides
+              @SuppressWarnings("unused")
+              Date provideDate() {
+                return TODAY;
+              }
+            });
+    assertEquals(TODAY, testListener.getInjector().getInstance(Date.class));
+    assertEquals(TODAY, s2Factory.buildBean(Date.class, null));
+  }
+
+public static class TestListener extends GuiceServletContextListener {
 
     private final Module module;
 
@@ -59,21 +75,5 @@ public class Struts2FactoryTest extends TestCase {
           },
           module);
     }
-  }
-
-  public void testStruts2Factory() {
-    Struts2Factory s2Factory = new Struts2Factory();
-    TestListener testListener =
-        new TestListener(
-            new AbstractModule() {
-
-              @Provides
-              @SuppressWarnings("unused")
-              Date provideDate() {
-                return TODAY;
-              }
-            });
-    assertEquals(TODAY, testListener.getInjector().getInstance(Date.class));
-    assertEquals(TODAY, s2Factory.buildBean(Date.class, null));
   }
 }

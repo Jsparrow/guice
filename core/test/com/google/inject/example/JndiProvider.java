@@ -43,6 +43,6 @@ class JndiProvider<T> implements Provider<T> {
 
   /** Creates a JNDI provider for the given type and name. */
   static <T> Provider<T> fromJndi(Class<T> type, String name) {
-    return new JndiProvider<T>(type, name);
+    return new JndiProvider<>(type, name);
   }
 }

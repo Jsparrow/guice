@@ -27,7 +27,7 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class BindingAnnotationTest extends TestCase {
 
-  public void testAnnotationWithValueMatchesKeyWithTypeOnly() throws CreationException {
+  public void testAnnotationWithValueMatchesKeyWithTypeOnly() {
     Injector c =
         Guice.createInjector(
             new AbstractModule() {
@@ -125,48 +125,6 @@ public class BindingAnnotationTest extends TestCase {
     }
   }
 
-  static class BlueFoo {
-    @Inject
-    @Blue(5)
-    String s;
-  }
-
-  static class RedFoo {
-    @Inject @Red String s;
-  }
-
-  static class ColorFoo {
-    @Inject
-    @Color(b = 2)
-    String s;
-  }
-
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface Blue {
-    int value();
-  }
-
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface Red {
-    int r() default 42;
-
-    int g() default 42;
-
-    int b() default 42;
-  }
-
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface Color {
-    int r() default 0;
-
-    int g() default 0;
-
-    int b();
-  }
-
   public Blue createBlue(final int value) {
     return new Blue() {
       @Override
@@ -189,5 +147,47 @@ public class BindingAnnotationTest extends TestCase {
         return 127 * "value".hashCode() ^ value;
       }
     };
+  }
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface Blue {
+    int value();
+  }
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface Red {
+    int r() default 42;
+
+    int g() default 42;
+
+    int b() default 42;
+  }
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface Color {
+    int r() default 0;
+
+    int g() default 0;
+
+    int b();
+  }
+
+static class BlueFoo {
+    @Inject
+    @Blue(5)
+    String s;
+  }
+
+  static class RedFoo {
+    @Inject @Red String s;
+  }
+
+  static class ColorFoo {
+    @Inject
+    @Color(b = 2)
+    String s;
   }
 }

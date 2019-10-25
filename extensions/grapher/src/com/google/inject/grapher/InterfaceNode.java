@@ -40,6 +40,6 @@ public class InterfaceNode extends Node {
 
   @Override
   public String toString() {
-    return "InterfaceNode{id=" + getId() + " source=" + getSource() + "}";
+    return new StringBuilder().append("InterfaceNode{id=").append(getId()).append(" source=").append(getSource()).append("}").toString();
   }
 }

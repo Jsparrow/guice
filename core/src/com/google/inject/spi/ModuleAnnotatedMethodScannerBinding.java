@@ -57,11 +57,6 @@ public final class ModuleAnnotatedMethodScannerBinding implements Element {
 
   @Override
   public String toString() {
-    return scanner
-        + " which scans for "
-        + scanner.annotationClasses()
-        + " (bound at "
-        + Errors.convert(source)
-        + ")";
+    return new StringBuilder().append(scanner).append(" which scans for ").append(scanner.annotationClasses()).append(" (bound at ").append(Errors.convert(source)).append(")").toString();
   }
 }

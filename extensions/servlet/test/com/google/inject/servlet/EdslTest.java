@@ -77,7 +77,7 @@ public class EdslTest extends TestCase {
 
             filterRegex("/person/[0-9]*").through(new DummyFilterImpl());
             filterRegex("/person/[0-9]*")
-                .through(new DummyFilterImpl(), new HashMap<String, String>());
+                .through(new DummyFilterImpl(), new HashMap<>());
 
             serve("/1/*").with(DummyServlet.class);
             serve("/2/*").with(Key.get(DummyServlet.class));
@@ -95,7 +95,7 @@ public class EdslTest extends TestCase {
                 .with(Key.get(DummyServlet.class), new HashMap<String, String>());
 
             serveRegex("/person/[0-5]*").with(new DummyServlet());
-            serveRegex("/person/[0-9]/3/*").with(new DummyServlet(), new HashMap<String, String>());
+            serveRegex("/person/[0-9]/3/*").with(new DummyServlet(), new HashMap<>());
           }
         };
 

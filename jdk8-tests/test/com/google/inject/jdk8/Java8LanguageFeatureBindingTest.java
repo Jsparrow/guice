@@ -124,20 +124,6 @@ public class Java8LanguageFeatureBindingTest extends TestCase {
     assertEquals(uuid.toString(), injector.getInstance(String.class));
   }
 
-  private static final class StringProvider implements Provider<String> {
-    private final UUID uuid;
-
-    @Inject
-    StringProvider(UUID uuid) {
-      this.uuid = uuid;
-    }
-
-    @Override
-    public String get() {
-      return Collections.singleton(uuid).stream().map(UUID::toString).findFirst().get();
-    }
-  }
-
   public void testBinding_toProvider_lambda() {
     Injector injector =
         Guice.createInjector(
@@ -153,7 +139,7 @@ public class Java8LanguageFeatureBindingTest extends TestCase {
     assertEquals("Hello2", injector.getInstance(String.class));
   }
 
-  public void testBinding_toProvider_methodReference() {
+public void testBinding_toProvider_methodReference() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -167,7 +153,21 @@ public class Java8LanguageFeatureBindingTest extends TestCase {
     assertEquals("Hello", provider.get());
   }
 
-  private String provideString() {
+private String provideString() {
     return "Hello";
+  }
+
+private static final class StringProvider implements Provider<String> {
+    private final UUID uuid;
+
+    @Inject
+    StringProvider(UUID uuid) {
+      this.uuid = uuid;
+    }
+
+    @Override
+    public String get() {
+      return Collections.singleton(uuid).stream().map(UUID::toString).findFirst().get();
+    }
   }
 }

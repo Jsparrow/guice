@@ -33,24 +33,16 @@ class DelegatingInvocationHandler<T> implements InvocationHandler {
       // checking volatile field for synchronization
       Preconditions.checkState(
           initialized,
-          "This is a proxy used to support"
-              + " circular references. The object we're"
-              + " proxying is not constructed yet. Please wait until after"
-              + " injection has completed to use this object.");
+          new StringBuilder().append("This is a proxy used to support").append(" circular references. The object we're").append(" proxying is not constructed yet. Please wait until after").append(" injection has completed to use this object.").toString());
       Preconditions.checkNotNull(
           delegate,
-          "This is a proxy used to support"
-              + " circular references. The object we're "
-              + " proxying is initialized to null."
-              + " No methods can be called.");
+          new StringBuilder().append("This is a proxy used to support").append(" circular references. The object we're ").append(" proxying is initialized to null.").append(" No methods can be called.").toString());
 
       // TODO: method.setAccessible(true); ?
       // this would fix visibility errors when we proxy a
       // non-public interface.
       return method.invoke(delegate, args);
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException(e);
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException | IllegalAccessException e) {
       throw new RuntimeException(e);
     } catch (InvocationTargetException e) {
       throw e.getTargetException();

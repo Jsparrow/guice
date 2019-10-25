@@ -40,10 +40,8 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
       assertEquals(1, ce.getErrorMessages().size());
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + NoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(NoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure");
     }
   }
@@ -63,9 +61,7 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
     } catch (ConfigurationException ce) {
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + NoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(NoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
           "while locating " + NoCxtors.class.getName());
     }
   }
@@ -85,10 +81,8 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
       assertEquals(1, ce.getErrorMessages().size());
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + NoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(NoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure");
     }
   }
@@ -114,10 +108,8 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
       assertEquals(1, ce.getErrorMessages().size());
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + NoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(NoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure");
     }
   }
@@ -138,15 +130,11 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
       assertEquals(2, ce.getErrorMessages().size());
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + NoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(NoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure",
-          "2) Explicit @Inject annotations are required on constructors, but "
-              + AnotherNoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("2) Explicit @Inject annotations are required on constructors, but ").append(AnotherNoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure");
     }
   }
@@ -175,10 +163,8 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
       assertEquals(1, ce.getErrorMessages().size());
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + NoCxtors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(NoCxtors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure");
     }
   }
@@ -198,10 +184,8 @@ public class RequireAtInjectOnConstructorsTest extends TestCase {
       assertEquals(1, ce.getErrorMessages().size());
       Asserts.assertContains(
           ce.getMessage(),
-          "1) Explicit @Inject annotations are required on constructors, but "
-              + ManyConstructors.class.getName()
-              + " has no constructors annotated with @Inject",
-          "at " + RequireAtInjectOnConstructorsTest.class.getName() + "$",
+          new StringBuilder().append("1) Explicit @Inject annotations are required on constructors, but ").append(ManyConstructors.class.getName()).append(" has no constructors annotated with @Inject").toString(),
+          new StringBuilder().append("at ").append(RequireAtInjectOnConstructorsTest.class.getName()).append("$").toString(),
           "configure");
     }
   }

@@ -44,7 +44,10 @@ import junit.framework.TestCase;
  * @author Dhanji R. Prasanna (dhanji gmail com)
  */
 public class VarargsServletDispatchIntegrationTest extends TestCase {
-  private static int inits, services, destroys, doFilters;
+  private static int inits;
+private static int services;
+private static int destroys;
+private static int doFilters;
 
   @Override
   public void setUp() {
@@ -90,12 +93,7 @@ public class VarargsServletDispatchIntegrationTest extends TestCase {
     verify(requestMock);
 
     assertTrue(
-        "lifecycle states did not fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + services
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not fire correct number of times-- inits: ").append(inits).append("; dos: ").append(services).append("; destroys: ").append(destroys).toString(),
         inits == 2 && services == 1 && destroys == 2);
   }
 
@@ -133,12 +131,7 @@ public class VarargsServletDispatchIntegrationTest extends TestCase {
     verify(requestMock);
 
     assertTrue(
-        "lifecycle states did not fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + services
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not fire correct number of times-- inits: ").append(inits).append("; dos: ").append(services).append("; destroys: ").append(destroys).toString(),
         inits == 2 && services == 1 && destroys == 2);
   }
 
@@ -179,12 +172,7 @@ public class VarargsServletDispatchIntegrationTest extends TestCase {
     verify(requestMock);
 
     assertTrue(
-        "lifecycle states did not fire correct number of times-- inits: "
-            + inits
-            + "; dos: "
-            + services
-            + "; destroys: "
-            + destroys,
+        new StringBuilder().append("lifecycle states did not fire correct number of times-- inits: ").append(inits).append("; dos: ").append(services).append("; destroys: ").append(destroys).toString(),
         inits == 3 && services == 1 && destroys == 3 && doFilters == 1);
   }
 

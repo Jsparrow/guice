@@ -60,7 +60,7 @@ final class LineNumbers {
     if (!type.isArray()) {
       InputStream in = null;
       try {
-        in = type.getResourceAsStream("/" + type.getName().replace('.', '/') + ".class");
+        in = type.getResourceAsStream(new StringBuilder().append("/").append(type.getName().replace('.', '/')).append(".class").toString());
       } catch (IllegalStateException ignored) {
         // Some classloaders throw IllegalStateException when they can't load a resource.
       }
@@ -183,10 +183,11 @@ final class LineNumbers {
       }
 
       this.line = line;
-      if (pendingMethod != null) {
-        lines.put(pendingMethod, line);
-        pendingMethod = null;
-      }
+      if (pendingMethod == null) {
+		return;
+	}
+	lines.put(pendingMethod, line);
+	pendingMethod = null;
     }
 
     @Override

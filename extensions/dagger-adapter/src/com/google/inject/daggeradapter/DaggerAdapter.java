@@ -73,12 +73,18 @@ import java.util.Set;
  * @author cgruber@google.com (Christian Gruber)
  */
 public final class DaggerAdapter {
-  /** Creates a new {@link DaggerAdapter} from {@code daggerModuleObjects}. */
-  public static Module from(Object... daggerModuleObjects) {
-    return new DaggerCompatibilityModule(ImmutableList.copyOf(daggerModuleObjects));
-  }
+  private DaggerAdapter() {}
 
-  /**
+	/** Creates a new {@link DaggerAdapter} from {@code daggerModuleObjects}. */
+	  public static Module from(Object... daggerModuleObjects) {
+	    return new DaggerCompatibilityModule(ImmutableList.copyOf(daggerModuleObjects));
+	  }
+
+	private static Class<?> moduleClass(Object module) {
+	    return module instanceof Class ? (Class<?>) module : module.getClass();
+	  }
+
+/**
    * A Module that adapts Dagger {@code @Module}-annotated types to contribute configuration to an
    * {@link com.google.inject.Injector} using a dagger-specific {@link
    * ModuleAnnotatedMethodScanner}.
@@ -112,7 +118,7 @@ public final class DaggerAdapter {
     }
 
     private static void checkUnsupportedDaggerAnnotations(Object module, Binder binder) {
-      for (Method method : allDeclaredMethods(moduleClass(module))) {
+      allDeclaredMethods(moduleClass(module)).forEach(method -> {
         for (Annotation annotation : method.getAnnotations()) {
           Class<? extends Annotation> annotationClass = annotation.annotationType();
           if (annotationClass.getName().startsWith("dagger.")
@@ -122,7 +128,7 @@ public final class DaggerAdapter {
                 method, annotationClass.getCanonicalName());
           }
         }
-      }
+      });
     }
 
     private static ImmutableList<Method> allDeclaredMethods(Class<?> clazz) {
@@ -194,20 +200,17 @@ public final class DaggerAdapter {
     }
   }
 
-  private static Class<?> moduleClass(Object module) {
-    return module instanceof Class ? (Class<?>) module : module.getClass();
-  }
-
   private static class ModuleTraversingQueue {
     private final Deque<Class<?>> queue = new ArrayDeque<>();
     private final Set<Object> visited = new HashSet<>();
     private final ImmutableList.Builder<Object> transitiveModules = ImmutableList.builder();
 
     void add(Object module) {
-      if (visited.add(module)) {
-        transitiveModules.add(module);
-        queue.add(moduleClass(module));
-      }
+      if (!visited.add(module)) {
+		return;
+	}
+	transitiveModules.add(module);
+	queue.add(moduleClass(module));
     }
 
     boolean isEmpty() {
@@ -222,6 +225,4 @@ public final class DaggerAdapter {
       return transitiveModules.build();
     }
   }
-
-  private DaggerAdapter() {}
 }

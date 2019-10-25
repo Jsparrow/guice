@@ -139,57 +139,13 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
       assertEquals(1, expected.getErrorMessages().size());
       assertContains(
           expected.getMessage(),
-          "More than one annotation claimed by NamedMunger on method "
-              + module.getClass().getName()
-              + ".foo(). Methods can only have "
-              + "one annotation claimed per scanner.");
+          new StringBuilder().append("More than one annotation claimed by NamedMunger on method ").append(module.getClass().getName()).append(".foo(). Methods can only have ").append("one annotation claimed per scanner.").toString());
     }
   }
 
   private String methodName(Class<? extends Annotation> annotation, String method, Object container)
       throws Exception {
-    return "@"
-        + annotation.getName()
-        + " "
-        + StackTraceElements.forMember(container.getClass().getDeclaredMethod(method));
-  }
-
-  @Documented
-  @Target(METHOD)
-  @Retention(RUNTIME)
-  private @interface TestProvides {}
-
-  @Documented
-  @Target(METHOD)
-  @Retention(RUNTIME)
-  private @interface TestProvides2 {}
-
-  private static class NamedMunger extends ModuleAnnotatedMethodScanner {
-    static Module module() {
-      return new AbstractModule() {
-        @Override
-        protected void configure() {
-          binder().scanModulesForAnnotatedMethods(new NamedMunger());
-        }
-      };
-    }
-
-    @Override
-    public String toString() {
-      return "NamedMunger";
-    }
-
-    @Override
-    public Set<? extends Class<? extends Annotation>> annotationClasses() {
-      return ImmutableSet.of(TestProvides.class, TestProvides2.class);
-    }
-
-    @Override
-    public <T> Key<T> prepareMethod(
-        Binder binder, Annotation annotation, Key<T> key, InjectionPoint injectionPoint) {
-      return Key.get(
-          key.getTypeLiteral(), Names.named(((Named) key.getAnnotation()).value() + "-munged"));
-    }
+    return new StringBuilder().append("@").append(annotation.getName()).append(" ").append(StackTraceElements.forMember(container.getClass().getDeclaredMethod(method))).toString();
   }
 
   private void assertMungedBinding(
@@ -199,7 +155,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertEquals(expectedValue, fooBinding.getProvider().get());
   }
 
-  public void testFailingScanner() {
+public void testFailingScanner() {
     try {
       Guice.createInjector(new SomeModule(), FailingScanner.module());
       fail();
@@ -212,42 +168,12 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
       assertEquals(
           SomeModule.class.getName(), Iterables.getOnlyElement(source.getModuleClassNames()));
       assertEquals(
-          String.class.getName() + " " + SomeModule.class.getName() + ".aString()",
+          new StringBuilder().append(String.class.getName()).append(" ").append(SomeModule.class.getName()).append(".aString()").toString(),
           source.toString());
     }
   }
 
-  public static class FailingScanner extends ModuleAnnotatedMethodScanner {
-    static Module module() {
-      return new AbstractModule() {
-        @Override
-        protected void configure() {
-          binder().scanModulesForAnnotatedMethods(new FailingScanner());
-        }
-      };
-    }
-
-    @Override
-    public Set<? extends Class<? extends Annotation>> annotationClasses() {
-      return ImmutableSet.of(TestProvides.class);
-    }
-
-    @Override
-    public <T> Key<T> prepareMethod(
-        Binder binder, Annotation rawAnnotation, Key<T> key, InjectionPoint injectionPoint) {
-      throw new IllegalStateException("Failing in the scanner.");
-    }
-  }
-
-  static class SomeModule extends AbstractModule {
-    @TestProvides
-    String aString() {
-      return "Foo";
-    }
-
-  }
-
-  public void testChildInjectorInheritsScanner() {
+public void testChildInjectorInheritsScanner() {
     Injector parent = Guice.createInjector(NamedMunger.module());
     Injector child =
         parent.createChildInjector(
@@ -262,7 +188,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(child, String.class, "foo", "foo");
   }
 
-  public void testChildInjectorScannersDontImpactSiblings() {
+public void testChildInjectorScannersDontImpactSiblings() {
     Module module =
         new AbstractModule() {
 
@@ -282,7 +208,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertNull(sibling.getExistingBinding(Key.get(String.class, named("foo-munged"))));
   }
 
-  public void testPrivateModuleInheritScanner_usingPrivateModule() {
+public void testPrivateModuleInheritScanner_usingPrivateModule() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -300,7 +226,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModule_skipSourcesWithinPrivateModule() {
+public void testPrivateModule_skipSourcesWithinPrivateModule() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -324,7 +250,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModule_skipSourcesForPrivateModule() {
+public void testPrivateModule_skipSourcesForPrivateModule() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -350,7 +276,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModuleInheritScanner_usingPrivateBinder() {
+public void testPrivateModuleInheritScanner_usingPrivateBinder() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -374,7 +300,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModuleInheritScanner_skipSourcesFromPrivateBinder() {
+public void testPrivateModuleInheritScanner_skipSourcesFromPrivateBinder() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -399,7 +325,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModuleInheritScanner_skipSourcesFromPrivateBinder2() {
+public void testPrivateModuleInheritScanner_skipSourcesFromPrivateBinder2() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -424,7 +350,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModuleScannersDontImpactSiblings_usingPrivateModule() {
+public void testPrivateModuleScannersDontImpactSiblings_usingPrivateModule() {
     Injector injector =
         Guice.createInjector(
             new PrivateModule() {
@@ -455,7 +381,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModuleScannersDontImpactSiblings_usingPrivateBinder() {
+public void testPrivateModuleScannersDontImpactSiblings_usingPrivateBinder() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -500,7 +426,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testPrivateModuleWithinPrivateModule() {
+public void testPrivateModuleWithinPrivateModule() {
     Injector injector =
         Guice.createInjector(
             NamedMunger.module(),
@@ -525,7 +451,7 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
     assertMungedBinding(injector, String.class, "foo", "foo");
   }
 
-  public void testAbstractMethodsAreScannedForOverrides() {
+public void testAbstractMethodsAreScannedForOverrides() {
     abstract class Superclass {
       @TestProvides
       abstract boolean abstractTest();
@@ -559,5 +485,73 @@ public class ModuleAnnotatedMethodScannerTest extends TestCase {
           String.format(
               "Overriding @%s methods is not allowed", TestProvides.class.getCanonicalName()));
     }
+  }
+
+@Documented
+  @Target(METHOD)
+  @Retention(RUNTIME)
+  private @interface TestProvides {}
+
+@Documented
+  @Target(METHOD)
+  @Retention(RUNTIME)
+  private @interface TestProvides2 {}
+
+private static class NamedMunger extends ModuleAnnotatedMethodScanner {
+    static Module module() {
+      return new AbstractModule() {
+        @Override
+        protected void configure() {
+          binder().scanModulesForAnnotatedMethods(new NamedMunger());
+        }
+      };
+    }
+
+    @Override
+    public String toString() {
+      return "NamedMunger";
+    }
+
+    @Override
+    public Set<? extends Class<? extends Annotation>> annotationClasses() {
+      return ImmutableSet.of(TestProvides.class, TestProvides2.class);
+    }
+
+    @Override
+    public <T> Key<T> prepareMethod(
+        Binder binder, Annotation annotation, Key<T> key, InjectionPoint injectionPoint) {
+      return Key.get(
+          key.getTypeLiteral(), Names.named(((Named) key.getAnnotation()).value() + "-munged"));
+    }
+  }
+
+  public static class FailingScanner extends ModuleAnnotatedMethodScanner {
+    static Module module() {
+      return new AbstractModule() {
+        @Override
+        protected void configure() {
+          binder().scanModulesForAnnotatedMethods(new FailingScanner());
+        }
+      };
+    }
+
+    @Override
+    public Set<? extends Class<? extends Annotation>> annotationClasses() {
+      return ImmutableSet.of(TestProvides.class);
+    }
+
+    @Override
+    public <T> Key<T> prepareMethod(
+        Binder binder, Annotation rawAnnotation, Key<T> key, InjectionPoint injectionPoint) {
+      throw new IllegalStateException("Failing in the scanner.");
+    }
+  }
+
+  static class SomeModule extends AbstractModule {
+    @TestProvides
+    String aString() {
+      return "Foo";
+    }
+
   }
 }

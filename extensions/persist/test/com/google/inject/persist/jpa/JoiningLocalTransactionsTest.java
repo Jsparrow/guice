@@ -28,17 +28,20 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
 import junit.framework.TestCase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** @author Dhanji R. Prasanna (dhanji@gmail.com) */
 
 public class JoiningLocalTransactionsTest extends TestCase {
-  private Injector injector;
-  private static final String UNIQUE_TEXT =
-      JoiningLocalTransactionsTest.class + "some unique text" + new Date();
-  private static final String TRANSIENT_UNIQUE_TEXT =
-      JoiningLocalTransactionsTest.class + "some other unique text" + new Date();
+  private static final Logger logger = LoggerFactory.getLogger(JoiningLocalTransactionsTest.class);
+private static final String UNIQUE_TEXT =
+      new StringBuilder().append(JoiningLocalTransactionsTest.class).append("some unique text").append(new Date()).toString();
+private static final String TRANSIENT_UNIQUE_TEXT =
+      new StringBuilder().append(JoiningLocalTransactionsTest.class).append("some other unique text").append(new Date()).toString();
+private Injector injector;
 
-  @Override
+@Override
   public void setUp() {
     injector = Guice.createInjector(new JpaPersistModule("testUnit"));
 
@@ -46,14 +49,14 @@ public class JoiningLocalTransactionsTest extends TestCase {
     injector.getInstance(PersistService.class).start();
   }
 
-  //cleanup entitymanager in case some of the rollback tests left it in an open state
+//cleanup entitymanager in case some of the rollback tests left it in an open state
   @Override
   public final void tearDown() {
     injector.getInstance(UnitOfWork.class).end();
     injector.getInstance(EntityManagerFactory.class).close();
   }
 
-  public void testSimpleTransaction() {
+public void testSimpleTransaction() {
     injector
         .getInstance(JoiningLocalTransactionsTest.TransactionalObject.class)
         .runOperationInTxn();
@@ -76,13 +79,14 @@ public class JoiningLocalTransactionsTest extends TestCase {
         ((JpaTestEntity) result).getText());
   }
 
-  public void testSimpleTransactionRollbackOnChecked() {
+public void testSimpleTransactionRollbackOnChecked() {
     try {
       injector
           .getInstance(JoiningLocalTransactionsTest.TransactionalObject.class)
           .runOperationInTxnThrowingChecked();
     } catch (IOException e) {
-      //ignore
+      logger.error(e.getMessage(), e);
+	//ignore
       injector.getInstance(UnitOfWork.class).end();
     }
 
@@ -101,16 +105,18 @@ public class JoiningLocalTransactionsTest extends TestCase {
       injector.getInstance(UnitOfWork.class).end();
       fail("a result was returned! rollback sure didnt happen!!!");
     } catch (NoResultException e) {
+		logger.error(e.getMessage(), e);
     }
   }
 
-  public void testSimpleTransactionRollbackOnUnchecked() {
+public void testSimpleTransactionRollbackOnUnchecked() {
     try {
       injector
           .getInstance(JoiningLocalTransactionsTest.TransactionalObject.class)
           .runOperationInTxnThrowingUnchecked();
     } catch (RuntimeException re) {
-      //ignore
+      logger.error(re.getMessage(), re);
+	//ignore
       injector.getInstance(UnitOfWork.class).end();
     }
 
@@ -127,10 +133,10 @@ public class JoiningLocalTransactionsTest extends TestCase {
       injector.getInstance(UnitOfWork.class).end();
       fail("a result was returned! rollback sure didnt happen!!!");
     } catch (NoResultException e) {
+		logger.error(e.getMessage(), e);
     }
   }
-
-  public static class TransactionalObject {
+public static class TransactionalObject {
     private final EntityManager em;
 
     @Inject

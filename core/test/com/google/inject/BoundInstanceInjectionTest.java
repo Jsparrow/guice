@@ -29,7 +29,7 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class BoundInstanceInjectionTest extends TestCase {
 
-  public void testInstancesAreInjected() throws CreationException {
+  public void testInstancesAreInjected() {
     final O o = new O();
 
     Injector injector =
@@ -45,16 +45,7 @@ public class BoundInstanceInjectionTest extends TestCase {
     assertEquals(5, o.fromMethod);
   }
 
-  static class O {
-    int fromMethod;
-
-    @Inject
-    void setInt(int i) {
-      this.fromMethod = i;
-    }
-  }
-
-  public void testProvidersAreInjected() throws CreationException {
+  public void testProvidersAreInjected() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -79,7 +70,7 @@ public class BoundInstanceInjectionTest extends TestCase {
     assertEquals(5, injector.getInstance(O.class).fromMethod);
   }
 
-  public void testMalformedInstance() {
+public void testMalformedInstance() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -95,11 +86,11 @@ public class BoundInstanceInjectionTest extends TestCase {
           MalformedInjectable.class.getName(),
           ".doublyAnnotated() has more than one ",
           "annotation annotated with @BindingAnnotation: ",
-          Named.class.getName() + " and " + Another.class.getName());
+          new StringBuilder().append(Named.class.getName()).append(" and ").append(Another.class.getName()).toString());
     }
   }
 
-  public void testMalformedProvider() {
+public void testMalformedProvider() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -115,7 +106,21 @@ public class BoundInstanceInjectionTest extends TestCase {
           MalformedProvider.class.getName(),
           ".doublyAnnotated() has more than one ",
           "annotation annotated with @BindingAnnotation: ",
-          Named.class.getName() + " and " + Another.class.getName());
+          new StringBuilder().append(Named.class.getName()).append(" and ").append(Another.class.getName()).toString());
+    }
+  }
+
+@BindingAnnotation
+  @Target({FIELD, PARAMETER, METHOD})
+  @Retention(RUNTIME)
+  public @interface Another {}
+
+static class O {
+    int fromMethod;
+
+    @Inject
+    void setInt(int i) {
+      this.fromMethod = i;
     }
   }
 
@@ -133,9 +138,4 @@ public class BoundInstanceInjectionTest extends TestCase {
       return "a";
     }
   }
-
-  @BindingAnnotation
-  @Target({FIELD, PARAMETER, METHOD})
-  @Retention(RUNTIME)
-  public @interface Another {}
 }

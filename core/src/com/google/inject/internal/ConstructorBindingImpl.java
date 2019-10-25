@@ -46,19 +46,6 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
   private final Factory<T> factory;
   private final InjectionPoint constructorInjectionPoint;
 
-  private ConstructorBindingImpl(
-      InjectorImpl injector,
-      Key<T> key,
-      Object source,
-      InternalFactory<? extends T> scopedFactory,
-      Scoping scoping,
-      Factory<T> factory,
-      InjectionPoint constructorInjectionPoint) {
-    super(injector, key, source, scopedFactory, scoping);
-    this.factory = factory;
-    this.constructorInjectionPoint = constructorInjectionPoint;
-  }
-
   public ConstructorBindingImpl(
       Key<T> key,
       Object source,
@@ -71,10 +58,23 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
         new DefaultConstructionProxyFactory<T>(constructorInjectionPoint).create();
     this.constructorInjectionPoint = constructorInjectionPoint;
     factory.constructorInjector =
-        new ConstructorInjector<T>(injectionPoints, constructionProxy, null, null);
+        new ConstructorInjector<>(injectionPoints, constructionProxy, null, null);
   }
 
-  /**
+private ConstructorBindingImpl(
+      InjectorImpl injector,
+      Key<T> key,
+      Object source,
+      InternalFactory<? extends T> scopedFactory,
+      Scoping scoping,
+      Factory<T> factory,
+      InjectionPoint constructorInjectionPoint) {
+    super(injector, key, source, scopedFactory, scoping);
+    this.factory = factory;
+    this.constructorInjectionPoint = constructorInjectionPoint;
+  }
+
+/**
    * @param constructorInjector the constructor to use, or {@code null} to use the default.
    * @param failIfNotLinked true if this ConstructorBindingImpl's InternalFactory should only
    *     succeed if retrieved from a linked binding
@@ -138,17 +138,17 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
     InternalFactory<? extends T> scopedFactory =
         Scoping.scope(key, injector, factoryFactory, source, scoping);
 
-    return new ConstructorBindingImpl<T>(
+    return new ConstructorBindingImpl<>(
         injector, key, source, scopedFactory, scoping, factoryFactory, constructorInjector);
   }
 
-  /** Returns true if the inject annotation is on the constructor. */
+/** Returns true if the inject annotation is on the constructor. */
   private static boolean hasAtInject(Constructor cxtor) {
     return cxtor.isAnnotationPresent(Inject.class)
         || cxtor.isAnnotationPresent(javax.inject.Inject.class);
   }
 
-  @Override
+@Override
   @SuppressWarnings("unchecked") // the result type always agrees with the ConstructorInjector type
   public void initialize(InjectorImpl injector, Errors errors) throws ErrorsException {
     factory.constructorInjector =
@@ -156,12 +156,12 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
     factory.provisionCallback = injector.provisionListenerStore.get(this);
   }
 
-  /** True if this binding has been initialized and is ready for use. */
+/** True if this binding has been initialized and is ready for use. */
   boolean isInitialized() {
     return factory.constructorInjector != null;
   }
 
-  /** Returns an injection point that can be used to clean up the constructor store. */
+/** Returns an injection point that can be used to clean up the constructor store. */
   InjectionPoint getInternalConstructor() {
     if (factory.constructorInjector != null) {
       return factory.constructorInjector.getConstructionProxy().getInjectionPoint();
@@ -170,7 +170,7 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
     }
   }
 
-  /** Returns a set of dependencies that can be iterated over to clean up stray JIT bindings. */
+/** Returns a set of dependencies that can be iterated over to clean up stray JIT bindings. */
   Set<Dependency<?>> getInternalDependencies() {
     ImmutableSet.Builder<InjectionPoint> builder = ImmutableSet.builder();
     if (factory.constructorInjector == null) {
@@ -190,31 +190,32 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
     return Dependency.forInjectionPoints(builder.build());
   }
 
-  @Override
+@Override
   public <V> V acceptTargetVisitor(BindingTargetVisitor<? super T, V> visitor) {
     checkState(factory.constructorInjector != null, "not initialized");
     return visitor.visit(this);
   }
 
-  @Override
+@Override
   public InjectionPoint getConstructor() {
     checkState(factory.constructorInjector != null, "Binding is not ready");
     return factory.constructorInjector.getConstructionProxy().getInjectionPoint();
   }
 
-  @Override
+@Override
   public Set<InjectionPoint> getInjectableMembers() {
     checkState(factory.constructorInjector != null, "Binding is not ready");
     return factory.constructorInjector.getInjectableMembers();
   }
 
-  /*if[AOP]*/
+/*if[AOP]*/
   @Override
   public Map<Method, List<org.aopalliance.intercept.MethodInterceptor>> getMethodInterceptors() {
     checkState(factory.constructorInjector != null, "Binding is not ready");
     return factory.constructorInjector.getConstructionProxy().getMethodInterceptors();
   }
-  /*end[AOP]*/
+
+/*end[AOP]*/
 
   @Override
   public Set<Dependency<?>> getDependencies() {
@@ -225,19 +226,19 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
             .build());
   }
 
-  @Override
+@Override
   protected BindingImpl<T> withScoping(Scoping scoping) {
-    return new ConstructorBindingImpl<T>(
+    return new ConstructorBindingImpl<>(
         null, getKey(), getSource(), factory, scoping, factory, constructorInjectionPoint);
   }
 
-  @Override
+@Override
   protected BindingImpl<T> withKey(Key<T> key) {
-    return new ConstructorBindingImpl<T>(
+    return new ConstructorBindingImpl<>(
         null, key, getSource(), factory, getScoping(), factory, constructorInjectionPoint);
   }
 
-  @Override
+@Override
   @SuppressWarnings("unchecked") // the raw constructor member and declaring type always agree
   public void applyTo(Binder binder) {
     InjectionPoint constructor = getConstructor();
@@ -251,7 +252,7 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
                     (TypeLiteral) constructor.getDeclaringType()));
   }
 
-  @Override
+@Override
   public String toString() {
     return MoreObjects.toStringHelper(ConstructorBinding.class)
         .add("key", getKey())
@@ -260,7 +261,7 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
         .toString();
   }
 
-  @Override
+@Override
   public boolean equals(Object obj) {
     if (obj instanceof ConstructorBindingImpl) {
       ConstructorBindingImpl<?> o = (ConstructorBindingImpl<?>) obj;
@@ -272,12 +273,12 @@ final class ConstructorBindingImpl<T> extends BindingImpl<T>
     }
   }
 
-  @Override
+@Override
   public int hashCode() {
     return Objects.hashCode(getKey(), getScoping(), constructorInjectionPoint);
   }
 
-  private static class Factory<T> implements InternalFactory<T> {
+private static class Factory<T> implements InternalFactory<T> {
     private final boolean failIfNotLinked;
     private final Key<?> key;
     private ConstructorInjector<T> constructorInjector;

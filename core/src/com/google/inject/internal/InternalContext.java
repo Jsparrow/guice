@@ -31,7 +31,7 @@ final class InternalContext implements AutoCloseable {
   private final InjectorOptions options;
 
   private final Map<Object, ConstructionContext<?>> constructionContexts =
-      new IdentityHashMap<Object, ConstructionContext<?>>();
+      new IdentityHashMap<>();
 
   /** Keeps track of the type that is currently being requested for injection. */
   private Dependency<?> dependency;

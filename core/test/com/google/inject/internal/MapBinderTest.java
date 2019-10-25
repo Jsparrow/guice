@@ -602,7 +602,7 @@ public class MapBinderTest extends TestCase {
           "and key: \"b\", from bindings:",
           asModuleChain(Main.class, Module2.class),
           asModuleChain(Main.class, Module3.class),
-          "at " + Main.class.getName() + ".configure(",
+          new StringBuilder().append("at ").append(Main.class.getName()).append(".configure(").toString(),
           asModuleChain(Main.class, RealMapBinder.class));
       assertEquals(1, ce.getErrorMessages().size());
     }
@@ -839,9 +839,7 @@ public class MapBinderTest extends TestCase {
     } catch (ProvisionException expected) {
       assertContains(
           expected.getMessage(),
-          "1) Map injection failed due to null value for key \"null\", bound at: "
-              + m.getClass().getName()
-              + ".configure(");
+          new StringBuilder().append("1) Map injection failed due to null value for key \"null\", bound at: ").append(m.getClass().getName()).append(".configure(").toString());
     }
   }
 
@@ -1163,7 +1161,7 @@ public class MapBinderTest extends TestCase {
   /** Ensure there are no initialization race conditions in basic map injection. */
   public void testBasicMapDependencyInjection() {
     final AtomicReference<Map<String, String>> injectedMap =
-        new AtomicReference<Map<String, String>>();
+        new AtomicReference<>();
     final Object anObject =
         new Object() {
           @Inject
@@ -1190,7 +1188,7 @@ public class MapBinderTest extends TestCase {
   /** Ensure there are no initialization race conditions in provider multimap injection. */
   public void testProviderMultimapDependencyInjection() {
     final AtomicReference<Map<String, Set<Provider<String>>>> injectedMultimap =
-        new AtomicReference<Map<String, Set<Provider<String>>>>();
+        new AtomicReference<>();
     final Object anObject =
         new Object() {
           @Inject
@@ -1219,14 +1217,6 @@ public class MapBinderTest extends TestCase {
     assertEquals(mapOf("a", "A", "b", "B", "c", "C"), map);
   }
 
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface Abc {}
-
-  @Retention(RUNTIME)
-  @BindingAnnotation
-  @interface De {}
-
   @SuppressWarnings("unchecked")
   private <K, V> Map<K, V> mapOf(Object... elements) {
     Map<K, V> result = new HashMap<>();
@@ -1236,17 +1226,12 @@ public class MapBinderTest extends TestCase {
     return result;
   }
 
-  @SuppressWarnings("unchecked")
+@SuppressWarnings("unchecked")
   private <V> Set<V> setOf(V... elements) {
-    return new HashSet<V>(Arrays.asList(elements));
+    return new HashSet<>(Arrays.asList(elements));
   }
 
-  @BindingAnnotation
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-  private static @interface Marker {}
-
-  @Marker
+@Marker
   public void testMapBinderMatching() throws Exception {
     Method m = MapBinderTest.class.getDeclaredMethod("testMapBinderMatching");
     assertNotNull(m);
@@ -1286,7 +1271,7 @@ public class MapBinderTest extends TestCase {
     assertEquals(expected, s1);
   }
 
-  public void testTwoMapBindersAreDistinct() {
+public void testTwoMapBindersAreDistinct() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -1327,7 +1312,7 @@ public class MapBinderTest extends TestCase {
     assertTrue(map2Binding.containsElement(b));
   }
 
-  // Tests for com.google.inject.internal.WeakKeySet not leaking memory.
+// Tests for com.google.inject.internal.WeakKeySet not leaking memory.
   public void testWeakKeySet_integration_mapbinder() {
     Key<Map<String, String>> mapKey = Key.get(new TypeLiteral<Map<String, String>>() {});
 
@@ -1361,7 +1346,7 @@ public class MapBinderTest extends TestCase {
     WeakKeySetUtils.assertNotBlacklisted(parentInjector, mapKey);
   }
 
-  @SuppressWarnings("rawtypes")
+@SuppressWarnings("rawtypes")
   public void testGetEntries() {
     List<com.google.inject.spi.Element> elements =
         Elements.getElements(new MapBinderWithTwoEntriesModule());
@@ -1384,7 +1369,7 @@ public class MapBinderTest extends TestCase {
     assertEquals("valueTwo", ((InstanceBinding) secondBinding).getInstance());
   }
 
-  @SuppressWarnings("rawtypes")
+@SuppressWarnings("rawtypes")
   public void testGetEntriesWithDuplicateKeys() {
     // Set up the module
     Module module =
@@ -1418,7 +1403,7 @@ public class MapBinderTest extends TestCase {
     assertEquals("a2", ((InstanceBinding) secondBinding).getInstance());
   }
 
-  @SuppressWarnings("rawtypes")
+@SuppressWarnings("rawtypes")
   public void testGetEntriesWithDuplicateValues() {
     // Set up the module
     Module module =
@@ -1451,7 +1436,7 @@ public class MapBinderTest extends TestCase {
     assertEquals("a", ((InstanceBinding) secondBinding).getInstance());
   }
 
-  @SuppressWarnings("rawtypes")
+@SuppressWarnings("rawtypes")
   public void testGetEntriesMissingProviderMapEntry() {
     List<com.google.inject.spi.Element> elements =
         Lists.newArrayList(Elements.getElements(new MapBinderWithTwoEntriesModule()));
@@ -1479,7 +1464,7 @@ public class MapBinderTest extends TestCase {
     }
   }
 
-  /**
+/**
    * Will find and return the {@link com.google.inject.spi.Element} that is a {@link
    * ProviderMapEntry} with a key that matches the one supplied by the user in {@code k}.
    *
@@ -1505,7 +1490,7 @@ public class MapBinderTest extends TestCase {
     return null;
   }
 
-  @SuppressWarnings("rawtypes")
+@SuppressWarnings("rawtypes")
   public void testGetEntriesMissingBindingForValue() {
     List<com.google.inject.spi.Element> elements =
         Lists.newArrayList(Elements.getElements(new MapBinderWithTwoEntriesModule()));
@@ -1533,7 +1518,7 @@ public class MapBinderTest extends TestCase {
     }
   }
 
-  /**
+/**
    * Will find and return the {@link com.google.inject.spi.Element} that is an {@link
    * InstanceBinding} and binds {@code vToFind}.
    */
@@ -1551,18 +1536,7 @@ public class MapBinderTest extends TestCase {
     return null;
   }
 
-  /** A simple module with a MapBinder with two entries. */
-  private static final class MapBinderWithTwoEntriesModule extends AbstractModule {
-    @Override
-    protected void configure() {
-      MapBinder<String, String> mapBinder =
-          MapBinder.newMapBinder(binder(), String.class, String.class);
-      mapBinder.addBinding("keyOne").toInstance("valueOne");
-      mapBinder.addBinding("keyTwo").toInstance("valueTwo");
-    }
-  }
-
-  /**
+/**
    * Given an {@link Iterable} of elements, return the one that is a {@link MapBinderBinding}, or
    * {@code null} if it cannot be found.
    */
@@ -1580,5 +1554,29 @@ public class MapBinderTest extends TestCase {
           });
     }
     return collector.mapbinding;
+  }
+
+@BindingAnnotation
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+  private static @interface Marker {}
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface Abc {}
+
+@Retention(RUNTIME)
+  @BindingAnnotation
+  @interface De {}
+
+/** A simple module with a MapBinder with two entries. */
+  private static final class MapBinderWithTwoEntriesModule extends AbstractModule {
+    @Override
+    protected void configure() {
+      MapBinder<String, String> mapBinder =
+          MapBinder.newMapBinder(binder(), String.class, String.class);
+      mapBinder.addBinding("keyOne").toInstance("valueOne");
+      mapBinder.addBinding("keyTwo").toInstance("valueTwo");
+    }
   }
 }

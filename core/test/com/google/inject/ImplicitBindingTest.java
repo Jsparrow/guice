@@ -27,23 +27,10 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class ImplicitBindingTest extends TestCase {
 
-  public void testCircularDependency() throws CreationException {
+  public void testCircularDependency() {
     Injector injector = Guice.createInjector();
     Foo foo = injector.getInstance(Foo.class);
     assertSame(foo, foo.bar.foo);
-  }
-
-  static class Foo {
-    @Inject Bar bar;
-  }
-
-  static class Bar {
-    final Foo foo;
-
-    @Inject
-    public Bar(Foo foo) {
-      this.foo = foo;
-    }
   }
 
   public void testDefaultImplementation() {
@@ -52,28 +39,13 @@ public class ImplicitBindingTest extends TestCase {
     i.go();
   }
 
-  @ImplementedBy(IImpl.class)
-  interface I {
-    void go();
-  }
-
-  static class IImpl implements I {
-    @Override
-    public void go() {}
-  }
-
-  static class AlternateImpl implements I {
-    @Override
-    public void go() {}
-  }
-
-  public void testDefaultProvider() {
+public void testDefaultProvider() {
     Injector injector = Guice.createInjector();
     Provided provided = injector.getInstance(Provided.class);
     provided.go();
   }
 
-  public void testBindingOverridesImplementedBy() {
+public void testBindingOverridesImplementedBy() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -85,12 +57,7 @@ public class ImplicitBindingTest extends TestCase {
     assertEquals(AlternateImpl.class, injector.getInstance(I.class).getClass());
   }
 
-  @ProvidedBy(ProvidedProvider.class)
-  interface Provided {
-    void go();
-  }
-
-  public void testNoImplicitBindingIsCreatedForAnnotatedKeys() {
+public void testNoImplicitBindingIsCreatedForAnnotatedKeys() {
     try {
       Guice.createInjector().getInstance(Key.get(I.class, Names.named("i")));
       fail();
@@ -98,31 +65,13 @@ public class ImplicitBindingTest extends TestCase {
       Asserts.assertContains(
           expected.getMessage(),
           "1) No implementation for " + I.class.getName(),
-          "annotated with @"
-              + Named.class.getName()
-              + "(value="
-              + Annotations.memberValueString("i")
-              + ") was bound.",
+          new StringBuilder().append("annotated with @").append(Named.class.getName()).append("(value=").append(Annotations.memberValueString("i")).append(") was bound.").toString(),
           "while locating " + I.class.getName(),
-          " annotated with @"
-              + Named.class.getName()
-              + "(value="
-              + Annotations.memberValueString("i")
-              + ")");
+          new StringBuilder().append(" annotated with @").append(Named.class.getName()).append("(value=").append(Annotations.memberValueString("i")).append(")").toString());
     }
   }
 
-  static class ProvidedProvider implements Provider<Provided> {
-    @Override
-    public Provided get() {
-      return new Provided() {
-        @Override
-        public void go() {}
-      };
-    }
-  }
-
-  /**
+/**
    * When we're building the binding for A, we temporarily insert that binding to support circular
    * dependencies. And so we can successfully create a binding for B. But later, when the binding
    * for A ultimately fails, we need to clean up the dependent binding for B.
@@ -169,7 +118,7 @@ public class ImplicitBindingTest extends TestCase {
     assertSame(jv2, injector.getBinding(JitValid2.class));
   }
 
-  @SuppressWarnings("unchecked")
+@SuppressWarnings("unchecked")
   private void assertFailure(Injector injector, Class clazz) {
     try {
       injector.getBinding(clazz);
@@ -178,7 +127,7 @@ public class ImplicitBindingTest extends TestCase {
       Message msg = Iterables.getOnlyElement(expected.getErrorMessages());
       Asserts.assertContains(
           msg.getMessage(),
-          "No implementation for " + InvalidInterface.class.getName() + " was bound.");
+          new StringBuilder().append("No implementation for ").append(InvalidInterface.class.getName()).append(" was bound.").toString());
       List<Object> sources = msg.getSources();
       // Assert that the first item in the sources if the key for the class we're looking up,
       // ensuring that each lookup is "new".
@@ -186,6 +135,170 @@ public class ImplicitBindingTest extends TestCase {
       // Assert that the last item in each lookup contains the InvalidInterface class
       Asserts.assertContains(
           sources.get(sources.size() - 1).toString(), Key.get(InvalidInterface.class).toString());
+    }
+  }
+
+/**
+   * Regression test for https://github.com/google/guice/issues/319
+   *
+   * <p>The bug is that a class that asks for a provider for itself during injection time, where any
+   * one of the other types required to fulfill the object creation was bound in a child
+   * constructor, explodes when the injected Provider is called.
+   *
+   * <p>It works just fine when the other types are bound in a main injector.
+   */
+  public void testInstancesRequestingProvidersForThemselvesWithChildInjectors() {
+    final Module testModule =
+        new AbstractModule() {
+          @Override
+          protected void configure() {
+            bind(String.class).toProvider(TestStringProvider.class);
+          }
+        };
+
+    // Verify it works when the type is setup in the parent.
+    Injector parentSetupRootInjector = Guice.createInjector(testModule);
+    Injector parentSetupChildInjector = parentSetupRootInjector.createChildInjector();
+    assertEquals(
+        TestStringProvider.TEST_VALUE,
+        parentSetupChildInjector
+            .getInstance(RequiresProviderForSelfWithOtherType.class)
+            .getValue());
+
+    // Verify it works when the type is setup in the child, not the parent.
+    // If it still occurs, the bug will explode here.
+    Injector childSetupRootInjector = Guice.createInjector();
+    Injector childSetupChildInjector = childSetupRootInjector.createChildInjector(testModule);
+    assertEquals(
+        TestStringProvider.TEST_VALUE,
+        childSetupChildInjector.getInstance(RequiresProviderForSelfWithOtherType.class).getValue());
+  }
+
+/**
+   * Ensure that when we cleanup failed JIT bindings, we don't break. The test here requires a
+   * sequence of JIT bindings:
+   *
+   * <ol>
+   * <li> A-> B
+   * <li> B -> C, A
+   * <li> C -> A, D
+   * <li> D not JITable
+   * </ol>
+   *
+   * <p>The problem was that C cleaned up A's binding and then handed control back to B, which tried
+   * to continue processing A.. but A was removed from the jitBindings Map, so it attempts to create
+   * a new JIT binding for A, but we haven't yet finished constructing the first JIT binding for A,
+   * so we get a recursive computation exception from ComputingConcurrentHashMap.
+   *
+   * <p>We also throw in a valid JIT binding, E, to guarantee that if something fails in this flow,
+   * it can be recreated later if it's not from a failed sequence.
+   */
+  public void testRecursiveJitBindingsCleanupCorrectly() throws Exception {
+    Injector injector = Guice.createInjector();
+    try {
+      injector.getInstance(A.class);
+      fail("Expected failure");
+    } catch (ConfigurationException expected) {
+      Message msg = Iterables.getOnlyElement(expected.getErrorMessages());
+      Asserts.assertContains(
+          msg.getMessage(),
+          new StringBuilder().append("No implementation for ").append(D.class.getName()).append(" (with no qualifier annotation) was bound, and could not find an injectable").append(" constructor").toString());
+    }
+    // Assert that we've removed all the bindings.
+    assertNull(injector.getExistingBinding(Key.get(A.class)));
+    assertNull(injector.getExistingBinding(Key.get(B.class)));
+    assertNull(injector.getExistingBinding(Key.get(C.class)));
+    assertNull(injector.getExistingBinding(Key.get(D.class)));
+
+    // Confirm that we didn't prevent 'E' from working.
+    assertNotNull(injector.getBinding(Key.get(E.class)));
+  }
+
+public void testProvidedByNonEmptyEnum() {
+    NonEmptyEnum cardSuit = Guice.createInjector().getInstance(NonEmptyEnum.class);
+
+    assertEquals(NonEmptyEnum.HEARTS, cardSuit);
+  }
+
+public void testProvidedByEmptyEnum() {
+    EmptyEnum emptyEnumValue = Guice.createInjector().getInstance(EmptyEnum.class);
+    assertNull(emptyEnumValue);
+  }
+
+// An enum cannot be implemented by anything, so it should not be possible to have a successful
+  // binding when the enum is annotated with @ImplementedBy.
+  public void testImplementedByEnum() {
+    Injector injector = Guice.createInjector();
+    try {
+      injector.getInstance(EnumWithImplementedBy.class);
+      fail("Expected failure");
+    } catch (ConfigurationException expected) {
+      Message msg = Iterables.getOnlyElement(expected.getErrorMessages());
+      Asserts.assertContains(
+          msg.getMessage(),
+          new StringBuilder().append("No implementation for ").append(EnumWithImplementedBy.class.getName()).append(" was bound.").toString());
+    }
+  }
+
+public void testImplicitJdkBindings() {
+    Injector injector = Guice.createInjector();
+    // String has a public nullary constructor, so Guice will call it.
+    assertEquals("", injector.getInstance(String.class));
+    // InetAddress has a package private constructor.  We probably shouldn't be calling it :(
+    assertNotNull(injector.getInstance(java.net.InetAddress.class));
+  }
+
+@ProvidedBy(NonEmptyEnumProvider.class)
+  enum NonEmptyEnum {
+    HEARTS,
+    DIAMONDS,
+    CLUBS,
+    SPADES
+  }
+
+@ProvidedBy(EmptyEnumProvider.class)
+  enum EmptyEnum {}
+
+@ImplementedBy(EnumWithImplementedByEnum.class)
+  enum EnumWithImplementedBy {}
+
+static class Foo {
+    @Inject Bar bar;
+  }
+
+  static class Bar {
+    final Foo foo;
+
+    @Inject
+    public Bar(Foo foo) {
+      this.foo = foo;
+    }
+  }
+
+  @ImplementedBy(IImpl.class)
+  interface I {
+    void go();
+  }
+
+  static class IImpl implements I {
+    @Override
+    public void go() {}
+  }
+
+  static class AlternateImpl implements I {
+    @Override
+    public void go() {}
+  }
+
+  @ProvidedBy(ProvidedProvider.class)
+  interface Provided {
+    void go();
+  }
+
+  static class ProvidedProvider implements Provider<Provided> {
+    @Override
+    public Provided get() {
+      return () -> {};
     }
   }
 
@@ -258,42 +371,6 @@ public class ImplicitBindingTest extends TestCase {
 
   static class JitValid2 {}
 
-  /**
-   * Regression test for https://github.com/google/guice/issues/319
-   *
-   * <p>The bug is that a class that asks for a provider for itself during injection time, where any
-   * one of the other types required to fulfill the object creation was bound in a child
-   * constructor, explodes when the injected Provider is called.
-   *
-   * <p>It works just fine when the other types are bound in a main injector.
-   */
-  public void testInstancesRequestingProvidersForThemselvesWithChildInjectors() {
-    final Module testModule =
-        new AbstractModule() {
-          @Override
-          protected void configure() {
-            bind(String.class).toProvider(TestStringProvider.class);
-          }
-        };
-
-    // Verify it works when the type is setup in the parent.
-    Injector parentSetupRootInjector = Guice.createInjector(testModule);
-    Injector parentSetupChildInjector = parentSetupRootInjector.createChildInjector();
-    assertEquals(
-        TestStringProvider.TEST_VALUE,
-        parentSetupChildInjector
-            .getInstance(RequiresProviderForSelfWithOtherType.class)
-            .getValue());
-
-    // Verify it works when the type is setup in the child, not the parent.
-    // If it still occurs, the bug will explode here.
-    Injector childSetupRootInjector = Guice.createInjector();
-    Injector childSetupChildInjector = childSetupRootInjector.createChildInjector(testModule);
-    assertEquals(
-        TestStringProvider.TEST_VALUE,
-        childSetupChildInjector.getInstance(RequiresProviderForSelfWithOtherType.class).getValue());
-  }
-
   static class TestStringProvider implements Provider<String> {
     static final String TEST_VALUE = "This is to verify it all works";
 
@@ -323,49 +400,6 @@ public class ImplicitBindingTest extends TestCase {
     }
   }
 
-  /**
-   * Ensure that when we cleanup failed JIT bindings, we don't break. The test here requires a
-   * sequence of JIT bindings:
-   *
-   * <ol>
-   * <li> A-> B
-   * <li> B -> C, A
-   * <li> C -> A, D
-   * <li> D not JITable
-   * </ol>
-   *
-   * <p>The problem was that C cleaned up A's binding and then handed control back to B, which tried
-   * to continue processing A.. but A was removed from the jitBindings Map, so it attempts to create
-   * a new JIT binding for A, but we haven't yet finished constructing the first JIT binding for A,
-   * so we get a recursive computation exception from ComputingConcurrentHashMap.
-   *
-   * <p>We also throw in a valid JIT binding, E, to guarantee that if something fails in this flow,
-   * it can be recreated later if it's not from a failed sequence.
-   */
-  public void testRecursiveJitBindingsCleanupCorrectly() throws Exception {
-    Injector injector = Guice.createInjector();
-    try {
-      injector.getInstance(A.class);
-      fail("Expected failure");
-    } catch (ConfigurationException expected) {
-      Message msg = Iterables.getOnlyElement(expected.getErrorMessages());
-      Asserts.assertContains(
-          msg.getMessage(),
-          "No implementation for "
-              + D.class.getName()
-              + " (with no qualifier annotation) was bound, and could not find an injectable"
-              + " constructor");
-    }
-    // Assert that we've removed all the bindings.
-    assertNull(injector.getExistingBinding(Key.get(A.class)));
-    assertNull(injector.getExistingBinding(Key.get(B.class)));
-    assertNull(injector.getExistingBinding(Key.get(C.class)));
-    assertNull(injector.getExistingBinding(Key.get(D.class)));
-
-    // Confirm that we didn't prevent 'E' from working.
-    assertNotNull(injector.getBinding(Key.get(E.class)));
-  }
-
   static class A {
     @Inject
     public A(B b) {}
@@ -388,34 +422,12 @@ public class ImplicitBindingTest extends TestCase {
   // Valid JITable binding
   static class E {}
 
-  public void testProvidedByNonEmptyEnum() {
-    NonEmptyEnum cardSuit = Guice.createInjector().getInstance(NonEmptyEnum.class);
-
-    assertEquals(NonEmptyEnum.HEARTS, cardSuit);
-  }
-
-  public void testProvidedByEmptyEnum() {
-    EmptyEnum emptyEnumValue = Guice.createInjector().getInstance(EmptyEnum.class);
-    assertNull(emptyEnumValue);
-  }
-
-  @ProvidedBy(NonEmptyEnumProvider.class)
-  enum NonEmptyEnum {
-    HEARTS,
-    DIAMONDS,
-    CLUBS,
-    SPADES
-  }
-
   static final class NonEmptyEnumProvider implements Provider<NonEmptyEnum> {
     @Override
     public NonEmptyEnum get() {
       return NonEmptyEnum.HEARTS;
     }
   }
-
-  @ProvidedBy(EmptyEnumProvider.class)
-  enum EmptyEnum {}
 
   static final class EmptyEnumProvider implements Provider<EmptyEnum> {
     @Override
@@ -424,31 +436,5 @@ public class ImplicitBindingTest extends TestCase {
     }
   }
 
-  // An enum cannot be implemented by anything, so it should not be possible to have a successful
-  // binding when the enum is annotated with @ImplementedBy.
-  public void testImplementedByEnum() {
-    Injector injector = Guice.createInjector();
-    try {
-      injector.getInstance(EnumWithImplementedBy.class);
-      fail("Expected failure");
-    } catch (ConfigurationException expected) {
-      Message msg = Iterables.getOnlyElement(expected.getErrorMessages());
-      Asserts.assertContains(
-          msg.getMessage(),
-          "No implementation for " + EnumWithImplementedBy.class.getName() + " was bound.");
-    }
-  }
-
-  @ImplementedBy(EnumWithImplementedByEnum.class)
-  enum EnumWithImplementedBy {}
-
   private static class EnumWithImplementedByEnum {}
-
-  public void testImplicitJdkBindings() {
-    Injector injector = Guice.createInjector();
-    // String has a public nullary constructor, so Guice will call it.
-    assertEquals("", injector.getInstance(String.class));
-    // InetAddress has a package private constructor.  We probably shouldn't be calling it :(
-    assertNotNull(injector.getInstance(java.net.InetAddress.class));
-  }
 }

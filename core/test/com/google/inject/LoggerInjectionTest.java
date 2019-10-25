@@ -27,16 +27,6 @@ public class LoggerInjectionTest extends TestCase {
     assertEquals("com.google.inject.LoggerInjectionTest$Foo", foo.logger.getName());
   }
 
-  private static class Foo {
-    Logger logger;
-
-    @SuppressWarnings("unused")
-    @Inject
-    Foo(Logger logger) {
-      this.logger = logger;
-    }
-  }
-
   public void testLoggerWithoutMember() {
     Injector injector = Guice.createInjector();
     assertNull(injector.getInstance(Logger.class).getName());
@@ -45,7 +35,7 @@ public class LoggerInjectionTest extends TestCase {
     assertEquals("Provider<Logger>", injector.getProvider(Logger.class).toString());
   }
 
-  public void testCanBindAnnotatedLogger() {
+public void testCanBindAnnotatedLogger() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -60,7 +50,7 @@ public class LoggerInjectionTest extends TestCase {
     assertNull(injector.getInstance(Key.get(Logger.class, Names.named("anonymous"))).getName());
   }
 
-  public void testCannotBindLogger() {
+public void testCannotBindLogger() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -73,6 +63,16 @@ public class LoggerInjectionTest extends TestCase {
     } catch (CreationException expected) {
       assertContains(
           expected.getMessage(), "A binding to java.util.logging.Logger was already configured");
+    }
+  }
+
+private static class Foo {
+    Logger logger;
+
+    @SuppressWarnings("unused")
+    @Inject
+    Foo(Logger logger) {
+      this.logger = logger;
     }
   }
 }

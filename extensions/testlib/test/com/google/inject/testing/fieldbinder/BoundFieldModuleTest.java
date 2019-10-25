@@ -76,20 +76,6 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  private static class FieldBindableClass {
-    @Bind Integer anInt;
-
-    FieldBindableClass(Integer anInt) {
-      this.anInt = anInt;
-    }
-  }
-
-  private static class FieldBindableSubclass extends FieldBindableClass {
-    FieldBindableSubclass(Integer anInt) {
-      super(anInt);
-    }
-  }
-
   public void testSuperTypeBinding() {
     FieldBindableSubclass instance = new FieldBindableSubclass(1024);
 
@@ -99,7 +85,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(instance.anInt, injector.getInstance(Integer.class));
   }
 
-  public void testBindingTwo() {
+public void testBindingTwo() {
     final Integer testValue = 1024;
     final String testString = "Hello World!";
     Object instance =
@@ -115,7 +101,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testString, injector.getInstance(String.class));
   }
 
-  public void testBindingSuperType() {
+public void testBindingSuperType() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -129,7 +115,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Number.class));
   }
 
-  public void testBindingSuperTypeAccessSubType() {
+public void testBindingSuperTypeAccessSubType() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -150,7 +136,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testBindingIncorrectTypeProviderFails() {
+public void testBindingIncorrectTypeProviderFails() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -177,7 +163,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testBindingPrimitive() {
+public void testBindingPrimitive() {
     Object instance =
         new Object() {
           @Bind boolean boolValue = true;
@@ -202,7 +188,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(8, injector.getInstance(Double.class), 0);
   }
 
-  public void testBindingPrimitiveToBoxed() {
+public void testBindingPrimitiveToBoxed() {
     Object instance =
         new Object() {
           @Bind(to = Integer.class)
@@ -214,12 +200,9 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(1, (int) injector.getInstance(Integer.class));
   }
 
-  @BindingAnnotation
-  @Retention(RUNTIME)
-  private static @interface SomeBindingAnnotation {}
-
-  public void testBindingWithBindingAnnotation() {
-    final Integer testValue1 = 1024, testValue2 = 2048;
+public void testBindingWithBindingAnnotation() {
+    final Integer testValue1 = 1024;
+	final Integer testValue2 = 2048;
     Object instance =
         new Object() {
           @Bind private Integer anInt = testValue1;
@@ -235,12 +218,9 @@ public class BoundFieldModuleTest extends TestCase {
         testValue2, injector.getInstance(Key.get(Integer.class, SomeBindingAnnotation.class)));
   }
 
-  @Qualifier
-  @Retention(RUNTIME)
-  private static @interface SomeQualifier {}
-
-  public void testBindingWithQualifier() {
-    final Integer testValue1 = 1024, testValue2 = 2048;
+public void testBindingWithQualifier() {
+    final Integer testValue1 = 1024;
+	final Integer testValue2 = 2048;
     Object instance =
         new Object() {
           @Bind private Integer anInt = testValue1;
@@ -255,9 +235,11 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue2, injector.getInstance(Key.get(Integer.class, SomeQualifier.class)));
   }
 
-  public void testCanReuseBindingAnnotationsWithDifferentValues() {
-    final Integer testValue1 = 1024, testValue2 = 2048;
-    final String name1 = "foo", name2 = "bar";
+public void testCanReuseBindingAnnotationsWithDifferentValues() {
+    final Integer testValue1 = 1024;
+	final Integer testValue2 = 2048;
+    final String name1 = "foo";
+	final String name2 = "bar";
     Object instance =
         new Object() {
           @Bind
@@ -276,8 +258,9 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue2, injector.getInstance(Key.get(Integer.class, Names.named(name2))));
   }
 
-  public void testBindingWithValuedBindingAnnotation() {
-    final Integer testValue1 = 1024, testValue2 = 2048;
+public void testBindingWithValuedBindingAnnotation() {
+    final Integer testValue1 = 1024;
+	final Integer testValue2 = 2048;
     final String name = "foo";
     Object instance =
         new Object() {
@@ -295,7 +278,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue2, injector.getInstance(Key.get(Integer.class, Names.named(name))));
   }
 
-  public void testBindingWithGenerics() {
+public void testBindingWithGenerics() {
     final List<Integer> testIntList = Arrays.asList(new Integer[] {1, 2, 3});
     final List<Boolean> testBoolList = Arrays.asList(new Boolean[] {true, true, false});
     Object instance =
@@ -311,7 +294,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testBoolList, injector.getInstance(new Key<List<Boolean>>() {}));
   }
 
-  public void testBoundValueDoesntChange() {
+public void testBoundValueDoesntChange() {
     Integer testValue = 1024;
     FieldBindableClass instance = new FieldBindableClass(testValue);
 
@@ -323,7 +306,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  public void testIncompatibleBindingType() {
+public void testIncompatibleBindingType() {
     final Integer testInt = 1024;
     Object instance =
         new Object() {
@@ -344,7 +327,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testIncompatiblePrimitiveBindingType() {
+public void testIncompatiblePrimitiveBindingType() {
     Object instance =
         new Object() {
           @Bind(to = Long.class)
@@ -363,7 +346,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testFailureOnMultipleBindingAnnotations() {
+public void testFailureOnMultipleBindingAnnotations() {
     final Integer testInt = 1024;
     Object instance =
         new Object() {
@@ -383,7 +366,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testBindingSuperTypeAndBindingAnnotation() {
+public void testBindingSuperTypeAndBindingAnnotation() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -398,7 +381,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Key.get(Number.class, Names.named("foo"))));
   }
 
-  public void testBindingProvider() {
+public void testBindingProvider() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -418,7 +401,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  public void testBindingJavaxProvider() {
+public void testBindingJavaxProvider() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -438,7 +421,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  public void testBindingNonNullableNullField() {
+public void testBindingNonNullableNullField() {
     Object instance =
         new Object() {
           @Bind private Integer anInt = null;
@@ -456,10 +439,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  @Retention(RUNTIME)
-  private @interface Nullable {}
-
-  public void testBindingNullableNullField() {
+public void testBindingNullableNullField() {
     Object instance =
         new Object() {
           @Bind @Nullable private Integer anInt = null;
@@ -469,7 +449,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertNull(injector.getInstance(Integer.class));
   }
 
-  public void testBindingNullProvider() {
+public void testBindingNullProvider() {
     Object instance =
         new Object() {
           @Bind private Provider<Integer> anIntProvider = null;
@@ -488,7 +468,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testBindingNullableNullProvider() {
+public void testBindingNullableNullProvider() {
     Object instance =
         new Object() {
           @Bind @Nullable private Provider<Integer> anIntProvider = null;
@@ -507,20 +487,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  private static class IntegerProvider implements Provider<Integer> {
-    private final Integer value;
-
-    IntegerProvider(Integer value) {
-      this.value = value;
-    }
-
-    @Override
-    public Integer get() {
-      return value;
-    }
-  }
-
-  public void testProviderSubclassesBindToTheProviderItself() {
+public void testProviderSubclassesBindToTheProviderItself() {
     final IntegerProvider integerProvider = new IntegerProvider(1024);
     Object instance =
         new Object() {
@@ -533,7 +500,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(integerProvider, injector.getInstance(IntegerProvider.class));
   }
 
-  public void testProviderSubclassesDoNotBindParameterizedType() {
+public void testProviderSubclassesDoNotBindParameterizedType() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -553,7 +520,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testNullableProviderSubclassesAllowNull() {
+public void testNullableProviderSubclassesAllowNull() {
     Object instance =
         new Object() {
           @Bind @Nullable private IntegerProvider anIntProvider = null;
@@ -565,15 +532,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertNull(injector.getInstance(IntegerProvider.class));
   }
 
-  private static class ParameterizedObject<T> {
-    ParameterizedObject(T instance) {
-      this.instance = instance;
-    }
-
-    @Bind private T instance;
-  }
-
-  public void testBindParameterizedTypeFails() {
+public void testBindParameterizedTypeFails() {
     ParameterizedObject<Integer> instance = new ParameterizedObject<>(0);
 
     BoundFieldModule module = BoundFieldModule.of(instance);
@@ -586,7 +545,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testBindSubclassOfParameterizedTypeSucceeds() {
+public void testBindSubclassOfParameterizedTypeSucceeds() {
     final Integer testValue = 1024;
     ParameterizedObject<Integer> instance = new ParameterizedObject<Integer>(testValue) {};
 
@@ -596,7 +555,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  public void testBindArray() {
+public void testBindArray() {
     final Integer[] testArray = new Integer[] {1024, 2048};
     Object instance =
         new Object() {
@@ -609,7 +568,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testArray, injector.getInstance(Integer[].class));
   }
 
-  public void testRawProviderCannotBeBound() {
+public void testRawProviderCannotBeBound() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -636,7 +595,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testExplicitlyBoundRawProviderCanBeBound() {
+public void testExplicitlyBoundRawProviderCanBeBound() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -656,7 +615,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  public void testRawProviderCanBindToIncorrectType() {
+public void testRawProviderCanBindToIncorrectType() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -676,7 +635,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(String.class));
   }
 
-  public void testMultipleBindErrorsAreAggregated() {
+public void testMultipleBindErrorsAreAggregated() {
     Object instance =
         new Object() {
           @Bind private Provider aProvider;
@@ -694,7 +653,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testMultipleNullValueErrorsAreAggregated() {
+public void testMultipleNullValueErrorsAreAggregated() {
     Object instance =
         new Object() {
           @Bind private String first;
@@ -709,7 +668,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testBindingProviderWithProviderSubclassValue() {
+public void testBindingProviderWithProviderSubclassValue() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -722,7 +681,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Integer.class));
   }
 
-  public void testBoundFieldsCannotBeInjected() {
+public void testBoundFieldsCannotBeInjected() {
     Object instance =
         new Object() {
           @Bind @Inject Integer anInt = 0;
@@ -738,7 +697,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testIncrementingProvider() {
+public void testIncrementingProvider() {
     final Integer testBaseValue = 1024;
     Object instance =
         new Object() {
@@ -762,7 +721,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals((Integer) (testBaseValue + 2), injector.getInstance(Integer.class));
   }
 
-  public void testProviderDoesNotProvideDuringInjectorConstruction() {
+public void testProviderDoesNotProvideDuringInjectorConstruction() {
     Object instance =
         new Object() {
           @Bind
@@ -781,12 +740,7 @@ public class BoundFieldModuleTest extends TestCase {
     // If we don't throw an exception, we succeeded.
   }
 
-  private static class InvalidBindableClass {
-    @Bind(to = String.class)
-    Integer anInt;
-  }
-
-  public void testIncompatibleBindingTypeStackTraceHasUserFrame() {
+public void testIncompatibleBindingTypeStackTraceHasUserFrame() {
     Object instance = new InvalidBindableClass();
 
     BoundFieldModule module = BoundFieldModule.of(instance);
@@ -795,20 +749,11 @@ public class BoundFieldModuleTest extends TestCase {
       Guice.createInjector(module);
       fail();
     } catch (CreationException e) {
-      assertContains(e.getMessage(), "at " + InvalidBindableClass.class.getName() + ".anInt");
+      assertContains(e.getMessage(), new StringBuilder().append("at ").append(InvalidBindableClass.class.getName()).append(".anInt").toString());
     }
   }
 
-  private static class InjectedNumberProvider implements Provider<Number> {
-    @Inject Integer anInt;
-
-    @Override
-    public Number get() {
-      return anInt;
-    }
-  }
-
-  public void testBoundProvidersAreInjected() {
+public void testBoundProvidersAreInjected() {
     final Integer testValue = 1024;
     Object instance =
         new Object() {
@@ -822,7 +767,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, injector.getInstance(Number.class));
   }
 
-  public void testBoundInstancesAreInjected() {
+public void testBoundInstancesAreInjected() {
     final Integer testValue = 1024;
     final InjectedNumberProvider testNumberProvider = new InjectedNumberProvider();
     Object instance =
@@ -837,9 +782,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue, testNumberProvider.anInt);
   }
 
-  private static class InvalidBindableSubclass extends InvalidBindableClass {}
-
-  public void testClassIsPrintedInErrorsWhenCauseIsSuperclass() {
+public void testClassIsPrintedInErrorsWhenCauseIsSuperclass() {
     Object instance = new InvalidBindableSubclass();
 
     BoundFieldModule module = BoundFieldModule.of(instance);
@@ -855,17 +798,9 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  private static class FieldBindableSubclass2 extends FieldBindableClass {
-    @Bind Number aNumber;
-
-    FieldBindableSubclass2(Integer anInt, Number aNumber) {
-      super(anInt);
-      this.aNumber = aNumber;
-    }
-  }
-
-  public void testFieldsAreBoundFromFullClassHierarchy() {
-    final Integer testValue1 = 1024, testValue2 = 2048;
+public void testFieldsAreBoundFromFullClassHierarchy() {
+    final Integer testValue1 = 1024;
+	final Integer testValue2 = 2048;
     FieldBindableSubclass2 instance = new FieldBindableSubclass2(testValue1, testValue2);
 
     BoundFieldModule module = BoundFieldModule.of(instance);
@@ -875,12 +810,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(testValue2, injector.getInstance(Number.class));
   }
 
-  static final class LazyClass {
-    @Bind(lazy = true)
-    Integer foo = 1;
-  }
-
-  public void testFieldBound_lazy() {
+public void testFieldBound_lazy() {
     LazyClass asProvider = new LazyClass();
     Injector injector = Guice.createInjector(BoundFieldModule.of(asProvider));
     assertEquals(1, injector.getInstance(Integer.class).intValue());
@@ -888,7 +818,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(2, injector.getInstance(Integer.class).intValue());
   }
 
-  public void testNonNullableFieldBound_lazy_rejectNull() {
+public void testNonNullableFieldBound_lazy_rejectNull() {
     LazyClass asProvider = new LazyClass();
     Injector injector = Guice.createInjector(BoundFieldModule.of(asProvider));
     assertEquals(1, injector.getInstance(Integer.class).intValue());
@@ -903,13 +833,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  static final class LazyClassNullable {
-    @Bind(lazy = true)
-    @Nullable
-    Integer foo = 1;
-  }
-
-  public void testNullableFieldBound_lazy_allowNull() {
+public void testNullableFieldBound_lazy_allowNull() {
     LazyClassNullable asProvider = new LazyClassNullable();
     Injector injector = Guice.createInjector(BoundFieldModule.of(asProvider));
     assertEquals(1, injector.getInstance(Integer.class).intValue());
@@ -917,12 +841,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertNull(injector.getInstance(Integer.class));
   }
 
-  static final class LazyProviderClass {
-    @Bind(lazy = true)
-    Provider<Integer> foo = Providers.of(null);
-  }
-
-  public void testFieldBoundAsProvider_lazy() {
+public void testFieldBoundAsProvider_lazy() {
     LazyProviderClass asProvider = new LazyProviderClass();
     Provider<Integer> provider =
         Guice.createInjector(BoundFieldModule.of(asProvider)).getProvider(Integer.class);
@@ -930,12 +849,9 @@ public class BoundFieldModuleTest extends TestCase {
     asProvider.foo = Providers.of(1);
     assertEquals(1, provider.get().intValue());
     asProvider.foo =
-        new Provider<Integer>() {
-          @Override
-          public Integer get() {
+        () -> {
             throw new RuntimeException("boom");
-          }
-        };
+          };
     try {
       provider.get();
       fail();
@@ -944,13 +860,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  private static final class LazyNonTransparentProvider {
-    @Bind(lazy = true)
-    @Nullable
-    private IntegerProvider anIntProvider = null;
-  }
-
-  public void testFieldBoundAsNonTransparentProvider_lazy() {
+public void testFieldBoundAsNonTransparentProvider_lazy() {
     LazyNonTransparentProvider instance = new LazyNonTransparentProvider();
     BoundFieldModule module = BoundFieldModule.of(instance);
     Injector injector = Guice.createInjector(module);
@@ -966,7 +876,7 @@ public class BoundFieldModuleTest extends TestCase {
     }
   }
 
-  public void testGetBoundFields_getValue() {
+public void testGetBoundFields_getValue() {
     Object instance =
         new Object() {
           @Bind Integer value = 1;
@@ -978,7 +888,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(1, info.getValue());
   }
 
-  public void testGetBoundFields_getField() throws Exception {
+public void testGetBoundFields_getField() throws Exception {
     Object instance =
         new Object() {
           @Bind(lazy = true)
@@ -994,7 +904,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(value, injector.getInstance(info.getBoundKey()));
   }
 
-  public void testGetBoundFields_getKey() throws Exception {
+public void testGetBoundFields_getKey() throws Exception {
     Object instance =
         new Object() {
           @Bind @SomeQualifier String value = "default";
@@ -1006,7 +916,7 @@ public class BoundFieldModuleTest extends TestCase {
     assertEquals(Key.get(String.class, SomeQualifier.class), info.getBoundKey());
   }
 
-  public void testGetBoundFields_getBindAnnotation() throws Exception {
+public void testGetBoundFields_getBindAnnotation() throws Exception {
     Object instance =
         new Object() {
           @Bind(lazy = true)
@@ -1018,5 +928,98 @@ public class BoundFieldModuleTest extends TestCase {
     BoundFieldInfo info = Iterables.getOnlyElement(module.getBoundFields());
 
     assertTrue(info.getBindAnnotation().lazy());
+  }
+
+@BindingAnnotation
+  @Retention(RUNTIME)
+  private static @interface SomeBindingAnnotation {}
+
+@Qualifier
+  @Retention(RUNTIME)
+  private static @interface SomeQualifier {}
+
+@Retention(RUNTIME)
+  private @interface Nullable {}
+
+private static class FieldBindableClass {
+    @Bind Integer anInt;
+
+    FieldBindableClass(Integer anInt) {
+      this.anInt = anInt;
+    }
+  }
+
+  private static class FieldBindableSubclass extends FieldBindableClass {
+    FieldBindableSubclass(Integer anInt) {
+      super(anInt);
+    }
+  }
+
+  private static class IntegerProvider implements Provider<Integer> {
+    private final Integer value;
+
+    IntegerProvider(Integer value) {
+      this.value = value;
+    }
+
+    @Override
+    public Integer get() {
+      return value;
+    }
+  }
+
+  private static class ParameterizedObject<T> {
+    @Bind private T instance;
+
+	ParameterizedObject(T instance) {
+      this.instance = instance;
+    }
+  }
+
+  private static class InvalidBindableClass {
+    @Bind(to = String.class)
+    Integer anInt;
+  }
+
+  private static class InjectedNumberProvider implements Provider<Number> {
+    @Inject Integer anInt;
+
+    @Override
+    public Number get() {
+      return anInt;
+    }
+  }
+
+  private static class InvalidBindableSubclass extends InvalidBindableClass {}
+
+  private static class FieldBindableSubclass2 extends FieldBindableClass {
+    @Bind Number aNumber;
+
+    FieldBindableSubclass2(Integer anInt, Number aNumber) {
+      super(anInt);
+      this.aNumber = aNumber;
+    }
+  }
+
+  static final class LazyClass {
+    @Bind(lazy = true)
+    Integer foo = 1;
+  }
+
+  static final class LazyClassNullable {
+    @Bind(lazy = true)
+    @Nullable
+    Integer foo = 1;
+  }
+
+  static final class LazyProviderClass {
+    @Bind(lazy = true)
+    Provider<Integer> foo = Providers.of(null);
+  }
+
+  private static final class LazyNonTransparentProvider {
+    @Bind(lazy = true)
+    @Nullable
+    private IntegerProvider anIntProvider = null;
   }
 }

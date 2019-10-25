@@ -28,50 +28,57 @@ import java.util.List;
 /** @author crazybob@google.com (Bob Lee) */
 public class ErrorHandlingTest {
 
-  public static void main(String[] args) throws CreationException {
-    try {
-      Guice.createInjector(new MyModule());
-    } catch (CreationException e) {
-      e.printStackTrace();
-      System.err.println("--");
-    }
+  @Inject
+	  @Named("missing")
+	  static List<String> missing = null;
 
-    Injector bad =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(String.class)
-                    .toProvider(
-                        new Provider<String>() {
-                          @Override
-                          public String get() {
-                            return null;
-                          }
-                        });
-              }
-            });
-    try {
-      bad.getInstance(String.class);
-    } catch (Exception e) {
-      e.printStackTrace();
-      System.err.println("--");
-    }
-    try {
-      bad.getInstance(NeedsString.class);
-    } catch (Exception e) {
-      e.printStackTrace();
-      System.err.println("--");
-    }
-  }
+	public static void main(String[] args) {
+	    try {
+	      Guice.createInjector(new MyModule());
+	    } catch (CreationException e) {
+	      e.printStackTrace();
+	      System.err.println("--");
+	    }
+	
+	    Injector bad =
+	        Guice.createInjector(
+	            new AbstractModule() {
+	              @Override
+	              protected void configure() {
+	                bind(String.class)
+	                    .toProvider(
+	                        new Provider<String>() {
+	                          @Override
+	                          public String get() {
+	                            return null;
+	                          }
+	                        });
+	              }
+	            });
+	    try {
+	      bad.getInstance(String.class);
+	    } catch (Exception e) {
+	      e.printStackTrace();
+	      System.err.println("--");
+	    }
+	    try {
+	      bad.getInstance(NeedsString.class);
+	    } catch (Exception e) {
+	      e.printStackTrace();
+	      System.err.println("--");
+	    }
+	  }
 
-  static class NeedsString {
+	@Target(ElementType.TYPE)
+	  @Retention(RUNTIME)
+	  @ScopeAnnotation
+	  @interface GoodScope {}
+
+	@interface BadScope {}
+
+static class NeedsString {
     @Inject String mofo;
   }
-
-  @Inject
-  @Named("missing")
-  static List<String> missing = null;
 
   static class Foo {
     @Inject
@@ -94,11 +101,10 @@ public class ErrorHandlingTest {
 
   static class Tee {
     @Inject String s;
+	@Inject Invalid invalid;
 
-    @Inject
+	@Inject
     void tee(String s, int i) {}
-
-    @Inject Invalid invalid;
   }
 
   static class Invalid {
@@ -110,13 +116,6 @@ public class ErrorHandlingTest {
   @Singleton
   @GoodScope
   static class TooManyScopes {}
-
-  @Target(ElementType.TYPE)
-  @Retention(RUNTIME)
-  @ScopeAnnotation
-  @interface GoodScope {}
-
-  @interface BadScope {}
 
   @ImplementedBy(String.class)
   interface I {}

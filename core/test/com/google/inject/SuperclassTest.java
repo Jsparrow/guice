@@ -21,7 +21,7 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class SuperclassTest extends TestCase {
 
-  public void testSuperclassInjection() throws CreationException {
+  public void testSuperclassInjection() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {

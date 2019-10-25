@@ -44,10 +44,7 @@ import java.util.NoSuchElementException;
 public class MoreTypes {
 
   public static final Type[] EMPTY_TYPE_ARRAY = new Type[] {};
-
-  private MoreTypes() {}
-
-  private static final ImmutableMap<TypeLiteral<?>, TypeLiteral<?>> PRIMITIVE_TO_WRAPPER =
+private static final ImmutableMap<TypeLiteral<?>, TypeLiteral<?>> PRIMITIVE_TO_WRAPPER =
       new ImmutableMap.Builder<TypeLiteral<?>, TypeLiteral<?>>()
           .put(TypeLiteral.get(boolean.class), TypeLiteral.get(Boolean.class))
           .put(TypeLiteral.get(byte.class), TypeLiteral.get(Byte.class))
@@ -60,7 +57,9 @@ public class MoreTypes {
           .put(TypeLiteral.get(void.class), TypeLiteral.get(Void.class))
           .build();
 
-  /**
+private MoreTypes() {}
+
+/**
    * Returns a key that doesn't hold any references to parent classes. This is necessary for
    * anonymous keys, so ensure we don't hold a ref to the containing module (or class) forever.
    */
@@ -74,7 +73,7 @@ public class MoreTypes {
     }
   }
 
-  /**
+/**
    * Returns an type that's appropriate for use in a key.
    *
    * <p>If the raw type of {@code typeLiteral} is a {@code javax.inject.Provider}, this returns a
@@ -121,7 +120,7 @@ public class MoreTypes {
     return recreated;
   }
 
-  /** Returns true if {@code type} is free from type variables. */
+/** Returns true if {@code type} is free from type variables. */
   private static boolean isFullySpecified(Type type) {
     if (type instanceof Class) {
       return true;
@@ -137,7 +136,7 @@ public class MoreTypes {
     }
   }
 
-  /**
+/**
    * Returns a type that is functionally equal but not necessarily equal according to {@link
    * Object#equals(Object) Object.equals()}. The returned type is {@link Serializable}.
    */
@@ -168,7 +167,7 @@ public class MoreTypes {
     }
   }
 
-  public static Class<?> getRawType(Type type) {
+public static Class<?> getRawType(Type type) {
     if (type instanceof Class<?>) {
       // type is a normal class.
       return (Class<?>) type;
@@ -198,15 +197,11 @@ public class MoreTypes {
 
     } else {
       throw new IllegalArgumentException(
-          "Expected a Class, ParameterizedType, or "
-              + "GenericArrayType, but <"
-              + type
-              + "> is of type "
-              + type.getClass().getName());
+          new StringBuilder().append("Expected a Class, ParameterizedType, or ").append("GenericArrayType, but <").append(type).append("> is of type ").append(type.getClass().getName()).toString());
     }
   }
 
-  /** Returns true if {@code a} and {@code b} are equal. */
+/** Returns true if {@code a} and {@code b} are equal. */
   public static boolean equals(Type a, Type b) {
     if (a == b) {
       // also handles (a == null && b == null)
@@ -262,15 +257,15 @@ public class MoreTypes {
     }
   }
 
-  private static int hashCodeOrZero(Object o) {
+private static int hashCodeOrZero(Object o) {
     return o != null ? o.hashCode() : 0;
   }
 
-  public static String typeToString(Type type) {
+public static String typeToString(Type type) {
     return type instanceof Class ? ((Class) type).getName() : type.toString();
   }
 
-  /**
+/**
    * Returns the generic supertype for {@code type}. For example, given a class {@code IntegerSet},
    * the result for when supertype is {@code Set.class} is {@code Set<Integer>} and the result when
    * the supertype is {@code Collection.class} is {@code Collection<Integer>}.
@@ -309,7 +304,7 @@ public class MoreTypes {
     return toResolve;
   }
 
-  public static Type resolveTypeVariable(Type type, Class<?> rawType, TypeVariable unknown) {
+public static Type resolveTypeVariable(Type type, Class<?> rawType, TypeVariable unknown) {
     Class<?> declaredByRaw = declaringClassOf(unknown);
 
     // we can't reduce this further
@@ -318,15 +313,14 @@ public class MoreTypes {
     }
 
     Type declaredBy = getGenericSupertype(type, rawType, declaredByRaw);
-    if (declaredBy instanceof ParameterizedType) {
-      int index = indexOf(declaredByRaw.getTypeParameters(), unknown);
-      return ((ParameterizedType) declaredBy).getActualTypeArguments()[index];
-    }
-
-    return unknown;
+    if (!(declaredBy instanceof ParameterizedType)) {
+		return unknown;
+	}
+	int index = indexOf(declaredByRaw.getTypeParameters(), unknown);
+	return ((ParameterizedType) declaredBy).getActualTypeArguments()[index];
   }
 
-  private static int indexOf(Object[] array, Object toFind) {
+private static int indexOf(Object[] array, Object toFind) {
     for (int i = 0; i < array.length; i++) {
       if (toFind.equals(array[i])) {
         return i;
@@ -335,7 +329,7 @@ public class MoreTypes {
     throw new NoSuchElementException();
   }
 
-  /**
+/**
    * Returns the declaring class of {@code typeVariable}, or {@code null} if it was not declared by
    * a class.
    */
@@ -344,13 +338,22 @@ public class MoreTypes {
     return genericDeclaration instanceof Class ? (Class<?>) genericDeclaration : null;
   }
 
+private static void checkNotPrimitive(Type type, String use) {
+    checkArgument(
+        !(type instanceof Class<?>) || !((Class) type).isPrimitive(),
+        "Primitive types are not allowed in %s: %s",
+        use,
+        type);
+  }
+
   public static class ParameterizedTypeImpl
       implements ParameterizedType, Serializable, CompositeType {
-    private final Type ownerType;
-    private final Type rawType;
-    private final Type[] typeArguments;
+    private static final long serialVersionUID = 0;
+	private final Type ownerType;
+	private final Type rawType;
+	private final Type[] typeArguments;
 
-    public ParameterizedTypeImpl(Type ownerType, Type rawType, Type... typeArguments) {
+	public ParameterizedTypeImpl(Type ownerType, Type rawType, Type... typeArguments) {
       // require an owner type if the raw type needs it
       ensureOwnerType(ownerType, rawType);
 
@@ -364,22 +367,22 @@ public class MoreTypes {
       }
     }
 
-    @Override
+	@Override
     public Type[] getActualTypeArguments() {
       return typeArguments.clone();
     }
 
-    @Override
+	@Override
     public Type getRawType() {
       return rawType;
     }
 
-    @Override
+	@Override
     public Type getOwnerType() {
       return ownerType;
     }
 
-    @Override
+	@Override
     public boolean isFullySpecified() {
       if (ownerType != null && !MoreTypes.isFullySpecified(ownerType)) {
         return false;
@@ -398,18 +401,18 @@ public class MoreTypes {
       return true;
     }
 
-    @Override
+	@Override
     public boolean equals(Object other) {
       return other instanceof ParameterizedType
           && MoreTypes.equals(this, (ParameterizedType) other);
     }
 
-    @Override
+	@Override
     public int hashCode() {
       return Arrays.hashCode(typeArguments) ^ rawType.hashCode() ^ hashCodeOrZero(ownerType);
     }
 
-    @Override
+	@Override
     public String toString() {
       StringBuilder stringBuilder = new StringBuilder(30 * (typeArguments.length + 1));
       stringBuilder.append(typeToString(rawType));
@@ -425,57 +428,55 @@ public class MoreTypes {
       return stringBuilder.append(">").toString();
     }
 
-    private static void ensureOwnerType(Type ownerType, Type rawType) {
-      if (rawType instanceof Class<?>) {
-        Class rawTypeAsClass = (Class) rawType;
-        checkArgument(
-            ownerType != null || rawTypeAsClass.getEnclosingClass() == null,
-            "No owner type for enclosed %s",
-            rawType);
-        checkArgument(
-            ownerType == null || rawTypeAsClass.getEnclosingClass() != null,
-            "Owner type for unenclosed %s",
-            rawType);
-      }
+	private static void ensureOwnerType(Type ownerType, Type rawType) {
+      if (!(rawType instanceof Class<?>)) {
+		return;
+	}
+	Class rawTypeAsClass = (Class) rawType;
+	checkArgument(
+	    ownerType != null || rawTypeAsClass.getEnclosingClass() == null,
+	    "No owner type for enclosed %s",
+	    rawType);
+	checkArgument(
+	    ownerType == null || rawTypeAsClass.getEnclosingClass() != null,
+	    "Owner type for unenclosed %s",
+	    rawType);
     }
-
-    private static final long serialVersionUID = 0;
   }
 
   public static class GenericArrayTypeImpl
       implements GenericArrayType, Serializable, CompositeType {
-    private final Type componentType;
+    private static final long serialVersionUID = 0;
+	private final Type componentType;
 
-    public GenericArrayTypeImpl(Type componentType) {
+	public GenericArrayTypeImpl(Type componentType) {
       this.componentType = canonicalize(componentType);
     }
 
-    @Override
+	@Override
     public Type getGenericComponentType() {
       return componentType;
     }
 
-    @Override
+	@Override
     public boolean isFullySpecified() {
       return MoreTypes.isFullySpecified(componentType);
     }
 
-    @Override
+	@Override
     public boolean equals(Object o) {
       return o instanceof GenericArrayType && MoreTypes.equals(this, (GenericArrayType) o);
     }
 
-    @Override
+	@Override
     public int hashCode() {
       return componentType.hashCode();
     }
 
-    @Override
+	@Override
     public String toString() {
       return typeToString(componentType) + "[]";
     }
-
-    private static final long serialVersionUID = 0;
   }
 
   /**
@@ -484,10 +485,11 @@ public class MoreTypes {
    * bound must be Object.class.
    */
   public static class WildcardTypeImpl implements WildcardType, Serializable, CompositeType {
-    private final Type upperBound;
-    private final Type lowerBound;
+    private static final long serialVersionUID = 0;
+	private final Type upperBound;
+	private final Type lowerBound;
 
-    public WildcardTypeImpl(Type[] upperBounds, Type[] lowerBounds) {
+	public WildcardTypeImpl(Type[] upperBounds, Type[] lowerBounds) {
       checkArgument(lowerBounds.length <= 1, "Must have at most one lower bound.");
       checkArgument(upperBounds.length == 1, "Must have exactly one upper bound.");
 
@@ -506,34 +508,34 @@ public class MoreTypes {
       }
     }
 
-    @Override
+	@Override
     public Type[] getUpperBounds() {
       return new Type[] {upperBound};
     }
 
-    @Override
+	@Override
     public Type[] getLowerBounds() {
       return lowerBound != null ? new Type[] {lowerBound} : EMPTY_TYPE_ARRAY;
     }
 
-    @Override
+	@Override
     public boolean isFullySpecified() {
       return MoreTypes.isFullySpecified(upperBound)
           && (lowerBound == null || MoreTypes.isFullySpecified(lowerBound));
     }
 
-    @Override
+	@Override
     public boolean equals(Object other) {
       return other instanceof WildcardType && MoreTypes.equals(this, (WildcardType) other);
     }
 
-    @Override
+	@Override
     public int hashCode() {
       // this equals Arrays.hashCode(getLowerBounds()) ^ Arrays.hashCode(getUpperBounds());
       return (lowerBound != null ? 31 + lowerBound.hashCode() : 1) ^ (31 + upperBound.hashCode());
     }
 
-    @Override
+	@Override
     public String toString() {
       if (lowerBound != null) {
         return "? super " + typeToString(lowerBound);
@@ -543,16 +545,6 @@ public class MoreTypes {
         return "? extends " + typeToString(upperBound);
       }
     }
-
-    private static final long serialVersionUID = 0;
-  }
-
-  private static void checkNotPrimitive(Type type, String use) {
-    checkArgument(
-        !(type instanceof Class<?>) || !((Class) type).isPrimitive(),
-        "Primitive types are not allowed in %s: %s",
-        use,
-        type);
   }
 
   /** A type formed from other types, such as arrays, parameterized types or wildcard types */

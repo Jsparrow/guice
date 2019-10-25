@@ -37,65 +37,34 @@ public class InternalFlags {
       = parseNullableProvidesOption(NullableProvidesOption.ERROR);
 
 
-  /**
-   * The options for Guice stack trace collection.
-   */
-  public enum IncludeStackTraceOption {
-    /** No stack trace collection */
-    OFF,
-    /**  Minimum stack trace collection (Default) */
-    ONLY_FOR_DECLARING_SOURCE,
-    /** Full stack trace for everything */
-    COMPLETE
-  }
-
-  /**
-   * The options for Guice custom class loading.
-   */
-  public enum CustomClassLoadingOption {
-    /** No custom class loading */
-    OFF,
-    /** Automatically bridge between class loaders (Default) */
-    BRIDGE
-  }
-
-  public enum NullableProvidesOption {
-    /** Ignore null parameters to @Provides methods. */
-    IGNORE,
-    /** Warn if null parameters are passed to non-@Nullable parameters of provides methods. */
-    WARN,
-    /** Error if null parameters are passed to non-@Nullable parameters of provides parameters */
-    ERROR
-  }
-
   public static IncludeStackTraceOption getIncludeStackTraceOption() {
     return INCLUDE_STACK_TRACES;
   }
 
-  public static CustomClassLoadingOption getCustomClassLoadingOption() {
+public static CustomClassLoadingOption getCustomClassLoadingOption() {
     return CUSTOM_CLASS_LOADING;
   }
 
-  public static NullableProvidesOption getNullableProvidesOption() {
+public static NullableProvidesOption getNullableProvidesOption() {
     return NULLABLE_PROVIDES;
   }
 
-  private static IncludeStackTraceOption parseIncludeStackTraceOption() {
+private static IncludeStackTraceOption parseIncludeStackTraceOption() {
     return getSystemOption("guice_include_stack_traces",
         IncludeStackTraceOption.ONLY_FOR_DECLARING_SOURCE);
   }
 
-  private static CustomClassLoadingOption parseCustomClassLoadingOption() {
+private static CustomClassLoadingOption parseCustomClassLoadingOption() {
     return getSystemOption("guice_custom_class_loading",
         CustomClassLoadingOption.BRIDGE, CustomClassLoadingOption.OFF);
   }
 
-  private static NullableProvidesOption parseNullableProvidesOption(
+private static NullableProvidesOption parseNullableProvidesOption(
       NullableProvidesOption defaultValue) {
     return getSystemOption("guice_check_nullable_provides_params", defaultValue);
   }
 
-  /**
+/**
    * Gets the system option indicated by the specified key; runs as a privileged action.
    *
    * @param name of the system option
@@ -107,7 +76,7 @@ public class InternalFlags {
     return getSystemOption(name, defaultValue, defaultValue);
   }
 
-  /**
+/**
    * Gets the system option indicated by the specified key; runs as a privileged action.
    *
    * @param name of the system option
@@ -133,9 +102,39 @@ public class InternalFlags {
     } catch (SecurityException e) {
       return secureValue;
     } catch (IllegalArgumentException e) {
-      logger.warning(value + " is not a valid flag value for " + name + ". "
-          + " Values must be one of " + Arrays.asList(enumType.getEnumConstants()));
+      logger.warning(new StringBuilder().append(value).append(" is not a valid flag value for ").append(name).append(". ").append(" Values must be one of ").append(Arrays.asList(enumType.getEnumConstants())).toString());
       return defaultValue;
     }
+  }
+
+/**
+   * The options for Guice stack trace collection.
+   */
+  public enum IncludeStackTraceOption {
+    /** No stack trace collection */
+    OFF,
+    /**  Minimum stack trace collection (Default) */
+    ONLY_FOR_DECLARING_SOURCE,
+    /** Full stack trace for everything */
+    COMPLETE
+  }
+
+/**
+   * The options for Guice custom class loading.
+   */
+  public enum CustomClassLoadingOption {
+    /** No custom class loading */
+    OFF,
+    /** Automatically bridge between class loaders (Default) */
+    BRIDGE
+  }
+
+public enum NullableProvidesOption {
+    /** Ignore null parameters to @Provides methods. */
+    IGNORE,
+    /** Warn if null parameters are passed to non-@Nullable parameters of provides methods. */
+    WARN,
+    /** Error if null parameters are passed to non-@Nullable parameters of provides parameters */
+    ERROR
   }
 }

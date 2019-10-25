@@ -138,7 +138,7 @@ final class TypeConverterBindingProcessor extends AbstractProcessor {
 
             @Override
             public String toString() {
-              return "TypeConverter<" + wrapperType.getSimpleName() + ">";
+              return new StringBuilder().append("TypeConverter<").append(wrapperType.getSimpleName()).append(">").toString();
             }
           };
 
@@ -191,7 +191,7 @@ final class TypeConverterBindingProcessor extends AbstractProcessor {
   }
 
   private static String capitalize(String s) {
-    if (s.length() == 0) {
+    if (s.isEmpty()) {
       return s;
     }
     char first = s.charAt(0);

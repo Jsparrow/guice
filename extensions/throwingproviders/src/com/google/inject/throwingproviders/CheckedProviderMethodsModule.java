@@ -122,7 +122,7 @@ final class CheckedProviderMethodsModule implements Module {
       binder.addError(message);
     }
 
-    return new CheckedProviderMethod<T>(
+    return new CheckedProviderMethod<>(
         key,
         method,
         delegate,
@@ -155,7 +155,7 @@ final class CheckedProviderMethodsModule implements Module {
     private final String name;
 
     public LogProvider(Method method) {
-      this.name = method.getDeclaringClass().getName() + "." + method.getName();
+      this.name = new StringBuilder().append(method.getDeclaringClass().getName()).append(".").append(method.getName()).toString();
     }
 
     @Override

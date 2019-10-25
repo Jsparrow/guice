@@ -82,7 +82,7 @@ public class InjectorSpiTest extends TestCase {
   }
 
   @SuppressWarnings("unused")
-  private static void customMethod(Foo foo, Bar bar) {}
+  private static void customMethod() {}
 
   public void testGetElements_standardItems() {
     Injector injector = Guice.createInjector(new AbstractModule() {});
@@ -301,24 +301,6 @@ public class InjectorSpiTest extends TestCase {
                 /* optional= */ false));
   }
 
-  static class StaticallyInject extends SuperStatic {
-    @Inject static String staticString;
-  }
-
-  static class SuperStatic {
-    @Inject static Number staticNumber;
-  }
-
-  private static class Foo {}
-
-  private static class Bar {}
-
-  private static class Baz {
-    @SuppressWarnings("unused")
-    @Inject
-    Provider<Foo> fooP;
-  }
-
   public void testGetAllMembersInjectorInjectionPoints_injectMembers_returned() {
     Injector injector =
         Guice.createInjector(
@@ -343,7 +325,7 @@ public class InjectorSpiTest extends TestCase {
     assertEquals(Key.get(Integer.class), actualDependencyKey);
   }
 
-  public void testGetAllMembersInjectorInjectionPoints_getInstance() {
+public void testGetAllMembersInjectorInjectionPoints_getInstance() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -359,7 +341,7 @@ public class InjectorSpiTest extends TestCase {
     assertThat(injectionPoints).isEmpty();
   }
 
-  public void testGetAllMembersInjectorInjectionPoints_getInstanceAndInjectMembers() {
+public void testGetAllMembersInjectorInjectionPoints_getInstanceAndInjectMembers() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -384,13 +366,31 @@ public class InjectorSpiTest extends TestCase {
     assertEquals(Key.get(Integer.class), actualDependencyKey);
   }
 
+static class StaticallyInject extends SuperStatic {
+    @Inject static String staticString;
+  }
+
+  static class SuperStatic {
+    @Inject static Number staticNumber;
+  }
+
+  private static class Foo {}
+
+  private static class Bar {}
+
+  private static class Baz {
+    @SuppressWarnings("unused")
+    @Inject
+    Provider<Foo> fooP;
+  }
+
   private static class ClassWithInjectableField {
 
-    @Inject
-    ClassWithInjectableField(String name) {}
-
-    @Inject private Integer instanceField;
-
     @Inject private static Double staticField;
+
+	@Inject private Integer instanceField;
+
+	@Inject
+    ClassWithInjectableField(String name) {}
   }
 }

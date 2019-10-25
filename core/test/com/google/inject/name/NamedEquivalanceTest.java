@@ -123,10 +123,7 @@ public class NamedEquivalanceTest extends TestCase {
     } catch (ConfigurationException e) {
       assertContains(
           e.getMessage(),
-          "No implementation for java.lang.String annotated with "
-              + "@com.google.inject.name.Named(value="
-              + Annotations.memberValueString("foo")
-              + ") was bound.");
+          new StringBuilder().append("No implementation for java.lang.String annotated with ").append("@com.google.inject.name.Named(value=").append(Annotations.memberValueString("foo")).append(") was bound.").toString());
     }
   }
 
@@ -140,9 +137,7 @@ public class NamedEquivalanceTest extends TestCase {
       if (fails) {
         assertContains(
             e.getMessage(),
-            "A binding to java.lang.String annotated with @com.google.inject.name.Named(value="
-                + Annotations.memberValueString("foo")
-                + ") was already configured");
+            new StringBuilder().append("A binding to java.lang.String annotated with @com.google.inject.name.Named(value=").append(Annotations.memberValueString("foo")).append(") was already configured").toString());
       } else {
         throw e;
       }
@@ -207,24 +202,25 @@ public class NamedEquivalanceTest extends TestCase {
   }
 
   private static class JsrNamed implements javax.inject.Named, Serializable {
-    private final String value;
+    private static final long serialVersionUID = 0;
+	private final String value;
 
-    public JsrNamed(String value) {
+	public JsrNamed(String value) {
       this.value = value;
     }
 
-    @Override
+	@Override
     public String value() {
       return this.value;
     }
 
-    @Override
+	@Override
     public int hashCode() {
       // This is specified in java.lang.Annotation.
       return (127 * "value".hashCode()) ^ value.hashCode();
     }
 
-    @Override
+	@Override
     public boolean equals(Object o) {
       if (!(o instanceof javax.inject.Named)) {
         return false;
@@ -234,42 +230,37 @@ public class NamedEquivalanceTest extends TestCase {
       return value.equals(other.value());
     }
 
-    @Override
+	@Override
     public String toString() {
-      return "@"
-          + javax.inject.Named.class.getName()
-          + "(value="
-          + Annotations.memberValueString(value)
-          + ")";
+      return new StringBuilder().append("@").append(javax.inject.Named.class.getName()).append("(value=").append(Annotations.memberValueString(value)).append(")").toString();
     }
 
-    @Override
+	@Override
     public Class<? extends Annotation> annotationType() {
       return javax.inject.Named.class;
     }
-
-    private static final long serialVersionUID = 0;
   }
 
   private static class GuiceNamed implements com.google.inject.name.Named, Serializable {
-    private final String value;
+    private static final long serialVersionUID = 0;
+	private final String value;
 
-    public GuiceNamed(String value) {
+	public GuiceNamed(String value) {
       this.value = value;
     }
 
-    @Override
+	@Override
     public String value() {
       return this.value;
     }
 
-    @Override
+	@Override
     public int hashCode() {
       // This is specified in java.lang.Annotation.
       return (127 * "value".hashCode()) ^ value.hashCode();
     }
 
-    @Override
+	@Override
     public boolean equals(Object o) {
       if (!(o instanceof com.google.inject.name.Named)) {
         return false;
@@ -279,20 +270,14 @@ public class NamedEquivalanceTest extends TestCase {
       return value.equals(other.value());
     }
 
-    @Override
+	@Override
     public String toString() {
-      return "@"
-          + com.google.inject.name.Named.class.getName()
-          + "(value="
-          + Annotations.memberValueString(value)
-          + ")";
+      return new StringBuilder().append("@").append(com.google.inject.name.Named.class.getName()).append("(value=").append(Annotations.memberValueString(value)).append(")").toString();
     }
 
-    @Override
+	@Override
     public Class<? extends Annotation> annotationType() {
       return com.google.inject.name.Named.class;
     }
-
-    private static final long serialVersionUID = 0;
   }
 }

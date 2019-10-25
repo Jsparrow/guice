@@ -126,7 +126,7 @@ public final class ConstantBindingBuilderImpl<T> extends AbstractBindingBuilder<
     }
 
     setBinding(
-        new InstanceBindingImpl<T>(
+        new InstanceBindingImpl<>(
             base.getSource(),
             key,
             base.getScoping(),

@@ -92,12 +92,7 @@ final class ConstructorInjector<T> {
       } else {
         return provisionCallback.provision(
             context,
-            new ProvisionCallback<T>() {
-              @Override
-              public T call() throws InternalProvisionException {
-                return provision(context, constructionContext);
-              }
-            });
+            () -> provision(context, constructionContext));
       }
     } finally {
       constructionContext.finishConstruction();

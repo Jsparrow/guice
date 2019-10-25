@@ -25,7 +25,7 @@ import org.aopalliance.intercept.MethodInvocation;
 /** @author crazybob@google.com (Bob Lee) */
 public class IntegrationTest extends TestCase {
 
-  public void testIntegration() throws CreationException {
+  public void testIntegration() {
     final CountingInterceptor counter = new CountingInterceptor();
 
     Injector injector =

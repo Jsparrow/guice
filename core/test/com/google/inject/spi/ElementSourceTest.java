@@ -147,7 +147,12 @@ public class ElementSourceTest extends TestCase {
     return moduleSource.createChild(C.class, partialCallStack);
   }
 
-  private static class A extends AbstractModule {
+  @Retention(RUNTIME)
+  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+  @BindingAnnotation
+  @interface SampleAnnotation {}
+
+private static class A extends AbstractModule {
     @Override
     public void configure() {
       install(new B());
@@ -160,11 +165,6 @@ public class ElementSourceTest extends TestCase {
       binder.install(new C());
     }
   }
-
-  @Retention(RUNTIME)
-  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-  @BindingAnnotation
-  @interface SampleAnnotation {}
 
   private static class C extends AbstractModule {
     @Override

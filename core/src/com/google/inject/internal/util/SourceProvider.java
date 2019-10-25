@@ -31,17 +31,18 @@ public final class SourceProvider {
   /** Indicates that the source is unknown. */
   public static final Object UNKNOWN_SOURCE = "[unknown source]";
 
-  private final SourceProvider parent;
-  private final ImmutableSet<String> classNamesToSkip;
-
-  public static final SourceProvider DEFAULT_INSTANCE =
+public static final SourceProvider DEFAULT_INSTANCE =
       new SourceProvider(ImmutableSet.of(SourceProvider.class.getName()));
 
-  private SourceProvider(Iterable<String> classesToSkip) {
+private final SourceProvider parent;
+
+private final ImmutableSet<String> classNamesToSkip;
+
+private SourceProvider(Iterable<String> classesToSkip) {
     this(null, classesToSkip);
   }
 
-  private SourceProvider(SourceProvider parent, Iterable<String> classesToSkip) {
+private SourceProvider(SourceProvider parent, Iterable<String> classesToSkip) {
     this.parent = parent;
 
     ImmutableSet.Builder<String> classNamesToSkipBuilder = ImmutableSet.builder();
@@ -53,18 +54,18 @@ public final class SourceProvider {
     this.classNamesToSkip = classNamesToSkipBuilder.build();
   }
 
-  /** Returns a new instance that also skips {@code moreClassesToSkip}. */
+/** Returns a new instance that also skips {@code moreClassesToSkip}. */
   public SourceProvider plusSkippedClasses(Class... moreClassesToSkip) {
     return new SourceProvider(this, asStrings(moreClassesToSkip));
   }
 
-  /** Returns true if the className should be skipped. */
+/** Returns true if the className should be skipped. */
   private boolean shouldBeSkipped(String className) {
     return (parent != null && parent.shouldBeSkipped(className))
         || classNamesToSkip.contains(className);
   }
 
-  /** Returns the class names as Strings */
+/** Returns the class names as Strings */
   private static List<String> asStrings(Class... classes) {
     List<String> strings = Lists.newArrayList();
     for (Class c : classes) {
@@ -73,7 +74,7 @@ public final class SourceProvider {
     return strings;
   }
 
-  /**
+/**
    * Returns the calling line of code. The selected line is the nearest to the top of the stack that
    * is not skipped.
    */
@@ -89,7 +90,7 @@ public final class SourceProvider {
     throw new AssertionError();
   }
 
-  /** Returns the non-skipped module class name. */
+/** Returns the non-skipped module class name. */
   public Object getFromClassNames(List<String> moduleClassNames) {
     Preconditions.checkNotNull(moduleClassNames, "The list of module class names cannot be null.");
     for (final String moduleClassName : moduleClassNames) {

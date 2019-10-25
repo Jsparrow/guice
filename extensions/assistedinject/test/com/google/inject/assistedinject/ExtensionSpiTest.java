@@ -81,26 +81,26 @@ public class ExtensionSpiTest extends TestCase {
     // Validate for each of the methods in AnimalFactory
 
     Set<String> names = Sets.newHashSet();
-    for (AssistedMethod method : assistedMethods) {
+    assistedMethods.forEach(method -> {
       String name = method.getFactoryMethod().getName();
       names.add(name);
-      if (name.equals("createAStrangeCatAsAnimal")) {
+      if ("createAStrangeCatAsAnimal".equals(name)) {
         validateAssistedMethod(method, name, StrangeCat.class, ImmutableList.<Key<?>>of());
-      } else if (name.equals("createStrangeCatWithConstructorForOwner")) {
+      } else if ("createStrangeCatWithConstructorForOwner".equals(name)) {
         validateAssistedMethod(method, name, StrangeCat.class, ImmutableList.<Key<?>>of());
-      } else if (name.equals("createStrangeCatWithConstructorForAge")) {
+      } else if ("createStrangeCatWithConstructorForAge".equals(name)) {
         validateAssistedMethod(method, name, StrangeCat.class, ImmutableList.<Key<?>>of());
-      } else if (name.equals("createCatWithANonAssistedDependency")) {
+      } else if ("createCatWithANonAssistedDependency".equals(name)) {
         validateAssistedMethod(
             method,
             name,
             CatWithAName.class,
             ImmutableList.<Key<?>>of(Key.get(String.class, named("catName2"))));
-      } else if (name.equals("createCat")) {
+      } else if ("createCat".equals(name)) {
         validateAssistedMethod(method, name, Cat.class, ImmutableList.<Key<?>>of());
-      } else if (name.equals("createASimpleCatAsAnimal")) {
+      } else if ("createASimpleCatAsAnimal".equals(name)) {
         validateAssistedMethod(method, name, SimpleCat.class, ImmutableList.<Key<?>>of());
-      } else if (name.equals("createCatWithNonAssistedDependencies")) {
+      } else if ("createCatWithNonAssistedDependencies".equals(name)) {
         List<Key<?>> dependencyKeys =
             ImmutableList.<Key<?>>of(
                 Key.get(String.class, named("catName1")),
@@ -110,7 +110,7 @@ public class ExtensionSpiTest extends TestCase {
       } else {
         fail("Invalid method: " + method);
       }
-    }
+    });
     assertEquals(
         names,
         ImmutableSet.of(

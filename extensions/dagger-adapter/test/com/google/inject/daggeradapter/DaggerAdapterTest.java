@@ -44,7 +44,128 @@ import junit.framework.TestCase;
  */
 
 public class DaggerAdapterTest extends TestCase {
-  @dagger.Module
+  public void testSimpleModule() {
+	    Injector i = Guice.createInjector(DaggerAdapter.from(new SimpleDaggerModule()));
+	    assertThat(i.getInstance(Integer.class)).isEqualTo(1);
+	  }
+
+	public void testInteractionWithGuiceModules() {
+	    Injector i =
+	        Guice.createInjector(new SimpleGuiceModule(), DaggerAdapter.from(new SimpleDaggerModule()));
+	    assertThat(i.getInstance(String.class)).isEqualTo("1");
+	  }
+
+	public void testSetBindings() {
+	    Injector i =
+	        Guice.createInjector(
+	            DaggerAdapter.from(new SetBindingDaggerModule1(), new SetBindingDaggerModule2()));
+	    assertThat(i.getInstance(new Key<Set<Integer>>() {})).isEqualTo(ImmutableSet.of(3, 5));
+	  }
+
+	public void testSetBindingsWithAnnotation() {
+	    Injector i =
+	        Guice.createInjector(DaggerAdapter.from(new SetBindingWithAnnotationDaggerModule()));
+	    assertThat(i.getInstance(Key.get(new TypeLiteral<Set<Integer>>() {}, AnnotationOnSet.class)))
+	        .isEqualTo(ImmutableSet.of(4));
+	  }
+
+	public void testSetBindingsWithGuiceModule() {
+	    Injector i =
+	        Guice.createInjector(
+	            new MultibindingGuiceModule(),
+	            DaggerAdapter.from(new SetBindingDaggerModule1(), new SetBindingDaggerModule2()));
+	    assertThat(i.getInstance(new Key<Set<Integer>>() {})).isEqualTo(ImmutableSet.of(13, 3, 5, 8));
+	  }
+
+	public void testUnsupportedBindingAnnotation() {
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(new UnsupportedAnnotationModule()));
+	      fail();
+	    } catch (CreationException expected) {
+	      assertThat(expected)
+	          .hasMessageThat()
+	          .contains(
+	              new StringBuilder().append("noGuiceEquivalentForElementsIntoSet() is annotated with").append(" @dagger.multibindings.ElementsIntoSet which is not supported by").append(" DaggerAdapter").toString());
+	    }
+	
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(UnsupportedAnnotationStaticModule.class));
+	      fail();
+	    } catch (CreationException expected) {
+	      assertThat(expected)
+	          .hasMessageThat()
+	          .contains(
+	              new StringBuilder().append("noGuiceEquivalentForElementsIntoSet() is annotated with").append(" @dagger.multibindings.ElementsIntoSet which is not supported by").append(" DaggerAdapter").toString());
+	    }
+	  }
+
+	public void testUnsupportedBindingAnnotationFromModuleSuperclass() {
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(new UnsupportedAnnotationSubclassModule()));
+	      fail();
+	    } catch (CreationException expected) {
+	    }
+	  }
+
+	public void testStaticProvidesMethods() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(new StaticProvidesMethods()));
+	    String staticProvision = injector.getInstance(String.class);
+	    assertThat(staticProvision).isEqualTo("class");
+	  }
+
+	public void testStaticProvidesMethods_classLiteral() {
+	    Injector injector = Guice.createInjector(DaggerAdapter.from(StaticProvidesMethods.class));
+	    String staticProvision = injector.getInstance(String.class);
+	    assertThat(staticProvision).isEqualTo("class");
+	  }
+
+	public void testStaticProvidesMethods_interface() {
+	    Injector injector =
+	        Guice.createInjector(DaggerAdapter.from(StaticProvidesMethodsInterface.class));
+	    String staticProvision = injector.getInstance(String.class);
+	    assertThat(staticProvision).isEqualTo("interface");
+	  }
+
+	public void testClassLiteralWithInstanceProvidesMethod() {
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(ModuleWithInstanceMethods.class));
+	      fail();
+	    } catch (CreationException expected) {
+	      assertThat(expected)
+	          .hasMessageThat()
+	          .contains(
+	              "ModuleWithInstanceMethods.i() is an instance method, but a class literal was"
+	                  + " passed. Make this method static or pass an instance of the module instead.");
+	    }
+	  }
+
+	public void testModuleObjectsMustBeDaggerModules() {
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(new Object()));
+	      fail();
+	    } catch (CreationException expected) {
+	      assertThat(expected)
+	          .hasMessageThat()
+	          .contains("Object must be annotated with @dagger.Module");
+	    }
+	  }
+
+	public void testProducerModulesNotSupported() {
+	    try {
+	      Guice.createInjector(DaggerAdapter.from(new ProducerModuleWithProvidesMethod()));
+	      fail();
+	    } catch (CreationException expected) {
+	      assertThat(expected)
+	          .hasMessageThat()
+	          .contains("ProducerModuleWithProvidesMethod must be annotated with @dagger.Module");
+	    }
+	  }
+
+	@Qualifier
+	  @Retention(RetentionPolicy.RUNTIME)
+	  public @interface AnnotationOnSet {}
+
+@dagger.Module
   static class SimpleDaggerModule {
     @dagger.Provides
     Integer anInteger() {
@@ -52,22 +173,11 @@ public class DaggerAdapterTest extends TestCase {
     }
   }
 
-  public void testSimpleModule() {
-    Injector i = Guice.createInjector(DaggerAdapter.from(new SimpleDaggerModule()));
-    assertThat(i.getInstance(Integer.class)).isEqualTo(1);
-  }
-
   static class SimpleGuiceModule extends AbstractModule {
     @Provides
     String aString(Integer i) {
       return i.toString();
     }
-  }
-
-  public void testInteractionWithGuiceModules() {
-    Injector i =
-        Guice.createInjector(new SimpleGuiceModule(), DaggerAdapter.from(new SimpleDaggerModule()));
-    assertThat(i.getInstance(String.class)).isEqualTo("1");
   }
 
   @dagger.Module
@@ -88,17 +198,6 @@ public class DaggerAdapterTest extends TestCase {
     }
   }
 
-  public void testSetBindings() {
-    Injector i =
-        Guice.createInjector(
-            DaggerAdapter.from(new SetBindingDaggerModule1(), new SetBindingDaggerModule2()));
-    assertThat(i.getInstance(new Key<Set<Integer>>() {})).isEqualTo(ImmutableSet.of(3, 5));
-  }
-
-  @Qualifier
-  @Retention(RetentionPolicy.RUNTIME)
-  public @interface AnnotationOnSet {}
-
   @dagger.Module
   static class SetBindingWithAnnotationDaggerModule {
     @dagger.Provides
@@ -109,13 +208,6 @@ public class DaggerAdapterTest extends TestCase {
     }
   }
 
-  public void testSetBindingsWithAnnotation() {
-    Injector i =
-        Guice.createInjector(DaggerAdapter.from(new SetBindingWithAnnotationDaggerModule()));
-    assertThat(i.getInstance(Key.get(new TypeLiteral<Set<Integer>>() {}, AnnotationOnSet.class)))
-        .isEqualTo(ImmutableSet.of(4));
-  }
-
   static class MultibindingGuiceModule implements Module {
     @Override
     public void configure(Binder binder) {
@@ -123,14 +215,6 @@ public class DaggerAdapterTest extends TestCase {
       mb.addBinding().toInstance(13);
       mb.addBinding().toProvider(Providers.of(8)); // mix'n'match.
     }
-  }
-
-  public void testSetBindingsWithGuiceModule() {
-    Injector i =
-        Guice.createInjector(
-            new MultibindingGuiceModule(),
-            DaggerAdapter.from(new SetBindingDaggerModule1(), new SetBindingDaggerModule2()));
-    assertThat(i.getInstance(new Key<Set<Integer>>() {})).isEqualTo(ImmutableSet.of(13, 3, 5, 8));
   }
 
   @dagger.Module
@@ -154,39 +238,7 @@ public class DaggerAdapterTest extends TestCase {
   @dagger.Module
   static class UnsupportedAnnotationSubclassModule extends UnsupportedAnnotationModule {}
 
-  public void testUnsupportedBindingAnnotation() {
-    try {
-      Guice.createInjector(DaggerAdapter.from(new UnsupportedAnnotationModule()));
-      fail();
-    } catch (CreationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "noGuiceEquivalentForElementsIntoSet() is annotated with"
-                  + " @dagger.multibindings.ElementsIntoSet which is not supported by"
-                  + " DaggerAdapter");
-    }
-
-    try {
-      Guice.createInjector(DaggerAdapter.from(UnsupportedAnnotationStaticModule.class));
-      fail();
-    } catch (CreationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "noGuiceEquivalentForElementsIntoSet() is annotated with"
-                  + " @dagger.multibindings.ElementsIntoSet which is not supported by"
-                  + " DaggerAdapter");
-    }
-  }
-
-  public void testUnsupportedBindingAnnotationFromModuleSuperclass() {
-    try {
-      Guice.createInjector(DaggerAdapter.from(new UnsupportedAnnotationSubclassModule()));
-      fail();
-    } catch (CreationException expected) {
-    }
-  }
+  
 
   // TODO(ronshapiro): break this class into smaller files.
 
@@ -206,25 +258,6 @@ public class DaggerAdapterTest extends TestCase {
     }
   }
 
-  public void testStaticProvidesMethods() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(new StaticProvidesMethods()));
-    String staticProvision = injector.getInstance(String.class);
-    assertThat(staticProvision).isEqualTo("class");
-  }
-
-  public void testStaticProvidesMethods_classLiteral() {
-    Injector injector = Guice.createInjector(DaggerAdapter.from(StaticProvidesMethods.class));
-    String staticProvision = injector.getInstance(String.class);
-    assertThat(staticProvision).isEqualTo("class");
-  }
-
-  public void testStaticProvidesMethods_interface() {
-    Injector injector =
-        Guice.createInjector(DaggerAdapter.from(StaticProvidesMethodsInterface.class));
-    String staticProvision = injector.getInstance(String.class);
-    assertThat(staticProvision).isEqualTo("interface");
-  }
-
   @dagger.Module
   static class ModuleWithInstanceMethods {
     @dagger.Provides
@@ -233,46 +266,11 @@ public class DaggerAdapterTest extends TestCase {
     }
   }
 
-  public void testClassLiteralWithInstanceProvidesMethod() {
-    try {
-      Guice.createInjector(DaggerAdapter.from(ModuleWithInstanceMethods.class));
-      fail();
-    } catch (CreationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "ModuleWithInstanceMethods.i() is an instance method, but a class literal was"
-                  + " passed. Make this method static or pass an instance of the module instead.");
-    }
-  }
-
-  public void testModuleObjectsMustBeDaggerModules() {
-    try {
-      Guice.createInjector(DaggerAdapter.from(new Object()));
-      fail();
-    } catch (CreationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("Object must be annotated with @dagger.Module");
-    }
-  }
-
   @dagger.producers.ProducerModule
   static class ProducerModuleWithProvidesMethod {
     @dagger.Provides
     int i() {
       return 1;
-    }
-  }
-
-  public void testProducerModulesNotSupported() {
-    try {
-      Guice.createInjector(DaggerAdapter.from(new ProducerModuleWithProvidesMethod()));
-      fail();
-    } catch (CreationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("ProducerModuleWithProvidesMethod must be annotated with @dagger.Module");
     }
   }
 }

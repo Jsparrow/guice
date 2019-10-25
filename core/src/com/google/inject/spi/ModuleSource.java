@@ -171,7 +171,7 @@ final class ModuleSource {
       int chunkSize = chunk.length;
       System.arraycopy(chunk, 0, callStack, cursor, chunkSize);
       current = current.parent;
-      cursor = cursor + chunkSize;
+      cursor += chunkSize;
     }
     return callStack;
   }

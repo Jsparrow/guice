@@ -32,8 +32,9 @@ public abstract class BindingImpl<T> implements Binding<T> {
   private final Object source;
   private final Scoping scoping;
   private final InternalFactory<? extends T> internalFactory;
+private volatile Provider<T> provider;
 
-  public BindingImpl(
+public BindingImpl(
       InjectorImpl injector,
       Key<T> key,
       Object source,
@@ -46,7 +47,7 @@ public abstract class BindingImpl<T> implements Binding<T> {
     this.scoping = scoping;
   }
 
-  protected BindingImpl(Object source, Key<T> key, Scoping scoping) {
+protected BindingImpl(Object source, Key<T> key, Scoping scoping) {
     this.internalFactory = null;
     this.injector = null;
     this.source = source;
@@ -54,19 +55,17 @@ public abstract class BindingImpl<T> implements Binding<T> {
     this.scoping = scoping;
   }
 
-  @Override
+@Override
   public Key<T> getKey() {
     return key;
   }
 
-  @Override
+@Override
   public Object getSource() {
     return source;
   }
 
-  private volatile Provider<T> provider;
-
-  @Override
+@Override
   public Provider<T> getProvider() {
     if (provider == null) {
       if (injector == null) {
@@ -78,15 +77,15 @@ public abstract class BindingImpl<T> implements Binding<T> {
     return provider;
   }
 
-  public InternalFactory<? extends T> getInternalFactory() {
+public InternalFactory<? extends T> getInternalFactory() {
     return internalFactory;
   }
 
-  public Scoping getScoping() {
+public Scoping getScoping() {
     return scoping;
   }
 
-  /**
+/**
    * Is this a constant binding? This returns true for constant bindings as well as toInstance()
    * bindings.
    */
@@ -94,25 +93,25 @@ public abstract class BindingImpl<T> implements Binding<T> {
     return this instanceof InstanceBinding;
   }
 
-  @Override
+@Override
   public <V> V acceptVisitor(ElementVisitor<V> visitor) {
     return visitor.visit(this);
   }
 
-  @Override
+@Override
   public <V> V acceptScopingVisitor(BindingScopingVisitor<V> visitor) {
     return scoping.acceptVisitor(visitor);
   }
 
-  protected BindingImpl<T> withScoping(Scoping scoping) {
+protected BindingImpl<T> withScoping(Scoping scoping) {
     throw new AssertionError();
   }
 
-  protected BindingImpl<T> withKey(Key<T> key) {
+protected BindingImpl<T> withKey(Key<T> key) {
     throw new AssertionError();
   }
 
-  @Override
+@Override
   public String toString() {
     return MoreObjects.toStringHelper(Binding.class)
         .add("key", key)
@@ -121,7 +120,7 @@ public abstract class BindingImpl<T> implements Binding<T> {
         .toString();
   }
 
-  public InjectorImpl getInjector() {
+public InjectorImpl getInjector() {
     return injector;
   }
 }

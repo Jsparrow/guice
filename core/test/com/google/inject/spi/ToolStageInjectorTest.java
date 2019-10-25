@@ -151,24 +151,23 @@ public class ToolStageInjectorTest extends TestCase {
 
   private static class Foo implements Provider<Object> {
     @Inject private static S s;
-    @Inject private F f;
-    private M m;
+	private static SM sm;
+	@Inject private F f;
+	private M m;
 
-    @SuppressWarnings("unused")
+	@SuppressWarnings("unused")
     @Inject
     void method(M m) {
       this.m = m;
     }
 
-    private static SM sm;
-
-    @SuppressWarnings("unused")
+	@SuppressWarnings("unused")
     @Inject
     static void staticMethod(SM sm) {
       Tooled.sm = sm;
     }
 
-    @Override
+	@Override
     public Object get() {
       return null;
     }
@@ -176,26 +175,25 @@ public class ToolStageInjectorTest extends TestCase {
 
   private static class Tooled implements Provider<Object> {
     @Inject private static S s;
-    @Inject private F f;
-    private M m;
+	private static SM sm;
+	@Inject private F f;
+	private M m;
 
-    @Toolable
+	@Toolable
     @SuppressWarnings("unused")
     @Inject
     void method(M m) {
       this.m = m;
     }
 
-    private static SM sm;
-
-    @Toolable
+	@Toolable
     @SuppressWarnings("unused")
     @Inject
     static void staticMethod(SM sm) {
       Tooled.sm = sm;
     }
 
-    @Override
+	@Override
     public Object get() {
       return null;
     }

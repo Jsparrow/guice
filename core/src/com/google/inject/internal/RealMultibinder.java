@@ -50,103 +50,116 @@ import java.util.Set;
  */
 public final class RealMultibinder<T> implements Module {
 
-  /** Implementation of newSetBinder. */
-  public static <T> RealMultibinder<T> newRealSetBinder(Binder binder, Key<T> key) {
-    binder = binder.skipSources(RealMultibinder.class);
-    RealMultibinder<T> result = new RealMultibinder<>(binder, key);
-    binder.install(result);
-    return result;
-  }
-
-  @SuppressWarnings("unchecked") // wrapping a T in a Set safely returns a Set<T>
-  static <T> TypeLiteral<Set<T>> setOf(TypeLiteral<T> elementType) {
-    Type type = Types.setOf(elementType.getType());
-    return (TypeLiteral<Set<T>>) TypeLiteral.get(type);
-  }
-
-  @SuppressWarnings("unchecked")
-  static <T> TypeLiteral<Collection<Provider<T>>> collectionOfProvidersOf(
-      TypeLiteral<T> elementType) {
-    Type providerType = Types.providerOf(elementType.getType());
-    Type type = Types.collectionOf(providerType);
-    return (TypeLiteral<Collection<Provider<T>>>) TypeLiteral.get(type);
-  }
-
-  @SuppressWarnings("unchecked")
-  static <T> TypeLiteral<Collection<javax.inject.Provider<T>>> collectionOfJavaxProvidersOf(
-      TypeLiteral<T> elementType) {
-    Type providerType =
-        Types.newParameterizedType(javax.inject.Provider.class, elementType.getType());
-    Type type = Types.collectionOf(providerType);
-    return (TypeLiteral<Collection<javax.inject.Provider<T>>>) TypeLiteral.get(type);
-  }
-
   private final BindingSelection<T> bindingSelection;
-  private final Binder binder;
+	private final Binder binder;
 
-  RealMultibinder(Binder binder, Key<T> key) {
-    this.binder = checkNotNull(binder, "binder");
-    this.bindingSelection = new BindingSelection<>(key);
-  }
+	RealMultibinder(Binder binder, Key<T> key) {
+	    this.binder = checkNotNull(binder, "binder");
+	    this.bindingSelection = new BindingSelection<>(key);
+	  }
 
-  @Override
-  public void configure(Binder binder) {
-    checkConfiguration(!bindingSelection.isInitialized(), "Multibinder was already initialized");
-    binder
-        .bind(bindingSelection.getSetKey())
-        .toProvider(new RealMultibinderProvider<T>(bindingSelection));
-    Provider<Collection<Provider<T>>> collectionOfProvidersProvider =
-        new RealMultibinderCollectionOfProvidersProvider<T>(bindingSelection);
-    binder
-        .bind(bindingSelection.getCollectionOfProvidersKey())
-        .toProvider(collectionOfProvidersProvider);
+	/** Implementation of newSetBinder. */
+	  public static <T> RealMultibinder<T> newRealSetBinder(Binder binder, Key<T> key) {
+	    binder = binder.skipSources(RealMultibinder.class);
+	    RealMultibinder<T> result = new RealMultibinder<>(binder, key);
+	    binder.install(result);
+	    return result;
+	  }
 
-    // The collection this exposes is internally an ImmutableList, so it's OK to massage
-    // the guice Provider to javax Provider in the value (since the guice Provider implements
-    // javax Provider).
-    @SuppressWarnings("unchecked")
-    Provider<Collection<javax.inject.Provider<T>>> javaxProvider =
-        (Provider) collectionOfProvidersProvider;
-    binder.bind(bindingSelection.getCollectionOfJavaxProvidersKey()).toProvider(javaxProvider);
-  }
+	@SuppressWarnings("unchecked") // wrapping a T in a Set safely returns a Set<T>
+	  static <T> TypeLiteral<Set<T>> setOf(TypeLiteral<T> elementType) {
+	    Type type = Types.setOf(elementType.getType());
+	    return (TypeLiteral<Set<T>>) TypeLiteral.get(type);
+	  }
 
-  public void permitDuplicates() {
-    binder.install(new PermitDuplicatesModule(bindingSelection.getPermitDuplicatesKey()));
-  }
+	@SuppressWarnings("unchecked")
+	  static <T> TypeLiteral<Collection<Provider<T>>> collectionOfProvidersOf(
+	      TypeLiteral<T> elementType) {
+	    Type providerType = Types.providerOf(elementType.getType());
+	    Type type = Types.collectionOf(providerType);
+	    return (TypeLiteral<Collection<Provider<T>>>) TypeLiteral.get(type);
+	  }
 
-  /** Adds a new entry to the set and returns the key for it. */
-  Key<T> getKeyForNewItem() {
-    checkConfiguration(!bindingSelection.isInitialized(), "Multibinder was already initialized");
-    return Key.get(
-        bindingSelection.getElementTypeLiteral(),
-        new RealElement(bindingSelection.getSetName(), MULTIBINDER, ""));
-  }
+	@SuppressWarnings("unchecked")
+	  static <T> TypeLiteral<Collection<javax.inject.Provider<T>>> collectionOfJavaxProvidersOf(
+	      TypeLiteral<T> elementType) {
+	    Type providerType =
+	        Types.newParameterizedType(javax.inject.Provider.class, elementType.getType());
+	    Type type = Types.collectionOf(providerType);
+	    return (TypeLiteral<Collection<javax.inject.Provider<T>>>) TypeLiteral.get(type);
+	  }
 
-  public LinkedBindingBuilder<T> addBinding() {
-    return binder.bind(getKeyForNewItem());
-  }
+	@Override
+	  public void configure(Binder binder) {
+	    checkConfiguration(!bindingSelection.isInitialized(), "Multibinder was already initialized");
+	    binder
+	        .bind(bindingSelection.getSetKey())
+	        .toProvider(new RealMultibinderProvider<T>(bindingSelection));
+	    Provider<Collection<Provider<T>>> collectionOfProvidersProvider =
+	        new RealMultibinderCollectionOfProvidersProvider<T>(bindingSelection);
+	    binder
+	        .bind(bindingSelection.getCollectionOfProvidersKey())
+	        .toProvider(collectionOfProvidersProvider);
+	
+	    // The collection this exposes is internally an ImmutableList, so it's OK to massage
+	    // the guice Provider to javax Provider in the value (since the guice Provider implements
+	    // javax Provider).
+	    @SuppressWarnings("unchecked")
+	    Provider<Collection<javax.inject.Provider<T>>> javaxProvider =
+	        (Provider) collectionOfProvidersProvider;
+	    binder.bind(bindingSelection.getCollectionOfJavaxProvidersKey()).toProvider(javaxProvider);
+	  }
+
+	public void permitDuplicates() {
+	    binder.install(new PermitDuplicatesModule(bindingSelection.getPermitDuplicatesKey()));
+	  }
+
+	/** Adds a new entry to the set and returns the key for it. */
+	  Key<T> getKeyForNewItem() {
+	    checkConfiguration(!bindingSelection.isInitialized(), "Multibinder was already initialized");
+	    return Key.get(
+	        bindingSelection.getElementTypeLiteral(),
+	        new RealElement(bindingSelection.getSetName(), MULTIBINDER, ""));
+	  }
+
+	public LinkedBindingBuilder<T> addBinding() {
+	    return binder.bind(getKeyForNewItem());
+	  }
+
+	Key<Set<T>> getSetKey() {
+	    return bindingSelection.getSetKey();
+	  }
+
+	TypeLiteral<T> getElementTypeLiteral() {
+	    return bindingSelection.getElementTypeLiteral();
+	  }
+
+	String getSetName() {
+	    return bindingSelection.getSetName();
+	  }
+
+	boolean permitsDuplicates(Injector injector) {
+	    return bindingSelection.permitsDuplicates(injector);
+	  }
+
+	boolean containsElement(com.google.inject.spi.Element element) {
+	    return bindingSelection.containsElement(element);
+	  }
+
+	@Override
+	  public boolean equals(Object o) {
+	    return o instanceof RealMultibinder
+	        && ((RealMultibinder<?>) o).bindingSelection.equals(bindingSelection);
+	  }
+
+	@Override
+	  public int hashCode() {
+	    return bindingSelection.hashCode();
+	  }
+
+
 
   // These methods are used by RealMapBinder
-
-  Key<Set<T>> getSetKey() {
-    return bindingSelection.getSetKey();
-  }
-
-  TypeLiteral<T> getElementTypeLiteral() {
-    return bindingSelection.getElementTypeLiteral();
-  }
-
-  String getSetName() {
-    return bindingSelection.getSetName();
-  }
-
-  boolean permitsDuplicates(Injector injector) {
-    return bindingSelection.permitsDuplicates(injector);
-  }
-
-  boolean containsElement(com.google.inject.spi.Element element) {
-    return bindingSelection.containsElement(element);
-  }
 
   private static final class RealMultibinderProvider<T>
       extends InternalProviderInstanceBindingImpl.Factory<Set<T>>
@@ -260,9 +273,7 @@ public final class RealMultibinder<T> implements Module {
       } else {
         // When the value strings don't match, include them both as they may be useful for debugging
         return InternalProvisionException.create(
-            "Set injection failed due to multiple elements comparing equal:"
-                + "\n    \"%s\"\n        bound at %s"
-                + "\n    \"%s\"\n        bound at %s",
+            new StringBuilder().append("Set injection failed due to multiple elements comparing equal:").append("\n    \"%s\"\n        bound at %s").append("\n    \"%s\"\n        bound at %s").toString(),
             oldValue, duplicateBinding.getSource(), newValue, newBinding.getSource());
       }
     }
@@ -515,22 +526,8 @@ public final class RealMultibinder<T> implements Module {
 
     @Override
     public String toString() {
-      return (getSetName().isEmpty() ? "" : getSetName() + " ")
-          + "Multibinder<"
-          + elementType
-          + ">";
+      return new StringBuilder().append(getSetName().isEmpty() ? "" : getSetName() + " ").append("Multibinder<").append(elementType).append(">").toString();
     }
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return o instanceof RealMultibinder
-        && ((RealMultibinder<?>) o).bindingSelection.equals(bindingSelection);
-  }
-
-  @Override
-  public int hashCode() {
-    return bindingSelection.hashCode();
   }
 
   private static final class RealMultibinderCollectionOfProvidersProvider<T>
@@ -548,9 +545,7 @@ public final class RealMultibinder<T> implements Module {
     void initialize(InjectorImpl injector, Errors errors) throws ErrorsException {
       bindingSelection.initialize(injector, errors);
       ImmutableList.Builder<Provider<T>> providers = ImmutableList.builder();
-      for (Binding<T> binding : bindingSelection.getBindings()) {
-        providers.add(binding.getProvider());
-      }
+      bindingSelection.getBindings().forEach(binding -> providers.add(binding.getProvider()));
       this.collectionOfProviders = providers.build();
     }
 

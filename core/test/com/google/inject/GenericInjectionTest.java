@@ -29,7 +29,7 @@ import junit.framework.TestCase;
 /** @author crazybob@google.com (Bob Lee) */
 public class GenericInjectionTest extends TestCase {
 
-  public void testGenericInjection() throws CreationException {
+  public void testGenericInjection() {
     final List<String> names = Arrays.asList("foo", "bar", "bob");
 
     Injector injector =
@@ -46,10 +46,6 @@ public class GenericInjectionTest extends TestCase {
     assertEquals(names, foo.names);
   }
 
-  static class Foo {
-    @Inject List<String> names;
-  }
-
   /**
    * Although we may not have intended to support this behaviour, this test passes under Guice 1.0.
    * The workaround is to add an explicit binding for the parameterized type. See {@link
@@ -61,7 +57,7 @@ public class GenericInjectionTest extends TestCase {
     assertNotNull(parameterized);
   }
 
-  public void testExplicitBindingOfGenericType() {
+public void testExplicitBindingOfGenericType() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -77,17 +73,12 @@ public class GenericInjectionTest extends TestCase {
     assertNotNull(parameterized);
   }
 
-  static class Parameterized<T> {
-    @Inject
-    Parameterized() {}
-  }
-
-  public void testInjectingParameterizedDependenciesForImplicitBinding() {
+public void testInjectingParameterizedDependenciesForImplicitBinding() {
     assertParameterizedDepsInjected(
         new Key<ParameterizedDeps<String, Integer>>() {}, Modules.EMPTY_MODULE);
   }
 
-  public void testInjectingParameterizedDependenciesForBindingTarget() {
+public void testInjectingParameterizedDependenciesForBindingTarget() {
     final TypeLiteral<ParameterizedDeps<String, Integer>> type =
         new TypeLiteral<ParameterizedDeps<String, Integer>>() {};
 
@@ -101,7 +92,7 @@ public class GenericInjectionTest extends TestCase {
         });
   }
 
-  public void testInjectingParameterizedDependenciesForBindingSource() {
+public void testInjectingParameterizedDependenciesForBindingSource() {
     final TypeLiteral<ParameterizedDeps<String, Integer>> type =
         new TypeLiteral<ParameterizedDeps<String, Integer>>() {};
 
@@ -115,7 +106,7 @@ public class GenericInjectionTest extends TestCase {
         });
   }
 
-  public void testBindingToSubtype() {
+public void testBindingToSubtype() {
     final TypeLiteral<ParameterizedDeps<String, Integer>> type =
         new TypeLiteral<ParameterizedDeps<String, Integer>>() {};
 
@@ -129,7 +120,7 @@ public class GenericInjectionTest extends TestCase {
         });
   }
 
-  public void testBindingSubtype() {
+public void testBindingSubtype() {
     final TypeLiteral<SubParameterizedDeps<String, Long, Integer>> type =
         new TypeLiteral<SubParameterizedDeps<String, Long, Integer>>() {};
 
@@ -143,7 +134,7 @@ public class GenericInjectionTest extends TestCase {
         });
   }
 
-  @SuppressWarnings("unchecked")
+@SuppressWarnings("unchecked")
   public void assertParameterizedDepsInjected(Key<?> key, Module bindingModule) {
     Module bindDataModule =
         new AbstractModule() {
@@ -172,6 +163,28 @@ public class GenericInjectionTest extends TestCase {
     assertEquals(ImmutableSet.of(1, 2), ImmutableSet.copyOf(parameterizedDeps.values));
   }
 
+public void testImmediateTypeVariablesAreInjected() {
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(String.class).toInstance("tee");
+              }
+            });
+    InjectsT<String> injectsT = injector.getInstance(new Key<InjectsT<String>>() {});
+    assertEquals("tee", injectsT.t);
+  }
+
+static class Foo {
+    @Inject List<String> names;
+  }
+
+  static class Parameterized<T> {
+    @Inject
+    Parameterized() {}
+  }
+
   static class SubParameterizedDeps<A, B, C> extends ParameterizedDeps<A, C> {
     @Inject
     SubParameterizedDeps(Set<A> keys) {
@@ -193,19 +206,6 @@ public class GenericInjectionTest extends TestCase {
     void method(Collection<V> values) {
       this.values = values;
     }
-  }
-
-  public void testImmediateTypeVariablesAreInjected() {
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(String.class).toInstance("tee");
-              }
-            });
-    InjectsT<String> injectsT = injector.getInstance(new Key<InjectsT<String>>() {});
-    assertEquals("tee", injectsT.t);
   }
 
   static class InjectsT<T> {

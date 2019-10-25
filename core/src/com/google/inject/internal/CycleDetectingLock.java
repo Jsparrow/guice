@@ -108,7 +108,7 @@ interface CycleDetectingLock<ID> {
      * @param userLockId lock id that would be used to report lock cycles if detected
      */
     CycleDetectingLock<ID> create(ID userLockId) {
-      return new ReentrantCycleDetectingLock<ID>(this, userLockId, new ReentrantLock());
+      return new ReentrantCycleDetectingLock<>(this, userLockId, new ReentrantLock());
     }
 
     /** The implementation for {@link CycleDetectingLock}. */
@@ -204,7 +204,7 @@ interface CycleDetectingLock<ID> {
       }
 
       /** Check consistency of an internal state. */
-      void checkState() throws IllegalStateException {
+      void checkState() {
         final Thread currentThread = Thread.currentThread();
         Preconditions.checkState(
             !lockThreadIsWaitingOn.containsKey(currentThread),

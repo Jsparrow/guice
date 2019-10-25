@@ -69,7 +69,7 @@ public class Asserts {
     if (getIncludeStackTraceOption() == IncludeStackTraceOption.OFF) {
       return ".configure(Unknown Source";
     }
-    return ".configure(" + clazz.getSimpleName() + ".java:";
+    return new StringBuilder().append(".configure(").append(clazz.getSimpleName()).append(".java:").toString();
   }
 
   /**
@@ -126,13 +126,14 @@ public class Asserts {
       startingFrom = index + substring.length();
     }
 
-    if (!allowDuplicates) {
-      String lastSubstring = substrings[substrings.length - 1];
-      assertTrue(
+    if (allowDuplicates) {
+		return;
+	}
+	String lastSubstring = substrings[substrings.length - 1];
+	assertTrue(
           String.format(
               "Expected \"%s\" to contain substring \"%s\" only once),", text, lastSubstring),
           text.indexOf(lastSubstring, startingFrom) == -1);
-    }
   }
 
   /** Fails unless {@code object} doesn't equal itself when reserialized. */
@@ -177,9 +178,7 @@ public class Asserts {
     GcFinalization.awaitFullGc();
     try {
       assertSame("queue didn't return ref in time", ref, queue.remove(5000));
-    } catch (IllegalArgumentException e) {
-      throw new RuntimeException(e);
-    } catch (InterruptedException e) {
+    } catch (InterruptedException | IllegalArgumentException e) {
       throw new RuntimeException(e);
     }
   }
@@ -199,9 +198,7 @@ public class Asserts {
     if (queue != null) {
       try {
         assertSame("queue didn't return ref in time", extraRef, queue.remove(5000));
-      } catch (IllegalArgumentException e) {
-        throw new RuntimeException(e);
-      } catch (InterruptedException e) {
+      } catch (InterruptedException | IllegalArgumentException e) {
         throw new RuntimeException(e);
       }
     }

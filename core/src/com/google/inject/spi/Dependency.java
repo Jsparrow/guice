@@ -54,15 +54,13 @@ public final class Dependency<T> {
    * nullable.
    */
   public static <T> Dependency<T> get(Key<T> key) {
-    return new Dependency<T>(null, MoreTypes.canonicalizeKey(key), true, -1);
+    return new Dependency<>(null, MoreTypes.canonicalizeKey(key), true, -1);
   }
 
   /** Returns the dependencies from the given injection points. */
   public static Set<Dependency<?>> forInjectionPoints(Set<InjectionPoint> injectionPoints) {
     List<Dependency<?>> dependencies = Lists.newArrayList();
-    for (InjectionPoint injectionPoint : injectionPoints) {
-      dependencies.addAll(injectionPoint.getDependencies());
-    }
+    injectionPoints.forEach(injectionPoint -> dependencies.addAll(injectionPoint.getDependencies()));
     return ImmutableSet.copyOf(dependencies);
   }
 

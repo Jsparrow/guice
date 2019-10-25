@@ -36,7 +36,7 @@ public class JitBindingsTest extends TestCase {
   }
 
   private String jitFailed(TypeLiteral<?> clazz) {
-    return "Explicit bindings are required and " + clazz + " is not explicitly bound.";
+    return new StringBuilder().append("Explicit bindings are required and ").append(clazz).append(" is not explicitly bound.").toString();
   }
 
   private String jitInParentFailed(Class<?> clazz) {
@@ -44,13 +44,11 @@ public class JitBindingsTest extends TestCase {
   }
 
   private String jitInParentFailed(TypeLiteral<?> clazz) {
-    return "Explicit bindings are required and " + clazz + " would be bound in a parent injector.";
+    return new StringBuilder().append("Explicit bindings are required and ").append(clazz).append(" would be bound in a parent injector.").toString();
   }
 
   private String inChildMessage(Class<?> clazz) {
-    return "Unable to create binding for "
-        + clazz.getName()
-        + ". It was already configured on one or more child injectors or private modules";
+    return new StringBuilder().append("Unable to create binding for ").append(clazz.getName()).append(". It was already configured on one or more child injectors or private modules").toString();
   }
 
   public void testLinkedBindingWorks() {
@@ -681,93 +679,93 @@ public class JitBindingsTest extends TestCase {
   }
 
   private void ensureWorks(Injector injector, Class<?>... classes) {
-    for (int i = 0; i < classes.length; i++) {
-      injector.getInstance(classes[i]);
-      injector.getProvider(classes[i]).get();
-      injector.getBinding(classes[i]).getProvider().get();
+    for (Class<?> classe : classes) {
+      injector.getInstance(classe);
+      injector.getProvider(classe).get();
+      injector.getBinding(classe).getProvider().get();
     }
   }
 
-  enum GetBindingCheck {
-    FAIL_ALL,
-    ALLOW_BINDING,
-    ALLOW_BINDING_PROVIDER
-  }
-
   private void ensureFails(Injector injector, GetBindingCheck getBinding, Class<?>... classes) {
-    for (int i = 0; i < classes.length; i++) {
+    for (Class<?> classe : classes) {
       try {
-        injector.getInstance(classes[i]);
-        fail("should have failed tring to retrieve class: " + classes[i]);
+        injector.getInstance(classe);
+        fail("should have failed tring to retrieve class: " + classe);
       } catch (ConfigurationException expected) {
-        assertContains(expected.getMessage(), jitFailed(classes[i]));
+        assertContains(expected.getMessage(), jitFailed(classe));
         assertEquals(1, expected.getErrorMessages().size());
       }
 
       try {
-        injector.getProvider(classes[i]);
-        fail("should have failed tring to retrieve class: " + classes[i]);
+        injector.getProvider(classe);
+        fail("should have failed tring to retrieve class: " + classe);
       } catch (ConfigurationException expected) {
-        assertContains(expected.getMessage(), jitFailed(classes[i]));
+        assertContains(expected.getMessage(), jitFailed(classe));
         assertEquals(1, expected.getErrorMessages().size());
       }
 
       if (getBinding == GetBindingCheck.ALLOW_BINDING
           || getBinding == GetBindingCheck.ALLOW_BINDING_PROVIDER) {
-        Binding<?> binding = injector.getBinding(classes[i]);
+        Binding<?> binding = injector.getBinding(classe);
         try {
           binding.getProvider();
           if (getBinding != GetBindingCheck.ALLOW_BINDING_PROVIDER) {
-            fail("should have failed trying to retrieve class: " + classes[i]);
+            fail("should have failed trying to retrieve class: " + classe);
           }
         } catch (ConfigurationException expected) {
           if (getBinding == GetBindingCheck.ALLOW_BINDING_PROVIDER) {
             throw expected;
           }
-          assertContains(expected.getMessage(), jitFailed(classes[i]));
+          assertContains(expected.getMessage(), jitFailed(classe));
           assertEquals(1, expected.getErrorMessages().size());
         }
       } else {
         try {
-          injector.getBinding(classes[i]);
-          fail("should have failed tring to retrieve class: " + classes[i]);
+          injector.getBinding(classe);
+          fail("should have failed tring to retrieve class: " + classe);
         } catch (ConfigurationException expected) {
-          assertContains(expected.getMessage(), jitFailed(classes[i]));
+          assertContains(expected.getMessage(), jitFailed(classe));
           assertEquals(1, expected.getErrorMessages().size());
         }
       }
     }
   }
 
-  private void ensureInChild(Injector injector, Class<?>... classes) {
-    for (int i = 0; i < classes.length; i++) {
+private void ensureInChild(Injector injector, Class<?>... classes) {
+    for (Class<?> classe : classes) {
       try {
-        injector.getInstance(classes[i]);
-        fail("should have failed tring to retrieve class: " + classes[i]);
+        injector.getInstance(classe);
+        fail("should have failed tring to retrieve class: " + classe);
       } catch (ConfigurationException expected) {
-        assertContains(expected.getMessage(), inChildMessage(classes[i]));
+        assertContains(expected.getMessage(), inChildMessage(classe));
         assertEquals(1, expected.getErrorMessages().size());
       }
 
       try {
-        injector.getProvider(classes[i]);
-        fail("should have failed tring to retrieve class: " + classes[i]);
+        injector.getProvider(classe);
+        fail("should have failed tring to retrieve class: " + classe);
       } catch (ConfigurationException expected) {
-        assertContains(expected.getMessage(), inChildMessage(classes[i]));
+        assertContains(expected.getMessage(), inChildMessage(classe));
         assertEquals(1, expected.getErrorMessages().size());
       }
 
       try {
-        injector.getBinding(classes[i]);
-        fail("should have failed tring to retrieve class: " + classes[i]);
+        injector.getBinding(classe);
+        fail("should have failed tring to retrieve class: " + classe);
       } catch (ConfigurationException expected) {
-        assertContains(expected.getMessage(), inChildMessage(classes[i]));
+        assertContains(expected.getMessage(), inChildMessage(classe));
         assertEquals(1, expected.getErrorMessages().size());
       }
     }
   }
 
-  private static interface Foo {}
+enum GetBindingCheck {
+    FAIL_ALL,
+    ALLOW_BINDING,
+    ALLOW_BINDING_PROVIDER
+  }
+
+private static interface Foo {}
 
   private static class FooImpl implements Foo {}
 

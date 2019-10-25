@@ -86,7 +86,7 @@ final class ProviderChecker {
     if (declaredMethods.size() == 1) {
       Method method = declaredMethods.get(0);
       checkArgument(
-          method.getName().equals("get"),
+          "get".equals(method.getName()),
           "%s may not declare any new methods, but declared %s",
           interfaceType,
           method);

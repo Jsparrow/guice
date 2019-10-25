@@ -31,14 +31,11 @@ public class SerializationTest extends TestCase {
     Asserts.reserialize(new MyAbstractModule());
   }
 
-  static class MyAbstractModule extends AbstractModule implements Serializable {
-  }
-
   public void testCreationExceptionIsSerializable() throws IOException {
     assertSimilarWhenReserialized(createCreationException());
   }
 
-  private CreationException createCreationException() {
+private CreationException createCreationException() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -51,6 +48,9 @@ public class SerializationTest extends TestCase {
     } catch (CreationException e) {
       return e;
     }
+  }
+
+static class MyAbstractModule extends AbstractModule implements Serializable {
   }
 
   static class A {

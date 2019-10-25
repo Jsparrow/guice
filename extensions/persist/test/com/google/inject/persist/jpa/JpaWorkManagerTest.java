@@ -28,17 +28,18 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 import junit.framework.TestCase;
 import org.hibernate.HibernateException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** @author Dhanji R. Prasanna (dhanji@gmail.com) */
 
 public class JpaWorkManagerTest extends TestCase {
-  private Injector injector;
-  private static final String UNIQUE_TEXT_3 =
-      JpaWorkManagerTest.class.getSimpleName()
-          + "CONSTRAINT_VIOLATING some other unique text"
-          + new Date();
+  private static final Logger logger = LoggerFactory.getLogger(JpaWorkManagerTest.class);
+private static final String UNIQUE_TEXT_3 =
+      new StringBuilder().append(JpaWorkManagerTest.class.getSimpleName()).append("CONSTRAINT_VIOLATING some other unique text").append(new Date()).toString();
+private Injector injector;
 
-  @Override
+@Override
   public void setUp() {
     injector = Guice.createInjector(new JpaPersistModule("testUnit"));
 
@@ -46,16 +47,17 @@ public class JpaWorkManagerTest extends TestCase {
     injector.getInstance(PersistService.class).start();
   }
 
-  @Override
+@Override
   public void tearDown() {
     try {
       injector.getInstance(EntityManagerFactory.class).close();
     } catch (HibernateException ex) {
+		logger.error(ex.getMessage(), ex);
       // Expected if the persist service has already been stopped.
     }
   }
 
-  public void testWorkManagerInSession() {
+public void testWorkManagerInSession() {
     injector.getInstance(UnitOfWork.class).begin();
     try {
       injector.getInstance(TransactionalObject.class).runOperationInTxn();
@@ -89,18 +91,18 @@ public class JpaWorkManagerTest extends TestCase {
     }
   }
 
-  public void testCloseMoreThanOnce() {
+public void testCloseMoreThanOnce() {
     injector.getInstance(PersistService.class).stop();
 
     try {
       injector.getInstance(PersistService.class).stop();
       fail();
     } catch (IllegalStateException e) {
+		logger.error(e.getMessage(), e);
       // Ignored.
     }
   }
-
-  public static class TransactionalObject {
+public static class TransactionalObject {
     @Inject EntityManager em;
 
     @Transactional
@@ -116,7 +118,7 @@ public class JpaWorkManagerTest extends TestCase {
 
       JpaTestEntity testEntity = new JpaTestEntity();
 
-      testEntity.setText(UNIQUE_TEXT_3 + "transient never in db!" + hashCode());
+      testEntity.setText(new StringBuilder().append(UNIQUE_TEXT_3).append("transient never in db!").append(hashCode()).toString());
       em.persist(testEntity);
     }
   }

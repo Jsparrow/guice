@@ -44,19 +44,12 @@ public class LineNumbersTest extends TestCase {
     } catch (CreationException expected) {
       assertContains(
           expected.getMessage(),
-          "1) No implementation for " + B.class.getName() + " was bound.",
-          "for the 1st parameter of " + A.class.getName() + ".<init>(LineNumbersTest.java:",
+          new StringBuilder().append("1) No implementation for ").append(B.class.getName()).append(" was bound.").toString(),
+          new StringBuilder().append("for the 1st parameter of ").append(A.class.getName()).append(".<init>(LineNumbersTest.java:").toString(),
           "at " + LineNumbersTest.class.getName(),
           getDeclaringSourcePart(getClass()));
     }
   }
-
-  static class A {
-    @Inject
-    A(B b) {}
-  }
-
-  public interface B {}
 
   /*if[AOP]*/
   public void testCanHandleLineNumbersForGuiceGeneratedClasses() {
@@ -83,12 +76,55 @@ public class LineNumbersTest extends TestCase {
     } catch (CreationException expected) {
       assertContains(
           expected.getMessage(),
-          "1) No implementation for " + B.class.getName() + " was bound.",
-          "for the 1st parameter of " + A.class.getName() + ".<init>(LineNumbersTest.java:",
+          new StringBuilder().append("1) No implementation for ").append(B.class.getName()).append(" was bound.").toString(),
+          new StringBuilder().append("for the 1st parameter of ").append(A.class.getName()).append(".<init>(LineNumbersTest.java:").toString(),
           "at " + LineNumbersTest.class.getName(),
           getDeclaringSourcePart(getClass()));
     }
   }
+
+public void testUnavailableByteCodeShowsUnknownSource() {
+    try {
+      Guice.createInjector(
+          new AbstractModule() {
+            @Override
+            protected void configure() {
+              bind(new GeneratingClassLoader().generate());
+            }
+          });
+      fail();
+    } catch (CreationException expected) {
+      assertContains(
+          expected.getMessage(),
+          new StringBuilder().append("1) No implementation for ").append(B.class.getName()).append(" was bound.").toString(),
+          new StringBuilder().append("for the 1st parameter of ").append(GeneratingClassLoader.name).append(".<init>(Unknown Source)").toString(),
+          "at " + LineNumbersTest.class.getName(),
+          getDeclaringSourcePart(getClass()));
+    }
+  }
+
+public void testGeneratedClassesCanSucceed() {
+    final Class<?> generated = new GeneratingClassLoader().generate();
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bind(generated);
+                bind(B.class).toInstance(new B() {});
+              }
+            });
+    Object instance = injector.getInstance(generated);
+    assertEquals(instance.getClass(), generated);
+  }
+  /*end[AOP]*/
+
+static class A {
+    @Inject
+    A(B b) {}
+  }
+
+  public interface B {}
 
   static class GeneratingClassLoader extends ClassLoader {
     static String name = "__generated";
@@ -108,7 +144,7 @@ public class LineNumbersTest extends TestCase {
           org.objectweb.asm.Type.getInternalName(Object.class),
           null);
 
-      String sig = "(" + org.objectweb.asm.Type.getDescriptor(B.class) + ")V";
+      String sig = new StringBuilder().append("(").append(org.objectweb.asm.Type.getDescriptor(B.class)).append(")V").toString();
 
       org.objectweb.asm.MethodVisitor mv =
           cw.visitMethod(Modifier.PUBLIC, "<init>", sig, null, null);
@@ -131,40 +167,4 @@ public class LineNumbersTest extends TestCase {
       return defineClass(name.replace('/', '.'), buf, 0, buf.length);
     }
   }
-
-  public void testUnavailableByteCodeShowsUnknownSource() {
-    try {
-      Guice.createInjector(
-          new AbstractModule() {
-            @Override
-            protected void configure() {
-              bind(new GeneratingClassLoader().generate());
-            }
-          });
-      fail();
-    } catch (CreationException expected) {
-      assertContains(
-          expected.getMessage(),
-          "1) No implementation for " + B.class.getName() + " was bound.",
-          "for the 1st parameter of " + GeneratingClassLoader.name + ".<init>(Unknown Source)",
-          "at " + LineNumbersTest.class.getName(),
-          getDeclaringSourcePart(getClass()));
-    }
-  }
-
-  public void testGeneratedClassesCanSucceed() {
-    final Class<?> generated = new GeneratingClassLoader().generate();
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bind(generated);
-                bind(B.class).toInstance(new B() {});
-              }
-            });
-    Object instance = injector.getInstance(generated);
-    assertEquals(instance.getClass(), generated);
-  }
-  /*end[AOP]*/
 }

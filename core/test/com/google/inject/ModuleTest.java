@@ -11,7 +11,11 @@ import junit.framework.TestCase;
  */
 public class ModuleTest extends TestCase {
 
-  static class A implements Module {
+  public void testDiamond() throws Exception {
+	    Guice.createInjector(new A());
+	  }
+
+static class A implements Module {
     @Override
     public void configure(Binder binder) {
       binder.bind(X.class);
@@ -61,8 +65,4 @@ public class ModuleTest extends TestCase {
   static class Z {}
 
   static class W {}
-
-  public void testDiamond() throws Exception {
-    Guice.createInjector(new A());
-  }
 }

@@ -66,7 +66,58 @@ final class InjectorShell {
     return elements;
   }
 
-  static class Builder {
+  /**
+   * The Injector is a special case because we allow both parent and child injectors to both have a
+   * binding for that key.
+   */
+  private static void bindInjector(InjectorImpl injector) {
+    Key<Injector> key = Key.get(Injector.class);
+    InjectorFactory injectorFactory = new InjectorFactory(injector);
+    injector.state.putBinding(
+        key,
+        new ProviderInstanceBindingImpl<Injector>(
+            injector,
+            key,
+            SourceProvider.UNKNOWN_SOURCE,
+            injectorFactory,
+            Scoping.UNSCOPED,
+            injectorFactory,
+            ImmutableSet.<InjectionPoint>of()));
+  }
+
+/**
+   * The Logger is a special case because it knows the injection point of the injected member. It's
+   * the only binding that does this.
+   */
+  private static void bindLogger(InjectorImpl injector) {
+    Key<Logger> key = Key.get(Logger.class);
+    LoggerFactory loggerFactory = new LoggerFactory();
+    injector.state.putBinding(
+        key,
+        new ProviderInstanceBindingImpl<Logger>(
+            injector,
+            key,
+            SourceProvider.UNKNOWN_SOURCE,
+            loggerFactory,
+            Scoping.UNSCOPED,
+            loggerFactory,
+            ImmutableSet.<InjectionPoint>of()));
+  }
+
+private static void bindStage(InjectorImpl injector, Stage stage) {
+    Key<Stage> key = Key.get(Stage.class);
+    InstanceBindingImpl<Stage> stageBinding =
+        new InstanceBindingImpl<>(
+            injector,
+            key,
+            SourceProvider.UNKNOWN_SOURCE,
+            new ConstantFactory<Stage>(Initializables.of(stage)),
+            ImmutableSet.<InjectionPoint>of(),
+            stage);
+    injector.state.putBinding(key, stageBinding);
+  }
+
+static class Builder {
     private final List<Element> elements = Lists.newArrayList();
     private final List<Module> modules = Lists.newArrayList();
 
@@ -195,9 +246,7 @@ final class InjectorShell {
       // recursively build child shells
       PrivateElementProcessor processor = new PrivateElementProcessor(errors);
       processor.process(injector, elements);
-      for (Builder builder : processor.getInjectorShellBuilders()) {
-        injectorShells.addAll(builder.build(initializer, bindingData, stopwatch, errors));
-      }
+      processor.getInjectorShellBuilders().forEach(builder -> injectorShells.addAll(builder.build(initializer, bindingData, stopwatch, errors)));
       stopwatch.resetAndLog("Private environment creation");
 
       return injectorShells;
@@ -209,25 +258,6 @@ final class InjectorShell {
       }
       return state;
     }
-  }
-
-  /**
-   * The Injector is a special case because we allow both parent and child injectors to both have a
-   * binding for that key.
-   */
-  private static void bindInjector(InjectorImpl injector) {
-    Key<Injector> key = Key.get(Injector.class);
-    InjectorFactory injectorFactory = new InjectorFactory(injector);
-    injector.state.putBinding(
-        key,
-        new ProviderInstanceBindingImpl<Injector>(
-            injector,
-            key,
-            SourceProvider.UNKNOWN_SOURCE,
-            injectorFactory,
-            Scoping.UNSCOPED,
-            injectorFactory,
-            ImmutableSet.<InjectionPoint>of()));
   }
 
   private static class InjectorFactory implements InternalFactory<Injector>, Provider<Injector> {
@@ -253,25 +283,6 @@ final class InjectorShell {
     }
   }
 
-  /**
-   * The Logger is a special case because it knows the injection point of the injected member. It's
-   * the only binding that does this.
-   */
-  private static void bindLogger(InjectorImpl injector) {
-    Key<Logger> key = Key.get(Logger.class);
-    LoggerFactory loggerFactory = new LoggerFactory();
-    injector.state.putBinding(
-        key,
-        new ProviderInstanceBindingImpl<Logger>(
-            injector,
-            key,
-            SourceProvider.UNKNOWN_SOURCE,
-            loggerFactory,
-            Scoping.UNSCOPED,
-            loggerFactory,
-            ImmutableSet.<InjectionPoint>of()));
-  }
-
   private static class LoggerFactory implements InternalFactory<Logger>, Provider<Logger> {
     @Override
     public Logger get(InternalContext context, Dependency<?> dependency, boolean linked) {
@@ -292,19 +303,6 @@ final class InjectorShell {
     }
   }
 
-  private static void bindStage(InjectorImpl injector, Stage stage) {
-    Key<Stage> key = Key.get(Stage.class);
-    InstanceBindingImpl<Stage> stageBinding =
-        new InstanceBindingImpl<Stage>(
-            injector,
-            key,
-            SourceProvider.UNKNOWN_SOURCE,
-            new ConstantFactory<Stage>(Initializables.of(stage)),
-            ImmutableSet.<InjectionPoint>of(),
-            stage);
-    injector.state.putBinding(key, stageBinding);
-  }
-
   private static class RootModule implements Module {
     @Override
     public void configure(Binder binder) {
@@ -323,9 +321,7 @@ final class InjectorShell {
 
     @Override
     public void configure(Binder binder) {
-      for (ModuleAnnotatedMethodScannerBinding binding : state.getScannerBindings()) {
-        binding.applyTo(binder);
-      }
+      state.getScannerBindings().forEach(binding -> binding.applyTo(binder));
     }
   }
 }

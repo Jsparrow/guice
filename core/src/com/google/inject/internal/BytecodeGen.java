@@ -68,21 +68,16 @@ public final class BytecodeGen {
 
   static final ClassLoader GUICE_CLASS_LOADER = canonicalize(BytecodeGen.class.getClassLoader());
 
-  // initialization-on-demand...
-  private static class SystemBridgeHolder {
-    static final BridgeClassLoader SYSTEM_BRIDGE = new BridgeClassLoader();
-  }
-
-  /** ie. "com.google.inject.internal" */
+/** ie. "com.google.inject.internal" */
   static final String GUICE_INTERNAL_PACKAGE =
       BytecodeGen.class.getName().replaceFirst("\\.internal\\..*$", ".internal");
 
-  /*if[AOP]*/
+/*if[AOP]*/
   /** either "net.sf.cglib", or "com.google.inject.internal.cglib" */
   static final String CGLIB_PACKAGE =
       net.sf.cglib.proxy.Enhancer.class.getName().replaceFirst("\\.cglib\\..*$", ".cglib");
 
-  static final net.sf.cglib.core.NamingPolicy FASTCLASS_NAMING_POLICY =
+static final net.sf.cglib.core.NamingPolicy FASTCLASS_NAMING_POLICY =
       new net.sf.cglib.core.DefaultNamingPolicy() {
         @Override
         protected String getTag() {
@@ -100,7 +95,7 @@ public final class BytecodeGen {
         }
       };
 
-  static final net.sf.cglib.core.NamingPolicy ENHANCER_NAMING_POLICY =
+static final net.sf.cglib.core.NamingPolicy ENHANCER_NAMING_POLICY =
       new net.sf.cglib.core.DefaultNamingPolicy() {
         @Override
         protected String getTag() {
@@ -122,13 +117,13 @@ public final class BytecodeGen {
   private static final String CGLIB_PACKAGE = " "; // any string that's illegal in a package name
   end[NO_AOP]*/
 
-  /**
+/**
    * Weak cache of bridge class loaders that make the Guice implementation classes visible to
    * various code-generated proxies of client classes.
    */
   private static final LoadingCache<ClassLoader, ClassLoader> CLASS_LOADER_CACHE;
 
-  static {
+static {
     CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder().weakKeys().weakValues();
     if (getCustomClassLoadingOption() == CustomClassLoadingOption.OFF) {
       builder.maximumSize(0);
@@ -150,7 +145,7 @@ public final class BytecodeGen {
             });
   }
 
-  /**
+/**
    * Attempts to canonicalize null references to the system class loader. May return null if for
    * some reason the system loader is unavailable.
    */
@@ -158,12 +153,12 @@ public final class BytecodeGen {
     return classLoader != null ? classLoader : SystemBridgeHolder.SYSTEM_BRIDGE.getParent();
   }
 
-  /** Returns the class loader to host generated classes for {@code type}. */
+/** Returns the class loader to host generated classes for {@code type}. */
   public static ClassLoader getClassLoader(Class<?> type) {
     return getClassLoader(type, type.getClassLoader());
   }
 
-  private static ClassLoader getClassLoader(Class<?> type, ClassLoader delegate) {
+private static ClassLoader getClassLoader(Class<?> type, ClassLoader delegate) {
 
     // simple case: do nothing!
     if (getCustomClassLoadingOption() == CustomClassLoadingOption.OFF) {
@@ -183,19 +178,18 @@ public final class BytecodeGen {
     }
 
     // don't try bridging private types as it won't work
-    if (Visibility.forType(type) == Visibility.PUBLIC) {
-      if (delegate != SystemBridgeHolder.SYSTEM_BRIDGE.getParent()) {
+	if (Visibility.forType(type) != Visibility.PUBLIC) {
+		return delegate; // last-resort: do nothing!
+	}
+	if (delegate != SystemBridgeHolder.SYSTEM_BRIDGE.getParent()) {
         // delegate guaranteed to be non-null here
         return CLASS_LOADER_CACHE.getUnchecked(delegate);
       }
-      // delegate may or may not be null here
+	// delegate may or may not be null here
       return SystemBridgeHolder.SYSTEM_BRIDGE;
-    }
-
-    return delegate; // last-resort: do nothing!
   }
 
-  /*if[AOP]*/
+/*if[AOP]*/
   // use fully-qualified names so imports don't need preprocessor statements
   /**
    * Returns a FastClass proxy for invoking the given member or {@code null} if access rules
@@ -207,7 +201,7 @@ public final class BytecodeGen {
     return newFastClassForMember(member.getDeclaringClass(), member);
   }
 
-  /**
+/**
    * Returns a FastClass proxy for invoking the given member or {@code null} if access rules
    * disallow it.
    *
@@ -253,12 +247,12 @@ public final class BytecodeGen {
     generator.setType(type);
     generator.setNamingPolicy(FASTCLASS_NAMING_POLICY);
     if (logger.isLoggable(Level.FINE)) {
-      logger.fine("Loading " + type + " FastClass with " + generator.getClassLoader());
+      logger.fine(new StringBuilder().append("Loading ").append(type).append(" FastClass with ").append(generator.getClassLoader()).toString());
     }
     return generator.create();
   }
 
-  /**
+/**
    * Returns true if the types classloader has the same version of cglib that BytecodeGen has. This
    * only returns false in strange OSGI situations, but it prevents us from using FastClass for non
    * public members.
@@ -272,7 +266,7 @@ public final class BytecodeGen {
     }
   }
 
-  /**
+/**
    * Returns true if the member can be called by a fast class generated in a different classloader.
    */
   private static boolean isPubliclyCallable(Member member) {
@@ -298,7 +292,7 @@ public final class BytecodeGen {
     return true;
   }
 
-  public static net.sf.cglib.proxy.Enhancer newEnhancer(Class<?> type, Visibility visibility) {
+public static net.sf.cglib.proxy.Enhancer newEnhancer(Class<?> type, Visibility visibility) {
     net.sf.cglib.proxy.Enhancer enhancer = new net.sf.cglib.proxy.Enhancer();
     enhancer.setSuperclass(type);
     enhancer.setUseFactory(false);
@@ -306,12 +300,12 @@ public final class BytecodeGen {
       enhancer.setClassLoader(getClassLoader(type));
     }
     enhancer.setNamingPolicy(ENHANCER_NAMING_POLICY);
-    logger.fine("Loading " + type + " Enhancer with " + enhancer.getClassLoader());
+    logger.fine(new StringBuilder().append("Loading ").append(type).append(" Enhancer with ").append(enhancer.getClassLoader()).toString());
     return enhancer;
   }
   /*end[AOP]*/
 
-  /**
+/**
    * The required visibility of a user's class from a Guice-generated class. Visibility of
    * package-private members depends on the loading classloader: only if two classes were loaded by
    * the same classloader can they see each other's package-private members. We need to be careful
@@ -376,6 +370,11 @@ public final class BytecodeGen {
     }
 
     public abstract Visibility and(Visibility that);
+  }
+
+  // initialization-on-demand...
+  private static class SystemBridgeHolder {
+    static final BridgeClassLoader SYSTEM_BRIDGE = new BridgeClassLoader();
   }
 
   /**

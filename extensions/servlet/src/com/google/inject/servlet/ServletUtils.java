@@ -198,10 +198,11 @@ final class ServletUtils {
     }
 
     void dumpTo(StringBuilder dest) {
-      if (length != 0) {
-        dest.append(new String(bytes, 0, length, encoding));
-        length = 0;
-      }
+      if (length == 0) {
+		return;
+	}
+	dest.append(new String(bytes, 0, length, encoding));
+	length = 0;
     }
 
     boolean isEmpty() {

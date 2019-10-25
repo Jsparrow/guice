@@ -77,20 +77,16 @@ final class InjectionRequestProcessor extends AbstractProcessor {
   }
 
   void validate() {
-    for (StaticInjection staticInjection : staticInjections) {
-      staticInjection.validate();
-    }
+    staticInjections.forEach(StaticInjection::validate);
   }
 
   void injectMembers() {
     /*
-     * TODO: If you request both a parent class and one of its
-     * subclasses, the parent class's static members will be
-     * injected twice.
-     */
-    for (StaticInjection staticInjection : staticInjections) {
-      staticInjection.injectMembers();
-    }
+	     * TODO: If you request both a parent class and one of its
+	     * subclasses, the parent class's static members will be
+	     * injected twice.
+	     */
+	staticInjections.forEach(StaticInjection::injectMembers);
   }
 
   /** A requested static injection. */
@@ -129,17 +125,15 @@ final class InjectionRequestProcessor extends AbstractProcessor {
       InternalContext context = injector.enterContext();
       try {
         boolean isStageTool = injector.options.stage == Stage.TOOL;
-        for (SingleMemberInjector memberInjector : memberInjectors) {
-          // Run injections if we're not in tool stage (ie, PRODUCTION or DEV),
-          // or if we are in tool stage and the injection point is toolable.
-          if (!isStageTool || memberInjector.getInjectionPoint().isToolable()) {
+        // Run injections if we're not in tool stage (ie, PRODUCTION or DEV),
+		// or if we are in tool stage and the injection point is toolable.
+		memberInjectors.stream().filter(memberInjector -> !isStageTool || memberInjector.getInjectionPoint().isToolable()).forEach(memberInjector -> {
             try {
               memberInjector.inject(context, null);
             } catch (InternalProvisionException e) {
               errors.merge(e);
             }
-          }
-        }
+          });
       } finally {
         context.close();
       }

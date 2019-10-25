@@ -41,13 +41,13 @@ public class CycleDetectingLockTest extends TestCase {
     final CyclicBarrier signal3 = new CyclicBarrier(2);
     final CycleDetectingLockFactory<String> lockFactory = new CycleDetectingLockFactory<>();
     final CycleDetectingLock<String> lockA =
-        new ReentrantCycleDetectingLock<String>(
+        new ReentrantCycleDetectingLock<>(
             lockFactory,
             "A",
             new ReentrantLock() {
               @Override
               public void lock() {
-                if (Thread.currentThread().getName().equals("T2")) {
+                if ("T2".equals(Thread.currentThread().getName())) {
                   try {
                     signal3.await(DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                   } catch (Exception e) {
@@ -60,13 +60,13 @@ public class CycleDetectingLockTest extends TestCase {
               }
             });
     final CycleDetectingLock<String> lockB =
-        new ReentrantCycleDetectingLock<String>(
+        new ReentrantCycleDetectingLock<>(
             lockFactory,
             "B",
             new ReentrantLock() {
               @Override
               public void lock() {
-                if (Thread.currentThread().getName().equals("T1")) {
+                if ("T1".equals(Thread.currentThread().getName())) {
                   try {
                     signal2.await(DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     signal3.await(DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -215,7 +215,7 @@ public class CycleDetectingLockTest extends TestCase {
       final CycleDetectingLock<T> lock2,
       final CyclicBarrier barrier) {
     FutureTask<ListMultimap<Thread, T>> future =
-        new FutureTask<ListMultimap<Thread, T>>(
+        new FutureTask<>(
             () -> {
               assertTrue(lock1.lockOrDetectPotentialLocksCycle().isEmpty());
               barrier.await();

@@ -120,111 +120,34 @@ final class FactoryProvider2<F>
 
         @Override
         public String toString() {
-          return "@"
-              + Assisted.class.getName()
-              + "(value="
-              + Annotations.memberValueString("")
-              + ")";
+          return new StringBuilder().append("@").append(Assisted.class.getName()).append("(value=").append(Annotations.memberValueString("")).append(")").toString();
         }
       };
 
-  /** All the data necessary to perform an assisted inject. */
-  private static class AssistData implements AssistedMethod {
-    /** the constructor the implementation is constructed with. */
-    final Constructor<?> constructor;
-    /** the return type in the factory method that the constructor is bound to. */
-    final Key<?> returnType;
-    /** the parameters in the factory method associated with this data. */
-    final ImmutableList<Key<?>> paramTypes;
-    /** the type of the implementation constructed */
-    final TypeLiteral<?> implementationType;
+// Note: this isn't a public API, but we need to use it in order to call default methods on (or
+  // with) non-public types.  If it doesn't exist, the code falls back to a less precise check.
+  private static final Constructor<MethodHandles.Lookup> methodHandlesLookupCxtor =
+      findMethodHandlesLookupCxtor();
 
-    /** All non-assisted dependencies required by this method. */
-    final Set<Dependency<?>> dependencies;
-    /** The factory method associated with this data */
-    final Method factoryMethod;
-
-    /** true if {@link #isValidForOptimizedAssistedInject} returned true. */
-    final boolean optimized;
-    /** the list of optimized providers, empty if not optimized. */
-    final List<ThreadLocalProvider> providers;
-    /** used to perform optimized factory creations. */
-    volatile Binding<?> cachedBinding; // TODO: volatile necessary?
-
-    AssistData(
-        Constructor<?> constructor,
-        Key<?> returnType,
-        ImmutableList<Key<?>> paramTypes,
-        TypeLiteral<?> implementationType,
-        Method factoryMethod,
-        Set<Dependency<?>> dependencies,
-        boolean optimized,
-        List<ThreadLocalProvider> providers) {
-      this.constructor = constructor;
-      this.returnType = returnType;
-      this.paramTypes = paramTypes;
-      this.implementationType = implementationType;
-      this.factoryMethod = factoryMethod;
-      this.dependencies = dependencies;
-      this.optimized = optimized;
-      this.providers = providers;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(getClass())
-          .add("ctor", constructor)
-          .add("return type", returnType)
-          .add("param type", paramTypes)
-          .add("implementation type", implementationType)
-          .add("dependencies", dependencies)
-          .add("factory method", factoryMethod)
-          .add("optimized", optimized)
-          .add("providers", providers)
-          .add("cached binding", cachedBinding)
-          .toString();
-    }
-
-    @Override
-    public Set<Dependency<?>> getDependencies() {
-      return dependencies;
-    }
-
-    @Override
-    public Method getFactoryMethod() {
-      return factoryMethod;
-    }
-
-    @Override
-    public Constructor<?> getImplementationConstructor() {
-      return constructor;
-    }
-
-    @Override
-    public TypeLiteral<?> getImplementationType() {
-      return implementationType;
-    }
-  }
-
-  /** Mapping from method to the data about how the method will be assisted. */
+/** Mapping from method to the data about how the method will be assisted. */
   private final ImmutableMap<Method, AssistData> assistDataByMethod;
 
-  /** Mapping from method to method handle, for generated default methods. */
+/** Mapping from method to method handle, for generated default methods. */
   private final ImmutableMap<Method, MethodHandle> methodHandleByMethod;
 
-  /** the hosting injector, or null if we haven't been initialized yet */
+/** the hosting injector, or null if we haven't been initialized yet */
   private Injector injector;
 
-  /** the factory interface, implemented and provided */
+/** the factory interface, implemented and provided */
   private final F factory;
 
-  /** The key that this is bound to. */
+/** The key that this is bound to. */
   private final Key<F> factoryKey;
 
-  /** The binding collector, for equality/hashing purposes. */
+/** The binding collector, for equality/hashing purposes. */
   private final BindingCollector collector;
 
-  /**
+/**
    * @param factoryKey a key for a Java interface that defines one or more create methods.
    * @param collector binding configuration that maps method return types to implementation types.
    */
@@ -305,9 +228,7 @@ final class FactoryProvider2<F>
             Annotations.findScopeAnnotation(errors, implementation.getRawType());
         if (scope != null) {
           errors.addMessage(
-              "Found scope annotation [%s] on implementation class "
-                  + "[%s] of AssistedInject factory [%s].\nThis is not allowed, please"
-                  + " remove the scope annotation.",
+              new StringBuilder().append("Found scope annotation [%s] on implementation class ").append("[%s] of AssistedInject factory [%s].\nThis is not allowed, please").append(" remove the scope annotation.").toString(),
               scope, implementation.getRawType(), factoryType);
         }
 
@@ -332,7 +253,7 @@ final class FactoryProvider2<F>
         // of the arguments in a ThreadLocal.
         if (isValidForOptimizedAssistedInject(deps, implementation.getRawType(), factoryType)) {
           ImmutableList.Builder<ThreadLocalProvider> providerListBuilder = ImmutableList.builder();
-          for (int i = 0; i < params.size(); i++) {
+          for (TypeLiteral<?> param1 : params) {
             providerListBuilder.add(new ThreadLocalProvider());
           }
           providers = providerListBuilder.build();
@@ -375,10 +296,7 @@ final class FactoryProvider2<F>
             if (dataSoFar.containsKey(otherMethod) && isCompatible(defaultMethod, otherMethod)) {
               if (foundMatch) {
                 errors.addMessage(
-                    "Generated default method %s with parameters %s is"
-                        + " signature-compatible with more than one non-default method."
-                        + " Unable to create factory. As a workaround, remove the override"
-                        + " so javac stops generating a default method.",
+                    new StringBuilder().append("Generated default method %s with parameters %s is").append(" signature-compatible with more than one non-default method.").append(" Unable to create factory. As a workaround, remove the override").append(" so javac stops generating a default method.").toString(),
                     defaultMethod, Arrays.asList(defaultMethod.getParameterTypes()));
               } else {
                 assistDataBuilder.put(defaultMethod, dataSoFar.get(otherMethod));
@@ -405,7 +323,7 @@ final class FactoryProvider2<F>
     }
   }
 
-  static boolean isDefault(Method method) {
+static boolean isDefault(Method method) {
     // Per the javadoc, default methods are non-abstract, public, non-static.
     // They're also in interfaces, but we can guarantee that already since we only act
     // on interfaces.
@@ -413,7 +331,7 @@ final class FactoryProvider2<F>
         == Modifier.PUBLIC;
   }
 
-  private boolean isCompatible(Method src, Method dst) {
+private boolean isCompatible(Method src, Method dst) {
     if (!src.getReturnType().isAssignableFrom(dst.getReturnType())) {
       return false;
     }
@@ -430,26 +348,24 @@ final class FactoryProvider2<F>
     return true;
   }
 
-  @Override
+@Override
   public F get() {
     return factory;
   }
 
-  @Override
+@Override
   public Set<Dependency<?>> getDependencies() {
     Set<Dependency<?>> combinedDeps = new HashSet<>();
-    for (AssistData data : assistDataByMethod.values()) {
-      combinedDeps.addAll(data.dependencies);
-    }
+    assistDataByMethod.values().forEach(data -> combinedDeps.addAll(data.dependencies));
     return ImmutableSet.copyOf(combinedDeps);
   }
 
-  @Override
+@Override
   public Key<F> getKey() {
     return factoryKey;
   }
 
-  // Safe cast because values are typed to AssistedData, which is an AssistedMethod, and
+// Safe cast because values are typed to AssistedData, which is an AssistedMethod, and
   // the collection is immutable.
   @Override
   @SuppressWarnings("unchecked")
@@ -457,7 +373,7 @@ final class FactoryProvider2<F>
     return (Collection<AssistedMethod>) (Collection<?>) assistDataByMethod.values();
   }
 
-  @Override
+@Override
   @SuppressWarnings("unchecked")
   public <T, V> V acceptExtensionVisitor(
       BindingTargetVisitor<T, V> visitor, ProviderInstanceBinding<? extends T> binding) {
@@ -467,18 +383,16 @@ final class FactoryProvider2<F>
     return visitor.visit(binding);
   }
 
-  private void validateFactoryReturnType(Errors errors, Class<?> returnType, Class<?> factoryType) {
+private void validateFactoryReturnType(Errors errors, Class<?> returnType, Class<?> factoryType) {
     if (Modifier.isPublic(factoryType.getModifiers())
         && !Modifier.isPublic(returnType.getModifiers())) {
       errors.addMessage(
-          "%s is public, but has a method that returns a non-public type: %s. "
-              + "Due to limitations with java.lang.reflect.Proxy, this is not allowed. "
-              + "Please either make the factory non-public or the return type public.",
+          new StringBuilder().append("%s is public, but has a method that returns a non-public type: %s. ").append("Due to limitations with java.lang.reflect.Proxy, this is not allowed. ").append("Please either make the factory non-public or the return type public.").toString(),
           factoryType, returnType);
     }
   }
 
-  /**
+/**
    * Returns true if the ConfigurationException is due to an error of TypeLiteral not being fully
    * specified.
    */
@@ -493,7 +407,7 @@ final class FactoryProvider2<F>
     }
   }
 
-  /**
+/**
    * Finds a constructor suitable for the method. If the implementation contained any constructors
    * marked with {@link AssistedInject}, this requires all {@link Assisted} parameters to exactly
    * match the parameters (in any order) listed in the method. Otherwise, if no {@link
@@ -535,9 +449,7 @@ final class FactoryProvider2<F>
         if (constructorHasMatchingParams(implementation, constructor, paramList, errors)) {
           if (matchingConstructor != null) {
             errors.addMessage(
-                "%s has more than one constructor annotated with @AssistedInject"
-                    + " that matches the parameters in method %s.  Unable to create "
-                    + "AssistedInject factory.",
+                new StringBuilder().append("%s has more than one constructor annotated with @AssistedInject").append(" that matches the parameters in method %s.  Unable to create ").append("AssistedInject factory.").toString(),
                 implementation, method);
             throw errors.toException();
           } else {
@@ -574,7 +486,7 @@ final class FactoryProvider2<F>
     }
   }
 
-  /**
+/**
    * Matching logic for constructors annotated with AssistedInject. This returns true if and only if
    * all @Assisted parameters in the constructor exactly match (in any order) all @Assisted
    * parameters the method's parameter.
@@ -607,20 +519,18 @@ final class FactoryProvider2<F>
     return true;
   }
 
-  /** Calculates all dependencies required by the implementation and constructor. */
+/** Calculates all dependencies required by the implementation and constructor. */
   private Set<Dependency<?>> getDependencies(
       InjectionPoint ctorPoint, TypeLiteral<?> implementation) {
     ImmutableSet.Builder<Dependency<?>> builder = ImmutableSet.builder();
     builder.addAll(ctorPoint.getDependencies());
     if (!implementation.getRawType().isInterface()) {
-      for (InjectionPoint ip : InjectionPoint.forInstanceMethodsAndFields(implementation)) {
-        builder.addAll(ip.getDependencies());
-      }
+      InjectionPoint.forInstanceMethodsAndFields(implementation).forEach(ip -> builder.addAll(ip.getDependencies()));
     }
     return builder.build();
   }
 
-  /** Return all non-assisted dependencies. */
+/** Return all non-assisted dependencies. */
   private Set<Dependency<?>> removeAssistedDeps(Set<Dependency<?>> deps) {
     ImmutableSet.Builder<Dependency<?>> builder = ImmutableSet.builder();
     for (Dependency<?> dep : deps) {
@@ -632,7 +542,7 @@ final class FactoryProvider2<F>
     return builder.build();
   }
 
-  /**
+/**
    * Returns true if all dependencies are suitable for the optimized version of AssistedInject. The
    * optimized version caches the binding & uses a ThreadLocal Provider, so can only be applied if
    * the assisted bindings are immediately provided. This looks for hints that the values may be
@@ -649,21 +559,17 @@ final class FactoryProvider2<F>
         badDeps.add(dep);
       }
     }
-    if (badDeps != null && !badDeps.isEmpty()) {
-      logger.log(
+    if (!(badDeps != null && !badDeps.isEmpty())) {
+		return true;
+	}
+	logger.log(
           Level.WARNING,
-          "AssistedInject factory {0} will be slow "
-              + "because {1} has assisted Provider dependencies or injects the Injector. "
-              + "Stop injecting @Assisted Provider<T> (instead use @Assisted T) "
-              + "or Injector to speed things up. (It will be a ~6500% speed bump!)  "
-              + "The exact offending deps are: {2}",
+          new StringBuilder().append("AssistedInject factory {0} will be slow ").append("because {1} has assisted Provider dependencies or injects the Injector. ").append("Stop injecting @Assisted Provider<T> (instead use @Assisted T) ").append("or Injector to speed things up. (It will be a ~6500% speed bump!)  ").append("The exact offending deps are: {2}").toString(),
           new Object[] {factoryType, implementation, badDeps});
-      return false;
-    }
-    return true;
+	return false;
   }
 
-  /**
+/**
    * Returns true if the dependency is for {@link Injector} or if the dependency is a {@link
    * Provider} for a parameter that is {@literal @}{@link Assisted}.
    */
@@ -687,7 +593,7 @@ final class FactoryProvider2<F>
     return false;
   }
 
-  /**
+/**
    * Returns a key similar to {@code key}, but with an {@literal @}Assisted binding annotation. This
    * fails if another binding annotation is clobbered in the process. If the key already has the
    * {@literal @}Assisted annotation, it is returned as-is to preserve any String value.
@@ -707,7 +613,7 @@ final class FactoryProvider2<F>
     }
   }
 
-  /**
+/**
    * At injector-creation time, we initialize the invocation handler. At this time we make sure all
    * factory methods will be able to build the target types.
    */
@@ -724,7 +630,7 @@ final class FactoryProvider2<F>
 
     this.injector = injector;
 
-    for (Map.Entry<Method, AssistData> entry : assistDataByMethod.entrySet()) {
+    assistDataByMethod.entrySet().forEach(entry -> {
       Method method = entry.getKey();
       AssistData data = entry.getValue();
       Object[] args;
@@ -736,10 +642,10 @@ final class FactoryProvider2<F>
       }
       getBindingFromNewInjector(
           method, args, data); // throws if the binding isn't properly configured
-    }
+    });
   }
 
-  /**
+/**
    * Creates a child injector that binds the args, and returns the binding for the method's result.
    */
   public Binding<?> getBindingFromNewInjector(
@@ -799,7 +705,7 @@ final class FactoryProvider2<F>
     return binding;
   }
 
-  /**
+/**
    * When a factory method is invoked, we create a child injector that binds all parameters, then
    * use that to get an instance of the return type.
    */
@@ -847,23 +753,21 @@ final class FactoryProvider2<F>
       }
       throw e;
     } finally {
-      for (ThreadLocalProvider tlp : data.providers) {
-        tlp.remove();
-      }
+      data.providers.forEach(ThreadLocalProvider::remove);
     }
   }
 
-  @Override
+@Override
   public String toString() {
     return factory.getClass().getInterfaces()[0].getName();
   }
 
-  @Override
+@Override
   public int hashCode() {
     return Objects.hashCode(factoryKey, collector);
   }
 
-  @Override
+@Override
   public boolean equals(Object obj) {
     if (!(obj instanceof FactoryProvider2)) {
       return false;
@@ -872,7 +776,7 @@ final class FactoryProvider2<F>
     return factoryKey.equals(other.factoryKey) && Objects.equal(collector, other.collector);
   }
 
-  /** Returns true if {@code thrown} can be thrown by {@code invoked} without wrapping. */
+/** Returns true if {@code thrown} can be thrown by {@code invoked} without wrapping. */
   static boolean canRethrow(Method invoked, Throwable thrown) {
     if (thrown instanceof Error || thrown instanceof RuntimeException) {
       return true;
@@ -887,22 +791,7 @@ final class FactoryProvider2<F>
     return false;
   }
 
-  // not <T> because we'll never know and this is easier than suppressing warnings.
-  private static class ThreadLocalProvider extends ThreadLocal<Object> implements Provider<Object> {
-    @Override
-    protected Object initialValue() {
-      throw new IllegalStateException(
-          "Cannot use optimized @Assisted provider outside the scope of the constructor."
-              + " (This should never happen.  If it does, please report it.)");
-    }
-  }
-
-  // Note: this isn't a public API, but we need to use it in order to call default methods on (or
-  // with) non-public types.  If it doesn't exist, the code falls back to a less precise check.
-  private static final Constructor<MethodHandles.Lookup> methodHandlesLookupCxtor =
-      findMethodHandlesLookupCxtor();
-
-  private static Constructor<MethodHandles.Lookup> findMethodHandlesLookupCxtor() {
+private static Constructor<MethodHandles.Lookup> findMethodHandlesLookupCxtor() {
     try {
       Constructor<MethodHandles.Lookup> cxtor =
           MethodHandles.Lookup.class.getDeclaredConstructor(Class.class, int.class);
@@ -914,7 +803,7 @@ final class FactoryProvider2<F>
     }
   }
 
-  private static MethodHandle createMethodHandle(Method method, Object proxy) {
+private static MethodHandle createMethodHandle(Method method, Object proxy) {
     if (methodHandlesLookupCxtor == null) {
       return null;
     }
@@ -927,6 +816,94 @@ final class FactoryProvider2<F>
       return lookup.unreflectSpecial(method, declaringClass).bindTo(proxy);
     } catch (ReflectiveOperationException roe) {
       throw new RuntimeException("Unable to access method: " + method, roe);
+    }
+  }
+
+  /** All the data necessary to perform an assisted inject. */
+  private static class AssistData implements AssistedMethod {
+    /** the constructor the implementation is constructed with. */
+    final Constructor<?> constructor;
+    /** the return type in the factory method that the constructor is bound to. */
+    final Key<?> returnType;
+    /** the parameters in the factory method associated with this data. */
+    final ImmutableList<Key<?>> paramTypes;
+    /** the type of the implementation constructed */
+    final TypeLiteral<?> implementationType;
+
+    /** All non-assisted dependencies required by this method. */
+    final Set<Dependency<?>> dependencies;
+    /** The factory method associated with this data */
+    final Method factoryMethod;
+
+    /** true if {@link #isValidForOptimizedAssistedInject} returned true. */
+    final boolean optimized;
+    /** the list of optimized providers, empty if not optimized. */
+    final List<ThreadLocalProvider> providers;
+    /** used to perform optimized factory creations. */
+    volatile Binding<?> cachedBinding; // TODO: volatile necessary?
+
+    AssistData(
+        Constructor<?> constructor,
+        Key<?> returnType,
+        ImmutableList<Key<?>> paramTypes,
+        TypeLiteral<?> implementationType,
+        Method factoryMethod,
+        Set<Dependency<?>> dependencies,
+        boolean optimized,
+        List<ThreadLocalProvider> providers) {
+      this.constructor = constructor;
+      this.returnType = returnType;
+      this.paramTypes = paramTypes;
+      this.implementationType = implementationType;
+      this.factoryMethod = factoryMethod;
+      this.dependencies = dependencies;
+      this.optimized = optimized;
+      this.providers = providers;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(getClass())
+          .add("ctor", constructor)
+          .add("return type", returnType)
+          .add("param type", paramTypes)
+          .add("implementation type", implementationType)
+          .add("dependencies", dependencies)
+          .add("factory method", factoryMethod)
+          .add("optimized", optimized)
+          .add("providers", providers)
+          .add("cached binding", cachedBinding)
+          .toString();
+    }
+
+    @Override
+    public Set<Dependency<?>> getDependencies() {
+      return dependencies;
+    }
+
+    @Override
+    public Method getFactoryMethod() {
+      return factoryMethod;
+    }
+
+    @Override
+    public Constructor<?> getImplementationConstructor() {
+      return constructor;
+    }
+
+    @Override
+    public TypeLiteral<?> getImplementationType() {
+      return implementationType;
+    }
+  }
+
+  // not <T> because we'll never know and this is easier than suppressing warnings.
+  private static class ThreadLocalProvider extends ThreadLocal<Object> implements Provider<Object> {
+    @Override
+    protected Object initialValue() {
+      throw new IllegalStateException(
+          "Cannot use optimized @Assisted provider outside the scope of the constructor."
+              + " (This should never happen.  If it does, please report it.)");
     }
   }
 }

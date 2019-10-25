@@ -54,7 +54,6 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -65,6 +64,7 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import junit.framework.TestCase;
+import java.util.Collections;
 
 /** @author jessewilson@google.com (Jesse Wilson) */
 public class ElementsTest extends TestCase {
@@ -372,20 +372,10 @@ public class ElementsTest extends TestCase {
 
   public void testBindToProvider() {
     final Provider<String> aProvider =
-        new Provider<String>() {
-          @Override
-          public String get() {
-            return "A";
-          }
-        };
+        () -> "A";
 
     final javax.inject.Provider<Integer> intJavaxProvider =
-        new javax.inject.Provider<Integer>() {
-          @Override
-          public Integer get() {
-            return 42;
-          }
-        };
+        () -> 42;
 
     final javax.inject.Provider<Double> doubleJavaxProvider =
         new javax.inject.Provider<Double>() {
@@ -731,12 +721,7 @@ public class ElementsTest extends TestCase {
     final Matcher<Class> classMatcher = Matchers.subclassesOf(List.class);
     final Matcher<Object> methodMatcher = Matchers.any();
     final org.aopalliance.intercept.MethodInterceptor methodInterceptor =
-        new org.aopalliance.intercept.MethodInterceptor() {
-          @Override
-          public Object invoke(org.aopalliance.intercept.MethodInvocation methodInvocation) {
-            return null;
-          }
-        };
+        (org.aopalliance.intercept.MethodInvocation methodInvocation) -> null;
 
     checkModule(
         new AbstractModule() {
@@ -750,7 +735,7 @@ public class ElementsTest extends TestCase {
           public Void visit(InterceptorBinding command) {
             assertSame(classMatcher, command.getClassMatcher());
             assertSame(methodMatcher, command.getMethodMatcher());
-            assertEquals(Arrays.asList(methodInterceptor), command.getInterceptors());
+            assertEquals(Collections.singletonList(methodInterceptor), command.getInterceptors());
             return null;
           }
         });
@@ -804,12 +789,7 @@ public class ElementsTest extends TestCase {
 
   public void testConvertToTypes() {
     final TypeConverter typeConverter =
-        new TypeConverter() {
-          @Override
-          public Object convert(String value, TypeLiteral<?> toType) {
-            return value;
-          }
-        };
+        (String value, TypeLiteral<?> toType) -> value;
 
     checkModule(
         new AbstractModule() {
@@ -875,18 +855,13 @@ public class ElementsTest extends TestCase {
 
   public void testElementInitialization() {
     final AtomicReference<Provider<String>> providerFromBinder =
-        new AtomicReference<Provider<String>>();
+        new AtomicReference<>();
     final AtomicReference<MembersInjector<String>> membersInjectorFromBinder =
-        new AtomicReference<MembersInjector<String>>();
+        new AtomicReference<>();
 
     final AtomicReference<String> lastInjected = new AtomicReference<>();
     final MembersInjector<String> stringInjector =
-        new MembersInjector<String>() {
-          @Override
-          public void injectMembers(String instance) {
-            lastInjected.set(instance);
-          }
-        };
+        lastInjected::set;
 
     checkModule(
         new AbstractModule() {
@@ -929,7 +904,7 @@ public class ElementsTest extends TestCase {
             MembersInjector<A<String>> typeMembersInjector =
                 getMembersInjector(new TypeLiteral<A<String>>() {});
             try {
-              typeMembersInjector.injectMembers(new A<String>());
+              typeMembersInjector.injectMembers(new A<>());
               fail("Expected IllegalStateException");
             } catch (IllegalStateException e) {
               assertEquals(
@@ -1376,7 +1351,17 @@ public class ElementsTest extends TestCase {
     }
   }
 
-  private static class ListProvider implements Provider<List> {
+  public enum CoinSide {
+    HEADS,
+    TAILS
+  }
+
+@Retention(RUNTIME)
+  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+  @BindingAnnotation
+  public @interface SampleAnnotation {}
+
+private static class ListProvider implements Provider<List> {
     @Override
     public List get() {
       return new ArrayList();
@@ -1395,16 +1380,6 @@ public class ElementsTest extends TestCase {
    * need to contain the string {@code ElementsTest.java}.
    */
   abstract static class ExternalFailureVisitor extends FailingElementVisitor {}
-
-  @Retention(RUNTIME)
-  @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-  @BindingAnnotation
-  public @interface SampleAnnotation {}
-
-  public enum CoinSide {
-    HEADS,
-    TAILS
-  }
 
   static class A<T> {
     @Inject Stage stage;

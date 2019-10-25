@@ -25,17 +25,18 @@ import java.util.Date;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceException;
 import junit.framework.TestCase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** @author Dhanji R. Prasanna (dhanji@gmail.com) */
 
 public class ManualLocalTransactionsConfidenceTest extends TestCase {
-  private Injector injector;
-  private static final String UNIQUE_TEXT_3 =
-      ManualLocalTransactionsConfidenceTest.class.getSimpleName()
-          + "CONSTRAINT_VIOLATING some other unique text"
-          + new Date();
+  private static final Logger logger = LoggerFactory.getLogger(ManualLocalTransactionsConfidenceTest.class);
+private static final String UNIQUE_TEXT_3 =
+      new StringBuilder().append(ManualLocalTransactionsConfidenceTest.class.getSimpleName()).append("CONSTRAINT_VIOLATING some other unique text").append(new Date()).toString();
+private Injector injector;
 
-  @Override
+@Override
   public void setUp() {
     injector = Guice.createInjector(new JpaPersistModule("testUnit"));
 
@@ -43,24 +44,24 @@ public class ManualLocalTransactionsConfidenceTest extends TestCase {
     injector.getInstance(PersistService.class).start();
   }
 
-  @Override
+@Override
   public final void tearDown() {
     injector.getInstance(PersistService.class).stop();
   }
 
-  public void testThrowingCleanupInterceptorConfidence() {
+public void testThrowingCleanupInterceptorConfidence() {
     Exception e = null;
     try {
-      System.out.println(
+      logger.info(
           "\n\n******************************* EXPECTED EXCEPTION NORMAL TEST BEHAVIOR **********");
       injector.getInstance(TransactionalObject.class).runOperationInTxn();
       fail();
     } catch (RuntimeException re) {
       e = re;
-      System.out.println(
+      logger.info(
           "\n\n******************************* EXPECTED EXCEPTION NORMAL TEST BEHAVIOR **********");
-      re.printStackTrace(System.out);
-      System.out.println(
+      logger.error(re.getMessage(), re);
+      logger.info(
           "\n\n**********************************************************************************");
     }
 
@@ -69,8 +70,7 @@ public class ManualLocalTransactionsConfidenceTest extends TestCase {
         "Exception thrown was not what was expected (i.e. commit-time)",
         e instanceof PersistenceException);
   }
-
-  public static class TransactionalObject {
+public static class TransactionalObject {
     @Inject EntityManager em;
 
     @Transactional

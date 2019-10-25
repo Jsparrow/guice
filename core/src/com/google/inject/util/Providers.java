@@ -48,36 +48,7 @@ public final class Providers {
    *     return null.
    */
   public static <T> Provider<T> of(final T instance) {
-    return new ConstantProvider<T>(instance);
-  }
-
-  private static final class ConstantProvider<T> implements Provider<T> {
-    private final T instance;
-
-    private ConstantProvider(T instance) {
-      this.instance = instance;
-    }
-
-    @Override
-    public T get() {
-      return instance;
-    }
-
-    @Override
-    public String toString() {
-      return "of(" + instance + ")";
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return (obj instanceof ConstantProvider)
-          && Objects.equal(instance, ((ConstantProvider<?>) obj).instance);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(instance);
-    }
+    return new ConstantProvider<>(instance);
   }
 
   /**
@@ -98,14 +69,41 @@ public final class Providers {
     Set<InjectionPoint> injectionPoints =
         InjectionPoint.forInstanceMethodsAndFields(provider.getClass());
     if (injectionPoints.isEmpty()) {
-      return new GuicifiedProvider<T>(delegate);
+      return new GuicifiedProvider<>(delegate);
     } else {
       Set<Dependency<?>> mutableDeps = Sets.newHashSet();
-      for (InjectionPoint ip : injectionPoints) {
-        mutableDeps.addAll(ip.getDependencies());
-      }
+      injectionPoints.forEach(ip -> mutableDeps.addAll(ip.getDependencies()));
       final Set<Dependency<?>> dependencies = ImmutableSet.copyOf(mutableDeps);
-      return new GuicifiedProviderWithDependencies<T>(dependencies, delegate);
+      return new GuicifiedProviderWithDependencies<>(dependencies, delegate);
+    }
+  }
+
+private static final class ConstantProvider<T> implements Provider<T> {
+    private final T instance;
+
+    private ConstantProvider(T instance) {
+      this.instance = instance;
+    }
+
+    @Override
+    public T get() {
+      return instance;
+    }
+
+    @Override
+    public String toString() {
+      return new StringBuilder().append("of(").append(instance).append(")").toString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return (obj instanceof ConstantProvider)
+          && Objects.equal(instance, ((ConstantProvider<?>) obj).instance);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(instance);
     }
   }
 
@@ -123,7 +121,7 @@ public final class Providers {
 
     @Override
     public String toString() {
-      return "guicified(" + delegate + ")";
+      return new StringBuilder().append("guicified(").append(delegate).append(")").toString();
     }
 
     @Override

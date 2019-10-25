@@ -74,7 +74,7 @@ public class BindingBuilder<T> extends AbstractBindingBuilder<T>
     checkNotTargetted();
     BindingImpl<T> base = getBinding();
     setBinding(
-        new LinkedBindingImpl<T>(base.getSource(), base.getKey(), base.getScoping(), linkedKey));
+        new LinkedBindingImpl<>(base.getSource(), base.getKey(), base.getScoping(), linkedKey));
     return this;
   }
 
@@ -98,7 +98,7 @@ public class BindingBuilder<T> extends AbstractBindingBuilder<T>
 
     BindingImpl<T> base = getBinding();
     setBinding(
-        new InstanceBindingImpl<T>(
+        new InstanceBindingImpl<>(
             base.getSource(), base.getKey(), Scoping.EAGER_SINGLETON, injectionPoints, instance));
   }
 
@@ -123,7 +123,7 @@ public class BindingBuilder<T> extends AbstractBindingBuilder<T>
 
     BindingImpl<T> base = getBinding();
     setBinding(
-        new ProviderInstanceBindingImpl<T>(
+        new ProviderInstanceBindingImpl<>(
             base.getSource(), base.getKey(), base.getScoping(), injectionPoints, provider));
     return this;
   }
@@ -148,7 +148,7 @@ public class BindingBuilder<T> extends AbstractBindingBuilder<T>
 
     BindingImpl<T> base = getBinding();
     setBinding(
-        new LinkedProviderBindingImpl<T>(
+        new LinkedProviderBindingImpl<>(
             base.getSource(), base.getKey(), base.getScoping(), providerKey));
     return this;
   }
@@ -178,7 +178,7 @@ public class BindingBuilder<T> extends AbstractBindingBuilder<T>
     try {
       InjectionPoint constructorPoint = InjectionPoint.forConstructor(constructor, type);
       setBinding(
-          new ConstructorBindingImpl<T>(
+          new ConstructorBindingImpl<>(
               base.getKey(),
               base.getSource(),
               base.getScoping(),
@@ -193,12 +193,10 @@ public class BindingBuilder<T> extends AbstractBindingBuilder<T>
 
   @Override
   public String toString() {
-    return "BindingBuilder<" + getBinding().getKey().getTypeLiteral() + ">";
+    return new StringBuilder().append("BindingBuilder<").append(getBinding().getKey().getTypeLiteral()).append(">").toString();
   }
 
   private void copyErrorsToBinder(ConfigurationException e) {
-    for (Message message : e.getErrorMessages()) {
-      binder.addError(message);
-    }
+    e.getErrorMessages().forEach(binder::addError);
   }
 }

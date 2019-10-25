@@ -92,9 +92,7 @@ class FilterDefinition implements ProviderWithExtensionVisitor<FilterDefinition>
     // This absolutely must be a singleton, and so is only initialized once.
     if (!Scopes.isSingleton(injector.getBinding(filterKey))) {
       throw new ServletException(
-          "Filters must be bound as singletons. "
-              + filterKey
-              + " was not bound in singleton scope.");
+          new StringBuilder().append("Filters must be bound as singletons. ").append(filterKey).append(" was not bound in singleton scope.").toString());
     }
 
     Filter filter = injector.getInstance(filterKey);

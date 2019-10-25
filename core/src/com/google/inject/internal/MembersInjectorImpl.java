@@ -90,13 +90,10 @@ final class MembersInjectorImpl<T> implements MembersInjector<T> {
       if (provisionCallback != null && provisionCallback.hasListeners()) {
         provisionCallback.provision(
             context,
-            new ProvisionCallback<T>() {
-              @Override
-              public T call() throws InternalProvisionException {
+            () -> {
                 injectMembers(instance, context, toolableOnly);
                 return instance;
-              }
-            });
+              });
       } else {
         injectMembers(instance, context, toolableOnly);
       }
@@ -125,8 +122,7 @@ final class MembersInjectorImpl<T> implements MembersInjector<T> {
       return;
     }
     // optimization: use manual for/each to save allocating an iterator here
-    for (int i = 0; i < localInjectionListeners.size(); i++) {
-      InjectionListener<? super T> injectionListener = localInjectionListeners.get(i);
+	for (InjectionListener<? super T> injectionListener : localInjectionListeners) {
       try {
         injectionListener.afterInjection(instance);
       } catch (RuntimeException e) {
@@ -150,12 +146,13 @@ final class MembersInjectorImpl<T> implements MembersInjector<T> {
     }
 
     // TODO: There's no way to know if a user's MembersInjector wants toolable injections.
-    if (!toolableOnly) {
-      ImmutableList<MembersInjector<? super T>> localUsersMembersInjectors = userMembersInjectors;
-      if (localUsersMembersInjectors != null) {
+	if (toolableOnly) {
+		return;
+	}
+	ImmutableList<MembersInjector<? super T>> localUsersMembersInjectors = userMembersInjectors;
+	if (localUsersMembersInjectors != null) {
         // optimization: use manual for/each to save allocating an iterator here
-        for (int i = 0; i < localUsersMembersInjectors.size(); i++) {
-          MembersInjector<? super T> userMembersInjector = localUsersMembersInjectors.get(i);
+		for (MembersInjector<? super T> userMembersInjector : localUsersMembersInjectors) {
           try {
             userMembersInjector.injectMembers(t);
           } catch (RuntimeException e) {
@@ -164,24 +161,21 @@ final class MembersInjectorImpl<T> implements MembersInjector<T> {
           }
         }
       }
-    }
   }
 
   @Override
   public String toString() {
-    return "MembersInjector<" + typeLiteral + ">";
+    return new StringBuilder().append("MembersInjector<").append(typeLiteral).append(">").toString();
   }
 
   public ImmutableSet<InjectionPoint> getInjectionPoints() {
     ImmutableList<SingleMemberInjector> localMemberInjectors = memberInjectors;
-    if (localMemberInjectors != null) {
-      ImmutableSet.Builder<InjectionPoint> builder = ImmutableSet.builder();
-      for (SingleMemberInjector memberInjector : localMemberInjectors) {
-        builder.add(memberInjector.getInjectionPoint());
-      }
-      return builder.build();
-    }
-    return ImmutableSet.of();
+    if (localMemberInjectors == null) {
+		return ImmutableSet.of();
+	}
+	ImmutableSet.Builder<InjectionPoint> builder = ImmutableSet.builder();
+	localMemberInjectors.forEach(memberInjector -> builder.add(memberInjector.getInjectionPoint()));
+	return builder.build();
   }
 
   /*if[AOP]*/

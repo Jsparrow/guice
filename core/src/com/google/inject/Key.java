@@ -206,7 +206,7 @@ public class Key<T> {
     // method.
     String local = toString;
     if (local == null) {
-      local = "Key[type=" + typeLiteral + ", annotation=" + annotationStrategy + "]";
+      local = new StringBuilder().append("Key[type=").append(typeLiteral).append(", annotation=").append(annotationStrategy).append("]").toString();
       toString = local;
     }
     return local;
@@ -214,22 +214,22 @@ public class Key<T> {
 
   /** Gets a key for an injection type and an annotation strategy. */
   static <T> Key<T> get(Class<T> type, AnnotationStrategy annotationStrategy) {
-    return new Key<T>(type, annotationStrategy);
+    return new Key<>(type, annotationStrategy);
   }
 
   /** Gets a key for an injection type. */
   public static <T> Key<T> get(Class<T> type) {
-    return new Key<T>(type, NullAnnotationStrategy.INSTANCE);
+    return new Key<>(type, NullAnnotationStrategy.INSTANCE);
   }
 
   /** Gets a key for an injection type and an annotation type. */
   public static <T> Key<T> get(Class<T> type, Class<? extends Annotation> annotationType) {
-    return new Key<T>(type, strategyFor(annotationType));
+    return new Key<>(type, strategyFor(annotationType));
   }
 
   /** Gets a key for an injection type and an annotation. */
   public static <T> Key<T> get(Class<T> type, Annotation annotation) {
-    return new Key<T>(type, strategyFor(annotation));
+    return new Key<>(type, strategyFor(annotation));
   }
 
   /** Gets a key for an injection type. */
@@ -249,18 +249,18 @@ public class Key<T> {
 
   /** Gets a key for an injection type. */
   public static <T> Key<T> get(TypeLiteral<T> typeLiteral) {
-    return new Key<T>(typeLiteral, NullAnnotationStrategy.INSTANCE);
+    return new Key<>(typeLiteral, NullAnnotationStrategy.INSTANCE);
   }
 
   /** Gets a key for an injection type and an annotation type. */
   public static <T> Key<T> get(
       TypeLiteral<T> typeLiteral, Class<? extends Annotation> annotationType) {
-    return new Key<T>(typeLiteral, strategyFor(annotationType));
+    return new Key<>(typeLiteral, strategyFor(annotationType));
   }
 
   /** Gets a key for an injection type and an annotation. */
   public static <T> Key<T> get(TypeLiteral<T> typeLiteral, Annotation annotation) {
-    return new Key<T>(typeLiteral, strategyFor(annotation));
+    return new Key<>(typeLiteral, strategyFor(annotation));
   }
 
   /**
@@ -269,7 +269,7 @@ public class Key<T> {
    * @since 3.0
    */
   public <T> Key<T> ofType(Class<T> type) {
-    return new Key<T>(type, annotationStrategy);
+    return new Key<>(type, annotationStrategy);
   }
 
   /**
@@ -287,7 +287,7 @@ public class Key<T> {
    * @since 3.0
    */
   public <T> Key<T> ofType(TypeLiteral<T> type) {
-    return new Key<T>(type, annotationStrategy);
+    return new Key<>(type, annotationStrategy);
   }
 
   /**
@@ -305,17 +305,7 @@ public class Key<T> {
    * @since 3.0
    */
   public Key<T> withoutAttributes() {
-    return new Key<T>(typeLiteral, annotationStrategy.withoutAttributes());
-  }
-
-  interface AnnotationStrategy {
-    Annotation getAnnotation();
-
-    Class<? extends Annotation> getAnnotationType();
-
-    boolean hasAttributes();
-
-    AnnotationStrategy withoutAttributes();
+    return new Key<>(typeLiteral, annotationStrategy.withoutAttributes());
   }
 
   /** Gets the strategy for an annotation. */
@@ -332,7 +322,7 @@ public class Key<T> {
     return new AnnotationInstanceStrategy(Annotations.canonicalizeIfNamed(annotation));
   }
 
-  /** Gets the strategy for an annotation type. */
+/** Gets the strategy for an annotation type. */
   static AnnotationStrategy strategyFor(Class<? extends Annotation> annotationType) {
     annotationType = Annotations.canonicalizeIfNamed(annotationType);
     if (isAllDefaultMethods(annotationType)) {
@@ -345,21 +335,21 @@ public class Key<T> {
     return new AnnotationTypeStrategy(annotationType, null);
   }
 
-  private static void ensureRetainedAtRuntime(Class<? extends Annotation> annotationType) {
+private static void ensureRetainedAtRuntime(Class<? extends Annotation> annotationType) {
     checkArgument(
         Annotations.isRetainedAtRuntime(annotationType),
         "%s is not retained at runtime. Please annotate it with @Retention(RUNTIME).",
         annotationType.getName());
   }
 
-  private static void ensureIsBindingAnnotation(Class<? extends Annotation> annotationType) {
+private static void ensureIsBindingAnnotation(Class<? extends Annotation> annotationType) {
     checkArgument(
         Annotations.isBindingAnnotation(annotationType),
         "%s is not a binding annotation. Please annotate it with @BindingAnnotation.",
         annotationType.getName());
   }
 
-  static enum NullAnnotationStrategy implements AnnotationStrategy {
+static enum NullAnnotationStrategy implements AnnotationStrategy {
     INSTANCE;
 
     @Override
@@ -386,6 +376,16 @@ public class Key<T> {
     public String toString() {
       return "[none]";
     }
+  }
+
+interface AnnotationStrategy {
+    Annotation getAnnotation();
+
+    Class<? extends Annotation> getAnnotationType();
+
+    boolean hasAttributes();
+
+    AnnotationStrategy withoutAttributes();
   }
 
   // this class not test-covered

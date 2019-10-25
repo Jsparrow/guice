@@ -57,13 +57,8 @@ public class ImplementationNode extends Node {
 
   @Override
   public String toString() {
-    return "ImplementationNode{id="
-        + getId()
-        + " source="
-        + getSource()
-        + " members="
-        + members
-        + "}";
+    return new StringBuilder().append("ImplementationNode{id=").append(getId()).append(" source=").append(getSource()).append(" members=").append(members).append("}")
+			.toString();
   }
 
   @Override

@@ -98,7 +98,7 @@ public final class MembersInjectorLookup<T> implements Element {
    *     ConfigurationException#getPartialValue() partial value} is a {@code Set<InjectionPoint>} of
    *     the valid injection points.
    */
-  public Set<InjectionPoint> getInjectionPoints() throws ConfigurationException {
+  public Set<InjectionPoint> getInjectionPoints() {
     return InjectionPoint.forInstanceMethodsAndFields(type);
   }
 
@@ -121,7 +121,7 @@ public final class MembersInjectorLookup<T> implements Element {
 
       @Override
       public String toString() {
-        return "MembersInjector<" + type + ">";
+        return new StringBuilder().append("MembersInjector<").append(type).append(">").toString();
       }
     };
   }

@@ -117,12 +117,7 @@ public class TypeListenerTest extends TestCase {
   public void testInstallingInjectionListener() {
     final List<Object> injectees = Lists.newArrayList();
     final InjectionListener<Object> injectionListener =
-        new InjectionListener<Object>() {
-          @Override
-          public void afterInjection(Object injectee) {
-            injectees.add(injectee);
-          }
-        };
+        injectees::add;
 
     Injector injector =
         Guice.createInjector(
@@ -162,13 +157,7 @@ public class TypeListenerTest extends TestCase {
   /*if[AOP]*/
   private static org.aopalliance.intercept.MethodInterceptor prefixInterceptor(
       final String prefix) {
-    return new org.aopalliance.intercept.MethodInterceptor() {
-      @Override
-      public Object invoke(org.aopalliance.intercept.MethodInvocation methodInvocation)
-          throws Throwable {
-        return prefix + methodInvocation.proceed();
-      }
-    };
+    return (org.aopalliance.intercept.MethodInvocation methodInvocation) -> prefix + methodInvocation.proceed();
   }
 
   public void testAddingInterceptors() throws NoSuchMethodException {
@@ -199,24 +188,6 @@ public class TypeListenerTest extends TestCase {
     assertEquals("kafelinobuzz", c.buzz());
     assertEquals("felibeep", c.beep());
   }
-  /*end[AOP]*/
-
-  class OuterThrowsModule extends AbstractModule {
-    @Override
-    protected void configure() {
-      install(new InnerThrowsModule());
-    }
-  }
-
-  class InnerThrowsModule extends AbstractModule {
-    @Override
-    protected void configure() {
-      bindListener(onlyAbcd, failingTypeListener);
-      bind(B.class);
-      bind(C.class);
-    }
-  }
-
   public void testTypeListenerThrows() {
     try {
       Guice.createInjector(new OuterThrowsModule());
@@ -273,7 +244,7 @@ public class TypeListenerTest extends TestCase {
     assertSame(Stage.DEVELOPMENT, injector.getInstance(Stage.class));
   }
 
-  public void testInjectionListenerThrows() {
+public void testInjectionListenerThrows() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -328,7 +299,7 @@ public class TypeListenerTest extends TestCase {
     assertSame(Stage.DEVELOPMENT, injector.getInstance(Stage.class));
   }
 
-  public void testInjectMembersTypeListenerFails() {
+public void testInjectMembersTypeListenerFails() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -350,18 +321,15 @@ public class TypeListenerTest extends TestCase {
     }
   }
 
-  public void testConstructedTypeListenerIsTheSameAsMembersInjectorListener() {
+public void testConstructedTypeListenerIsTheSameAsMembersInjectorListener() {
     final AtomicInteger typeEncounters = new AtomicInteger();
     final AtomicInteger injections = new AtomicInteger();
 
     final InjectionListener<A> listener =
-        new InjectionListener<A>() {
-          @Override
-          public void afterInjection(A injectee) {
-            injections.incrementAndGet();
-            assertNotNull(injectee.injector);
-          }
-        };
+        (A injectee) -> {
+	    injections.incrementAndGet();
+	    assertNotNull(injectee.injector);
+	  };
 
     Injector injector =
         Guice.createInjector(
@@ -414,21 +382,18 @@ public class TypeListenerTest extends TestCase {
     assertEquals(1, typeEncounters.getAndSet(0));
   }
 
-  public void testLookupsAtInjectorCreateTime() {
+public void testLookupsAtInjectorCreateTime() {
     final AtomicReference<Provider<B>> bProviderReference = new AtomicReference<>();
     final AtomicReference<MembersInjector<A>> aMembersInjectorReference = new AtomicReference<>();
 
     final InjectionListener<Object> lookupsTester =
-        new InjectionListener<Object>() {
-          @Override
-          public void afterInjection(Object injectee) {
-            assertNotNull(bProviderReference.get().get());
+        (Object injectee) -> {
+	    assertNotNull(bProviderReference.get().get());
 
-            A a = new A();
-            aMembersInjectorReference.get().injectMembers(a);
-            assertNotNull(a.injector);
-          }
-        };
+	    A a = new A();
+	    aMembersInjectorReference.get().injectMembers(a);
+	    assertNotNull(a.injector);
+	  };
 
     Guice.createInjector(
         new AbstractModule() {
@@ -473,7 +438,7 @@ public class TypeListenerTest extends TestCase {
     lookupsTester.afterInjection(null);
   }
 
-  public void testLookupsPostCreate() {
+public void testLookupsPostCreate() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -497,25 +462,19 @@ public class TypeListenerTest extends TestCase {
     injector.getInstance(C.class);
   }
 
-  public void testMembersInjector() {
+public void testMembersInjector() {
     final MembersInjector<D> membersInjector =
-        new MembersInjector<D>() {
-          @Override
-          public void injectMembers(D instance) {
-            instance.userInjected++;
-            assertEquals(instance.guiceInjected, instance.userInjected);
-          }
-        };
+        (D instance) -> {
+	    instance.userInjected++;
+	    assertEquals(instance.guiceInjected, instance.userInjected);
+	  };
 
     final InjectionListener<D> injectionListener =
-        new InjectionListener<D>() {
-          @Override
-          public void afterInjection(D injectee) {
-            assertTrue(injectee.userInjected > 0);
-            injectee.listenersNotified++;
-            assertEquals(injectee.guiceInjected, injectee.listenersNotified);
-          }
-        };
+        (D injectee) -> {
+	    assertTrue(injectee.userInjected > 0);
+	    injectee.listenersNotified++;
+	    assertEquals(injectee.guiceInjected, injectee.listenersNotified);
+	  };
 
     Injector injector =
         Guice.createInjector(
@@ -558,7 +517,7 @@ public class TypeListenerTest extends TestCase {
     memberInjection.assertAllCounts(4);
   }
 
-  public void testMembersInjectorThrows() {
+public void testMembersInjectorThrows() {
     Injector injector =
         Guice.createInjector(
             new AbstractModule() {
@@ -582,7 +541,7 @@ public class TypeListenerTest extends TestCase {
     } catch (ProvisionException e) {
       assertContains(
           e.getMessage(),
-          "1) Error injecting " + A.class.getName() + " using awkward.",
+          new StringBuilder().append("1) Error injecting ").append(A.class.getName()).append(" using awkward.").toString(),
           "Reason: java.lang.ClassCastException: whoops, failure #1");
     }
 
@@ -593,7 +552,7 @@ public class TypeListenerTest extends TestCase {
     } catch (ProvisionException e) {
       assertContains(
           e.getMessage(),
-          "1) Error injecting " + A.class.getName() + " using awkward.",
+          new StringBuilder().append("1) Error injecting ").append(A.class.getName()).append(" using awkward.").toString(),
           "Reason: java.lang.ClassCastException: whoops, failure #2");
     }
 
@@ -605,7 +564,7 @@ public class TypeListenerTest extends TestCase {
     } catch (ProvisionException e) {
       assertContains(
           e.getMessage(),
-          "1) Error injecting " + B.class.getName() + " using awkward.",
+          new StringBuilder().append("1) Error injecting ").append(B.class.getName()).append(" using awkward.").toString(),
           "Reason: java.lang.ClassCastException: whoops, failure #3");
     }
 
@@ -613,7 +572,7 @@ public class TypeListenerTest extends TestCase {
     assertSame(Stage.DEVELOPMENT, injector.getInstance(Stage.class));
   }
 
-  /**
+/**
    * We had a bug where we weren't notifying of types encountered for member injection when those
    * types had no members to be injected. Constructed types are always injected because they always
    * have at least one injection point: the class constructor.
@@ -641,9 +600,9 @@ public class TypeListenerTest extends TestCase {
     assertEquals(1, notificationCount.get());
   }
 
-  public void testEncounterCannotBeUsedAfterHearReturns() {
+public void testEncounterCannotBeUsedAfterHearReturns() {
     final AtomicReference<TypeEncounter<?>> encounterReference =
-        new AtomicReference<TypeEncounter<?>>();
+        new AtomicReference<>();
 
     Guice.createInjector(
         new AbstractModule() {
@@ -708,7 +667,7 @@ public class TypeListenerTest extends TestCase {
     }
   }
 
-  public void testAddErrors() {
+public void testAddErrors() {
     try {
       Guice.createInjector(
           new AbstractModule() {
@@ -737,6 +696,39 @@ public class TypeListenerTest extends TestCase {
           "3) And another problem",
           "4) An exception was caught and reported. Message: null",
           "4 errors");
+    }
+  }
+
+public void testDeDuplicateTypeListeners() {
+    final DuplicatingTypeListener typeListener = new DuplicatingTypeListener();
+    Injector injector =
+        Guice.createInjector(
+            new AbstractModule() {
+              @Override
+              protected void configure() {
+                bindListener(any(), typeListener);
+                bindListener(only(new TypeLiteral<D>() {}), typeListener);
+              }
+            });
+    D d = injector.getInstance(D.class);
+    d.assertAllCounts(1);
+    assertEquals(1, typeListener.count);
+  }
+/*end[AOP]*/
+
+  class OuterThrowsModule extends AbstractModule {
+    @Override
+    protected void configure() {
+      install(new InnerThrowsModule());
+    }
+  }
+
+  class InnerThrowsModule extends AbstractModule {
+    @Override
+    protected void configure() {
+      bindListener(onlyAbcd, failingTypeListener);
+      bind(B.class);
+      bind(C.class);
     }
   }
 
@@ -770,22 +762,6 @@ public class TypeListenerTest extends TestCase {
       encounter.register(injectionListener);
       encounter.register(injectionListener);
     }
-  }
-
-  public void testDeDuplicateTypeListeners() {
-    final DuplicatingTypeListener typeListener = new DuplicatingTypeListener();
-    Injector injector =
-        Guice.createInjector(
-            new AbstractModule() {
-              @Override
-              protected void configure() {
-                bindListener(any(), typeListener);
-                bindListener(only(new TypeLiteral<D>() {}), typeListener);
-              }
-            });
-    D d = injector.getInstance(D.class);
-    d.assertAllCounts(1);
-    assertEquals(1, typeListener.count);
   }
 
   // TODO: recursively accessing a lookup should fail

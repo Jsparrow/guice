@@ -28,16 +28,19 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
 import junit.framework.TestCase;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** @author Dhanji R. Prasanna (dhanji@gmail.com) */
 
 public class ManagedLocalTransactionsTest extends TestCase {
-  private Injector injector;
-  private static final String UNIQUE_TEXT = "some unique text" + new Date();
-  private static final String UNIQUE_TEXT_MERGE = "meRG_Esome unique text" + new Date();
-  private static final String TRANSIENT_UNIQUE_TEXT = "some other unique text" + new Date();
+  private static final Logger logger = LoggerFactory.getLogger(ManagedLocalTransactionsTest.class);
+private static final String UNIQUE_TEXT = "some unique text" + new Date();
+private static final String UNIQUE_TEXT_MERGE = "meRG_Esome unique text" + new Date();
+private static final String TRANSIENT_UNIQUE_TEXT = "some other unique text" + new Date();
+private Injector injector;
 
-  @Override
+@Override
   public void setUp() {
     injector = Guice.createInjector(new JpaPersistModule("testUnit"));
 
@@ -45,13 +48,13 @@ public class ManagedLocalTransactionsTest extends TestCase {
     injector.getInstance(PersistService.class).start();
   }
 
-  @Override
+@Override
   public final void tearDown() {
     injector.getInstance(UnitOfWork.class).end();
     injector.getInstance(EntityManagerFactory.class).close();
   }
 
-  public void testSimpleTransaction() {
+public void testSimpleTransaction() {
     injector.getInstance(TransactionalObject.class).runOperationInTxn();
 
     EntityManager em = injector.getInstance(EntityManager.class);
@@ -72,7 +75,7 @@ public class ManagedLocalTransactionsTest extends TestCase {
         ((JpaTestEntity) result).getText());
   }
 
-  public void testSimpleTransactionWithMerge() {
+public void testSimpleTransactionWithMerge() {
     JpaTestEntity entity =
         injector.getInstance(TransactionalObject.class).runOperationInTxnWithMerge();
 
@@ -96,11 +99,12 @@ public class ManagedLocalTransactionsTest extends TestCase {
         ((JpaTestEntity) result).getText());
   }
 
-  public void testSimpleTransactionRollbackOnChecked() {
+public void testSimpleTransactionRollbackOnChecked() {
     try {
       injector.getInstance(TransactionalObject.class).runOperationInTxnThrowingChecked();
     } catch (IOException e) {
-      //ignore
+      logger.error(e.getMessage(), e);
+	//ignore
       injector.getInstance(UnitOfWork.class).end();
     }
 
@@ -119,14 +123,16 @@ public class ManagedLocalTransactionsTest extends TestCase {
       injector.getInstance(UnitOfWork.class).end();
       fail("a result was returned! rollback sure didnt happen!!!");
     } catch (NoResultException e) {
+		logger.error(e.getMessage(), e);
     }
   }
 
-  public void testSimpleTransactionRollbackOnUnchecked() {
+public void testSimpleTransactionRollbackOnUnchecked() {
     try {
       injector.getInstance(TransactionalObject.class).runOperationInTxnThrowingUnchecked();
     } catch (RuntimeException re) {
-      //ignore
+      logger.error(re.getMessage(), re);
+	//ignore
       injector.getInstance(UnitOfWork.class).end();
     }
 
@@ -143,10 +149,10 @@ public class ManagedLocalTransactionsTest extends TestCase {
       injector.getInstance(UnitOfWork.class).end();
       fail("a result was returned! rollback sure didnt happen!!!");
     } catch (NoResultException e) {
+		logger.error(e.getMessage(), e);
     }
   }
-
-  public static class TransactionalObject {
+public static class TransactionalObject {
     private final EntityManager em;
 
     @Inject

@@ -68,17 +68,8 @@ class RealElement implements Element {
 
   @Override
   public String toString() {
-    return "@"
-        + Element.class.getName()
-        + "(setName="
-        + setName
-        + ",uniqueId="
-        + uniqueId
-        + ", type="
-        + type
-        + ", keyType="
-        + keyType
-        + ")";
+    return new StringBuilder().append("@").append(Element.class.getName()).append("(setName=").append(setName).append(",uniqueId=").append(uniqueId).append(", type=")
+			.append(type).append(", keyType=").append(keyType).append(")").toString();
   }
 
   @Override
